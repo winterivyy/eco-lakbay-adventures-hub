@@ -24,6 +24,13 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				forest: {
+					DEFAULT: 'hsl(var(--forest-green))',
+					light: 'hsl(var(--forest-light))',
+				},
+				earth: 'hsl(var(--earth-brown))',
+				amber: 'hsl(var(--amber-gold))',
+				nature: 'hsl(var(--nature-blue))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'
@@ -62,6 +69,15 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			backgroundImage: {
+				'gradient-hero': 'var(--gradient-hero)',
+				'gradient-card': 'var(--gradient-card)',
+				'gradient-accent': 'var(--gradient-accent)',
+			},
+			boxShadow: {
+				'eco': 'var(--shadow-eco)',
+				'hover': 'var(--shadow-hover)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
