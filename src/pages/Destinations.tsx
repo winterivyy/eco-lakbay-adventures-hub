@@ -6,6 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
 const Destinations = () => {
+  const handleDestinationClick = (destination: any) => {
+    console.log('Visiting destination:', destination.name);
+    // You can add navigation logic here, e.g.:
+    // navigate(`/destinations/${destination.id}`);
+  };
+
   const destinations = [
     {
       id: 1,
@@ -159,7 +165,12 @@ const Destinations = () => {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button variant="eco" size="sm" className="flex-1">
+                    <Button 
+                      variant="eco" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleDestinationClick(destination)}
+                    >
                       Visit
                     </Button>
                     <Button variant="outline" size="sm">
