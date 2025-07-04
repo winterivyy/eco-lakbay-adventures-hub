@@ -1,8 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import heroImage from "@/assets/hero-ecolakbay.jpg";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleExploreDestinations = () => {
+    navigate("/destinations");
+  };
+
+  const handlePlanTrip = () => {
+    toast({
+      title: "Trip Planner",
+      description: "AI-powered trip planning coming soon! Plan your perfect eco-adventure.",
+    });
+  };
   return (
     <div className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
       {/* Background Image */}
@@ -29,10 +44,10 @@ const HeroSection = () => {
               Earn Green Points, reduce your carbon footprint, and connect with local communities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="eco" size="lg" className="text-lg px-8 py-6">
+              <Button variant="eco" size="lg" className="text-lg px-8 py-6" onClick={handleExploreDestinations}>
                 Explore Destinations
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-white text-white hover:bg-white hover:text-forest">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-white text-white hover:bg-white hover:text-forest" onClick={handlePlanTrip}>
                 Plan Your Trip
               </Button>
             </div>

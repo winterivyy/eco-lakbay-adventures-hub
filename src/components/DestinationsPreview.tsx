@@ -1,8 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const DestinationsPreview = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLearnMore = (destinationName: string) => {
+    toast({
+      title: `${destinationName}`,
+      description: "Detailed destination information coming soon!",
+    });
+  };
+
+  const handleViewAllDestinations = () => {
+    navigate("/destinations");
+  };
   const destinations = [
     {
       id: 1,
@@ -84,7 +99,7 @@ const DestinationsPreview = () => {
                     <span className="text-amber text-sm">⭐</span>
                     <span className="font-medium text-sm">{destination.rating}</span>
                   </div>
-                  <Button variant="outline" size="sm" className="hover:bg-forest hover:text-white">
+                  <Button variant="outline" size="sm" className="hover:bg-forest hover:text-white" onClick={() => handleLearnMore(destination.name)}>
                     Learn More
                   </Button>
                 </div>
@@ -94,7 +109,7 @@ const DestinationsPreview = () => {
         </div>
 
         <div className="text-center mt-12">
-          <Button variant="eco" size="lg">
+          <Button variant="eco" size="lg" onClick={handleViewAllDestinations}>
             View All Destinations
           </Button>
         </div>

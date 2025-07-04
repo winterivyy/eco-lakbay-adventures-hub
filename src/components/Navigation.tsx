@@ -1,9 +1,26 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleSignIn = () => {
+    toast({
+      title: "Sign In",
+      description: "Sign in functionality will be available soon!",
+    });
+  };
+
+  const handleJoinUs = () => {
+    toast({
+      title: "Join EcoLakbay",
+      description: "Registration coming soon! We'll notify you when it's ready.",
+    });
+  };
 
   const navItems = [
     { label: "Home", path: "/" },
@@ -38,10 +55,10 @@ const Navigation = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleSignIn}>
               Sign In
             </Button>
-            <Button variant="eco" size="sm">
+            <Button variant="eco" size="sm" onClick={handleJoinUs}>
               Join Us
             </Button>
           </div>
@@ -73,11 +90,11 @@ const Navigation = () => {
                   {item.label}
                 </Link>
               ))}
-              <div className="flex flex-col space-y-2 px-4 pt-4">
-                <Button variant="outline" size="sm">
+               <div className="flex flex-col space-y-2 px-4 pt-4">
+                <Button variant="outline" size="sm" onClick={handleSignIn}>
                   Sign In
                 </Button>
-                <Button variant="eco" size="sm">
+                <Button variant="eco" size="sm" onClick={handleJoinUs}>
                   Join Us
                 </Button>
               </div>

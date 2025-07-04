@@ -1,7 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const FeaturesSection = () => {
+  const navigate = useNavigate();
+
+  const handleStartEcoJourney = () => {
+    navigate("/dashboard");
+  };
   const features = [
     {
       icon: "🗺️",
@@ -71,7 +77,7 @@ const FeaturesSection = () => {
         </div>
 
         <div className="text-center mt-16">
-          <Button variant="eco" size="lg" className="px-8 py-6 text-lg">
+          <Button variant="eco" size="lg" className="px-8 py-6 text-lg" onClick={handleStartEcoJourney}>
             Start Your Eco Journey
           </Button>
         </div>
