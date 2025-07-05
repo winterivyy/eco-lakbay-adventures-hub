@@ -26,6 +26,7 @@ const Navigation = () => {
     { label: "Community", path: "/community" },
     { label: "Calculator", path: "/calculator" },
     { label: "Dashboard", path: "/dashboard" },
+    { label: "Register Destination", path: "/register-destination" },
   ];
 
   return (
