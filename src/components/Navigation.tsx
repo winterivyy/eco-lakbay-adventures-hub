@@ -2,24 +2,22 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import SignInModal from "./SignInModal";
+import JoinUsModal from "./JoinUsModal";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [isJoinUsOpen, setIsJoinUsOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSignIn = () => {
-    toast({
-      title: "Sign In",
-      description: "Sign in functionality will be available soon!",
-    });
+    setIsSignInOpen(true);
   };
 
   const handleJoinUs = () => {
-    toast({
-      title: "Join EcoLakbay",
-      description: "Registration coming soon! We'll notify you when it's ready.",
-    });
+    setIsJoinUsOpen(true);
   };
 
   const navItems = [
@@ -102,6 +100,9 @@ const Navigation = () => {
           </div>
         )}
       </div>
+      
+      <SignInModal open={isSignInOpen} onOpenChange={setIsSignInOpen} />
+      <JoinUsModal open={isJoinUsOpen} onOpenChange={setIsJoinUsOpen} />
     </nav>
   );
 };
