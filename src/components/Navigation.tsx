@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import SignInModal from "./SignInModal";
 import JoinUsModal from "./JoinUsModal";
+import { LogOut, User } from "lucide-react";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isJoinUsOpen, setIsJoinUsOpen] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, signOut, loading } = useAuth();
 
   const handleSignIn = () => {
     setIsSignInOpen(true);
@@ -54,12 +55,27 @@ const Navigation = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={handleSignIn}>
-              Sign In
-            </Button>
-            <Button variant="eco" size="sm" onClick={handleJoinUs}>
-              Join Us
-            </Button>
+            {user ? (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+                  <User className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Button>
+                <Button variant="outline" size="sm" onClick={signOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={handleSignIn}>
+                  Sign In
+                </Button>
+                <Button variant="eco" size="sm" onClick={handleJoinUs}>
+                  Join Us
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -90,12 +106,27 @@ const Navigation = () => {
                 </Link>
               ))}
                <div className="flex flex-col space-y-2 px-4 pt-4">
-                <Button variant="outline" size="sm" onClick={handleSignIn}>
-                  Sign In
-                </Button>
-                <Button variant="eco" size="sm" onClick={handleJoinUs}>
-                  Join Us
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+                      <User className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={signOut}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={handleSignIn}>
+                      Sign In
+                    </Button>
+                    <Button variant="eco" size="sm" onClick={handleJoinUs}>
+                      Join Us
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

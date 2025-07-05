@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface JoinUsModalProps {
   open: boolean;
@@ -18,7 +18,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signUp } = useAuth();
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -28,44 +28,27 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     e.preventDefault();
     
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields.",
-        variant: "destructive",
-      });
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match.",
-        variant: "destructive",
-      });
       return;
     }
 
     if (formData.password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive",
-      });
       return;
     }
 
     setIsLoading(true);
     
-    // Simulate registration (replace with actual auth logic when backend is ready)
-    setTimeout(() => {
-      toast({
-        title: "Welcome to EcoLakbay!",
-        description: "Your account has been created successfully. Start your eco-journey today!",
-      });
-      setIsLoading(false);
+    const { error } = await signUp(formData.email, formData.password, formData.name);
+    
+    if (!error) {
       onOpenChange(false);
       setFormData({ name: "", email: "", password: "", confirmPassword: "" });
-    }, 1000);
+    }
+    
+    setIsLoading(false);
   };
 
   return (

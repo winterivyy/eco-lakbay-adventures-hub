@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SignInModalProps {
   open: boolean;
@@ -14,32 +14,25 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields.",
-        variant: "destructive",
-      });
       return;
     }
 
     setIsLoading(true);
     
-    // Simulate authentication (replace with actual auth logic when backend is ready)
-    setTimeout(() => {
-      toast({
-        title: "Welcome Back!",
-        description: "You have successfully signed in to EcoLakbay.",
-      });
-      setIsLoading(false);
+    const { error } = await signIn(email, password);
+    
+    if (!error) {
       onOpenChange(false);
       setEmail("");
       setPassword("");
-    }, 1000);
+    }
+    
+    setIsLoading(false);
   };
 
   return (

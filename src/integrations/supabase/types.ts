@@ -9,7 +9,244 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      calculator_entries: {
+        Row: {
+          accommodation_nights: number | null
+          accommodation_type: string | null
+          activities: string[] | null
+          carbon_footprint: number
+          created_at: string
+          distance: number | null
+          id: string
+          transport_type: string
+          user_id: string
+        }
+        Insert: {
+          accommodation_nights?: number | null
+          accommodation_type?: string | null
+          activities?: string[] | null
+          carbon_footprint: number
+          created_at?: string
+          distance?: number | null
+          id?: string
+          transport_type: string
+          user_id: string
+        }
+        Update: {
+          accommodation_nights?: number | null
+          accommodation_type?: string | null
+          activities?: string[] | null
+          carbon_footprint?: number
+          created_at?: string
+          distance?: number | null
+          id?: string
+          transport_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_comments_post"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      destinations: {
+        Row: {
+          address: string
+          business_name: string
+          business_type: string
+          city: string
+          created_at: string
+          description: string
+          email: string | null
+          id: string
+          images: string[] | null
+          owner_id: string
+          phone: string | null
+          province: string
+          rating: number | null
+          review_count: number | null
+          status: string
+          sustainability_practices: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address: string
+          business_name: string
+          business_type: string
+          city: string
+          created_at?: string
+          description: string
+          email?: string | null
+          id?: string
+          images?: string[] | null
+          owner_id: string
+          phone?: string | null
+          province: string
+          rating?: number | null
+          review_count?: number | null
+          status?: string
+          sustainability_practices?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string
+          business_name?: string
+          business_type?: string
+          city?: string
+          created_at?: string
+          description?: string
+          email?: string | null
+          id?: string
+          images?: string[] | null
+          owner_id?: string
+          phone?: string | null
+          province?: string
+          rating?: number | null
+          review_count?: number | null
+          status?: string
+          sustainability_practices?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_post_likes_post"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          author_id: string
+          comments_count: number | null
+          content: string
+          created_at: string
+          id: string
+          images: string[] | null
+          likes_count: number | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          comments_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          images?: string[] | null
+          likes_count?: number | null
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          comments_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          images?: string[] | null
+          likes_count?: number | null
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          email: string
+          full_name: string | null
+          id: string
+          joined_at: string
+          location: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          joined_at?: string
+          location?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          joined_at?: string
+          location?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

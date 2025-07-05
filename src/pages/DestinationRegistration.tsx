@@ -9,12 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { MapPin, Phone, Mail, Globe, Building, Camera, Star } from "lucide-react";
 
 const DestinationRegistration = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     businessName: "",
@@ -36,6 +39,15 @@ const DestinationRegistration = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to register your destination.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!formData.businessName || !formData.businessType || !formData.description || !formData.address) {
       toast({
         title: "Missing Information",
@@ -47,15 +59,41 @@ const DestinationRegistration = () => {
 
     setIsSubmitting(true);
     
-    // Simulate submission
-    setTimeout(() => {
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .insert({
+          owner_id: user.id,
+          business_name: formData.businessName,
+          business_type: formData.businessType,
+          description: formData.description,
+          address: formData.address,
+          city: formData.city,
+          province: formData.province,
+          phone: formData.phone || null,
+          email: formData.email,
+          website: formData.website || null,
+          sustainability_practices: formData.sustainabilityPractices || null,
+        });
+
+      if (error) throw error;
+
       toast({
         title: "Registration Submitted!",
         description: "Thank you for your interest in joining EcoLakbay. We'll review your application and get back to you within 5-7 business days.",
       });
+      
+      navigate("/dashboard");
+    } catch (error) {
+      console.error('Error submitting destination:', error);
+      toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your registration. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsSubmitting(false);
-      navigate("/");
-    }, 2000);
+    }
   };
 
   return (
