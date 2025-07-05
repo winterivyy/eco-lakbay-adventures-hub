@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,41 +7,112 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
-  const userStats = {
-    name: "Maria Santos",
-    greenPoints: 1245,
-    level: "Eco Explorer",
-    tripsCompleted: 12,
-    carbonSaved: 45.2,
-    rank: 8,
-    nextLevelPoints: 1500
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<any>(null);
+  const [userDestinations, setUserDestinations] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access your dashboard.",
+        variant: "destructive",
+      });
+      navigate("/");
+      return;
+    }
+
+    if (user) {
+      loadUserData();
+    }
+  }, [user, loading, navigate, toast]);
+
+  const loadUserData = async () => {
+    try {
+      // Load user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user!.id)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw profileError;
+      }
+
+      setProfile(profileData);
+
+      // Load user destinations
+      const { data: destinationsData, error: destinationsError } = await supabase
+        .from('destinations')
+        .select('*')
+        .eq('owner_id', user!.id)
+        .order('created_at', { ascending: false });
+
+      if (destinationsError) throw destinationsError;
+
+      setUserDestinations(destinationsData || []);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
   };
 
-  const recentTrips = [
-    {
-      destination: "Mount Arayat",
-      date: "Nov 28, 2024",
-      carbonSaved: 3.2,
-      points: 85,
-      rating: 5
-    },
-    {
-      destination: "Candaba Wetlands",
-      date: "Nov 15, 2024",
-      carbonSaved: 2.1,
-      points: 65,
-      rating: 4
-    },
-    {
-      destination: "Clark Green City",
-      date: "Oct 22, 2024",
-      carbonSaved: 4.5,
-      points: 95,
-      rating: 5
-    }
-  ];
+  if (loading || loadingData) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forest mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const userName = profile?.full_name || user.email?.split('@')[0] || 'EcoLakbay User';
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
+
+  // Mock stats for now - these would come from actual calculations
+  const userStats = {
+    name: userName,
+    greenPoints: 0, // TODO: Calculate from actual trips
+    level: "Eco Starter",
+    tripsCompleted: userDestinations.filter(d => d.status === 'approved').length,
+    carbonSaved: 0, // TODO: Calculate from calculator entries
+    rank: 0, // TODO: Calculate actual ranking
+    nextLevelPoints: 500
+  };
+
+  const recentDestinations = userDestinations.slice(0, 3).map(dest => ({
+    destination: dest.business_name,
+    date: new Date(dest.created_at).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    }),
+    status: dest.status,
+    type: dest.business_type
+  }));
 
   const achievements = [
     { title: "First Eco Trip", icon: "🌱", unlocked: true },
@@ -133,39 +206,55 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Recent Trips */}
+              {/* Recent Destinations */}
               <Card className="shadow-eco">
                 <CardHeader>
-                  <CardTitle className="text-xl text-forest">Recent Eco Adventures</CardTitle>
+                  <CardTitle className="text-xl text-forest">Your Registered Destinations</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentTrips.map((trip, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-2xl">
-                            {index === 0 ? "🏔️" : index === 1 ? "🦅" : "🌆"}
+                    {recentDestinations.length > 0 ? (
+                      recentDestinations.map((dest, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-2xl">
+                              {dest.type === 'hotel' ? "🏨" : 
+                               dest.type === 'restaurant' ? "🍽️" : 
+                               dest.type === 'attraction' ? "🏞️" : "🏢"}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-forest">{dest.destination}</h4>
+                              <p className="text-sm text-muted-foreground">Registered {dest.date}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-semibold text-forest">{trip.destination}</h4>
-                            <p className="text-sm text-muted-foreground">{trip.date}</p>
+                          <div className="text-right">
+                            <Badge variant={
+                              dest.status === 'approved' ? 'default' : 
+                              dest.status === 'pending' ? 'secondary' : 'destructive'
+                            }>
+                              {dest.status}
+                            </Badge>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="flex items-center space-x-1 mb-1">
-                            <span className="text-amber">⭐</span>
-                            <span className="text-sm font-medium">{trip.rating}/5</span>
-                          </div>
-                          <div className="text-xs text-forest">
-                            +{trip.points} points • {trip.carbonSaved}kg CO₂ saved
-                          </div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No destinations registered yet.</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => navigate('/register-destination')}
+                        >
+                          Register Your First Destination
+                        </Button>
                       </div>
-                    ))}
+                    )}
                   </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    View All Trips
-                  </Button>
+                  {recentDestinations.length > 0 && (
+                    <Button variant="outline" className="w-full mt-4">
+                      View All Destinations
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>
