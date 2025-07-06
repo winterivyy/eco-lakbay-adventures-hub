@@ -3,20 +3,20 @@ import { Card } from "@/components/ui/card";
 import heroImage from "@/assets/hero-ecolakbay.jpg";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import TripPlannerModal from "./TripPlannerModal";
 
 const HeroSection = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
 
   const handleExploreDestinations = () => {
     navigate("/destinations");
   };
 
   const handlePlanTrip = () => {
-    toast({
-      title: "Trip Planner",
-      description: "AI-powered trip planning coming soon! Plan your perfect eco-adventure.",
-    });
+    setTripPlannerOpen(true);
   };
   return (
     <div className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
@@ -93,6 +93,11 @@ const HeroSection = () => {
           </div>
         </div>
       </div>
+      
+      <TripPlannerModal 
+        open={tripPlannerOpen} 
+        onOpenChange={setTripPlannerOpen} 
+      />
     </div>
   );
 };
