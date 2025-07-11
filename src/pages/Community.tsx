@@ -23,20 +23,34 @@ const Community = () => {
 
   const fetchPosts = async () => {
     try {
+      // First get all posts
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
-        .select(`
-          *,
-          profiles!posts_author_id_fkey (
-            full_name,
-            avatar_url,
-            points
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (postsError) throw postsError;
-      setPosts(postsData || []);
+
+      // Then get profiles for each post author
+      if (postsData && postsData.length > 0) {
+        const authorIds = postsData.map(post => post.author_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url, points')
+          .in('user_id', authorIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine posts with their author profiles
+        const postsWithProfiles = postsData.map(post => ({
+          ...post,
+          profiles: profilesData?.find(profile => profile.user_id === post.author_id)
+        }));
+
+        setPosts(postsWithProfiles);
+      } else {
+        setPosts([]);
+      }
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
