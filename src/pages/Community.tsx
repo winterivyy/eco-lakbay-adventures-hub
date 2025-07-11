@@ -1,65 +1,109 @@
+import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CreatePostModal } from "@/components/CreatePostModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Shield, Users, TrendingUp } from "lucide-react";
 
 const Community = () => {
-  const posts = [
-    {
-      id: 1,
-      author: "Maria Santos",
-      avatar: "MS",
-      time: "2 hours ago",
-      type: "Event",
-      title: "River Cleanup at Pampanga River - Join Us!",
-      content: "Organizing a community river cleanup this Saturday. Let's protect our waterways together! 🌊 Free lunch and drinks provided for all volunteers.",
-      likes: 24,
-      comments: 8,
-      greenPoints: 50,
-      image: "🧹"
-    },
-    {
-      id: 2,
-      author: "Eco Lodge Arayat",
-      avatar: "EL",
-      time: "4 hours ago",
-      type: "Business Update",
-      title: "New Solar Panel Installation Complete!",
-      content: "We're excited to announce that our lodge is now 100% solar powered! This reduces our carbon footprint by 80% and provides cleaner energy for our guests.",
-      likes: 42,
-      comments: 12,
-      greenPoints: 100,
-      image: "☀️"
-    },
-    {
-      id: 3,
-      author: "Juan dela Cruz",
-      avatar: "JD",
-      time: "6 hours ago",
-      type: "Trip Report",
-      title: "Amazing Sustainable Adventure at Mount Arayat",
-      content: "Just completed a 3-day eco-trek at Mount Arayat. The sustainable trails and zero-waste camping were incredible. Highly recommend for conscious travelers!",
-      likes: 18,
-      comments: 5,
-      greenPoints: 75,
-      image: "🏔️"
-    },
-    {
-      id: 4,
-      author: "Green Pampanga Initiative",
-      avatar: "GP",
-      time: "1 day ago",
-      type: "Educational",
-      title: "5 Ways to Reduce Your Travel Carbon Footprint",
-      content: "Tips for eco-conscious travelers: 1) Choose local transportation 2) Stay at green-certified accommodations 3) Support local businesses 4) Minimize waste 5) Offset your emissions",
-      likes: 67,
-      comments: 23,
-      greenPoints: 25,
-      image: "📚"
+  const [posts, setPosts] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
+  const { user } = useAuth();
+  const { isAdmin, role } = useUserRole();
+  const { toast } = useToast();
+
+  const fetchPosts = async () => {
+    try {
+      const { data: postsData, error: postsError } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_author_id_fkey (
+            full_name,
+            avatar_url,
+            points
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (postsError) throw postsError;
+      setPosts(postsData || []);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast({
+        title: "Error loading posts",
+        description: "Could not load community posts.",
+        variant: "destructive",
+      });
     }
-  ];
+  };
+
+  const fetchTopProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, points')
+        .order('points', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchPosts(), fetchTopProfiles()]);
+      setLoading(false);
+    };
+
+    loadData();
+  }, []);
+
+  const handleCreatePost = () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create a post.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreatePostModalOpen(true);
+  };
+
+  const handlePostCreated = () => {
+    fetchPosts();
+    fetchTopProfiles();
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getInitials = (name: string | null) => {
+    if (!name) return "U";
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
 
   const upcomingEvents = [
     {
@@ -89,16 +133,30 @@ const Community = () => {
       {/* Header Section */}
       <div className="bg-gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            EcoLakbay Community
-          </h1>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-white">
+              EcoLakbay Community
+            </h1>
+            {isAdmin && (
+              <Badge variant="destructive" className="text-xs">
+                <Shield className="w-3 h-3 mr-1" />
+                ADMIN
+              </Badge>
+            )}
+          </div>
           <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
             Connect with fellow eco-travelers, local businesses, and conservation enthusiasts. 
             Share experiences, join events, and build a sustainable tourism community.
           </p>
-          <Button variant="gold" size="lg">
-            Share Your Story
-          </Button>
+          <div className="flex gap-4 justify-center">
+            <Button variant="gold" size="lg" onClick={handleCreatePost}>
+              <Plus className="w-4 h-4 mr-2" />
+              Share Your Story
+            </Button>
+            <Button variant="outline" size="lg" onClick={handleCreatePost}>
+              Make a Post
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -108,30 +166,86 @@ const Community = () => {
             
             {/* Main Feed */}
             <div className="lg:col-span-2">
+              {isAdmin && (
+                <Card className="mb-6 border-amber-200 bg-amber-50">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-600" />
+                      <CardTitle className="text-amber-800">Admin Panel</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <TrendingUp className="w-8 h-8 mx-auto text-green-600 mb-2" />
+                        <p className="text-sm font-medium">Total Posts</p>
+                        <p className="text-2xl font-bold text-green-600">{posts.length}</p>
+                      </div>
+                      <div className="text-center">
+                        <Users className="w-8 h-8 mx-auto text-blue-600 mb-2" />
+                        <p className="text-sm font-medium">Active Users</p>
+                        <p className="text-2xl font-bold text-blue-600">{profiles.length}</p>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-2xl mx-auto block mb-2">🌟</span>
+                        <p className="text-sm font-medium">Total Points</p>
+                        <p className="text-2xl font-bold text-amber-600">
+                          {profiles.reduce((sum, p) => sum + (p.points || 0), 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="space-y-6">
-                {posts.map((post) => (
-                  <Card key={post.id} className="hover:shadow-hover transition-all duration-300">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-forest text-white">
-                              {post.avatar}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold text-forest">{post.author}</p>
-                            <p className="text-sm text-muted-foreground">{post.time}</p>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-pulse">Loading posts...</div>
+                  </div>
+                ) : posts.length === 0 ? (
+                  <Card className="text-center py-8">
+                    <CardContent>
+                      <p className="text-muted-foreground">No posts yet. Be the first to share your story!</p>
+                      <Button onClick={handleCreatePost} className="mt-4">
+                        Create First Post
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  posts.map((post) => (
+                    <Card key={post.id} className="hover:shadow-hover transition-all duration-300">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-forest text-white">
+                                {getInitials(post.profiles?.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold text-forest">
+                                {post.profiles?.full_name || "Anonymous User"}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(post.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {post.type}
+                            </Badge>
+                            {post.profiles?.points && (
+                              <div className="flex items-center space-x-1 text-amber-600">
+                                <span className="text-xs">🌟</span>
+                                <span className="text-xs font-medium">{post.profiles.points} pts</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {post.type}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-start space-x-4">
-                        <div className="text-4xl">{post.image}</div>
+                      </CardHeader>
+                      <CardContent>
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-forest mb-2">
                             {post.title}
@@ -144,27 +258,23 @@ const Community = () => {
                             <div className="flex items-center space-x-4">
                               <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
                                 <span>❤️</span>
-                                <span className="text-sm">{post.likes}</span>
+                                <span className="text-sm">{post.likes_count || 0}</span>
                               </button>
                               <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
                                 <span>💬</span>
-                                <span className="text-sm">{post.comments}</span>
+                                <span className="text-sm">{post.comments_count || 0}</span>
                               </button>
                               <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
                                 <span>📤</span>
                                 <span className="text-sm">Share</span>
                               </button>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <span className="text-amber">🌟</span>
-                              <span className="text-sm font-medium">+{post.greenPoints} points</span>
-                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </div>
 
@@ -199,17 +309,24 @@ const Community = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {["Ana Rodriguez", "Mike Chen", "Sarah Lopez"].map((name, index) => (
+                    {profiles.slice(0, 3).map((profile, index) => (
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <span className="text-lg">{index === 0 ? "🏆" : index === 1 ? "🥈" : "🥉"}</span>
-                          <span className="text-sm font-medium">{name}</span>
+                          <span className="text-sm font-medium">
+                            {profile.full_name || "Anonymous User"}
+                          </span>
                         </div>
                         <span className="text-xs text-amber font-medium">
-                          {1250 - index * 200} pts
+                          {profile.points || 0} pts
                         </span>
                       </div>
                     ))}
+                    {profiles.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No champions yet. Start earning points by posting!
+                      </p>
+                    )}
                   </div>
                   <Button variant="eco" size="sm" className="w-full mt-4">
                     View Leaderboard
@@ -224,16 +341,36 @@ const Community = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={handleCreatePost}
+                    >
                       📝 Share Trip Report
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={handleCreatePost}
+                    >
                       📅 Create Event
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={handleCreatePost}
+                    >
                       💡 Share Eco Tip
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={handleCreatePost}
+                    >
                       🤝 Find Travel Buddy
                     </Button>
                   </div>
@@ -245,6 +382,12 @@ const Community = () => {
       </div>
 
       <Footer />
+      
+      <CreatePostModal 
+        open={createPostModalOpen}
+        onOpenChange={setCreatePostModalOpen}
+        onPostCreated={handlePostCreated}
+      />
     </div>
   );
 };
