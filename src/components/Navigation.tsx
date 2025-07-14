@@ -26,7 +26,6 @@ const Navigation = () => {
     { label: "Destinations", path: "/destinations" },
     { label: "Community", path: "/community" },
     { label: "Calculator", path: "/calculator" },
-    ...(user ? [{ label: "Dashboard", path: "/dashboard" }] : []),
     { label: "Register Destination", path: "/register-destination" },
   ];
 

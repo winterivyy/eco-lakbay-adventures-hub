@@ -11,6 +11,10 @@ import Community from "./pages/Community";
 import Calculator from "./pages/Calculator";
 import Dashboard from "./pages/Dashboard";
 import DestinationRegistration from "./pages/DestinationRegistration";
+import Help from "./pages/Help";
+import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +33,10 @@ const App = () => (
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/register-destination" element={<DestinationRegistration />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

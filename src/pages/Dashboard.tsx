@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Edit2, Users, TrendingUp, MapPin } from "lucide-react";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -21,6 +25,8 @@ const Dashboard = () => {
   const [userDestinations, setUserDestinations] = useState<any[]>([]);
   const [allDestinations, setAllDestinations] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>({});
+  const [editingUser, setEditingUser] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -84,6 +90,27 @@ const Dashboard = () => {
 
         if (allUsersError) throw allUsersError;
         setAllUsers(allUsersData || []);
+
+        // Load statistics
+        const { data: postsData, error: postsError } = await supabase
+          .from('posts')
+          .select('id, created_at');
+        
+        const { data: calculatorData, error: calculatorError } = await supabase
+          .from('calculator_entries')
+          .select('carbon_footprint');
+
+        if (!postsError && !calculatorError) {
+          const totalPosts = postsData?.length || 0;
+          const totalCalculations = calculatorData?.length || 0;
+          const totalCarbonSaved = calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0;
+          
+          setStats({
+            totalPosts,
+            totalCalculations,
+            totalCarbonSaved: Math.round(totalCarbonSaved * 100) / 100
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -94,6 +121,88 @@ const Dashboard = () => {
       });
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, updates: any) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "User Updated",
+        description: "User profile has been updated successfully."
+      });
+
+      // Refresh users list
+      const { data: updatedUsers } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('points', { ascending: false });
+      
+      setAllUsers(updatedUsers || []);
+      setEditingUser(null);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user profile.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleApproveDestination = async (destinationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .update({ status: 'approved' })
+        .eq('id', destinationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Destination Approved",
+        description: "The destination has been approved successfully."
+      });
+
+      loadUserData(); // Refresh data
+    } catch (error) {
+      console.error('Error approving destination:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve destination.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejectDestination = async (destinationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .update({ status: 'rejected' })
+        .eq('id', destinationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Destination Rejected",
+        description: "The destination has been rejected."
+      });
+
+      loadUserData(); // Refresh data
+    } catch (error) {
+      console.error('Error rejecting destination:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject destination.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -187,9 +296,10 @@ const Dashboard = () => {
         <div className="py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Admin Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <Card className="shadow-eco">
                 <CardContent className="p-6 text-center">
+                  <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                   <div className="text-3xl font-bold text-blue-600 mb-2">{totalUsers}</div>
                   <div className="text-sm text-muted-foreground">Total Users</div>
                 </CardContent>
@@ -197,22 +307,33 @@ const Dashboard = () => {
               
               <Card className="shadow-eco">
                 <CardContent className="p-6 text-center">
+                  <MapPin className="w-8 h-8 text-green-600 mx-auto mb-2" />
                   <div className="text-3xl font-bold text-green-600 mb-2">{totalDestinations}</div>
-                  <div className="text-sm text-muted-foreground">Total Destinations</div>
+                  <div className="text-sm text-muted-foreground">Destinations</div>
                 </CardContent>
               </Card>
               
               <Card className="shadow-eco">
                 <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-amber-600 mb-2">{pendingDestinations}</div>
-                  <div className="text-sm text-muted-foreground">Pending Approvals</div>
+                  <TrendingUp className="w-8 h-8 text-amber-600 mx-auto mb-2" />
+                  <div className="text-3xl font-bold text-amber-600 mb-2">{stats.totalPosts || 0}</div>
+                  <div className="text-sm text-muted-foreground">Community Posts</div>
                 </CardContent>
               </Card>
               
               <Card className="shadow-eco">
                 <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-2">{totalPoints.toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground">Total Points Awarded</div>
+                  <div className="text-2xl mb-2">📊</div>
+                  <div className="text-3xl font-bold text-purple-600 mb-2">{stats.totalCalculations || 0}</div>
+                  <div className="text-sm text-muted-foreground">Calculations Made</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-eco">
+                <CardContent className="p-6 text-center">
+                  <div className="text-2xl mb-2">🌱</div>
+                  <div className="text-3xl font-bold text-nature mb-2">{stats.totalCarbonSaved || 0}kg</div>
+                  <div className="text-sm text-muted-foreground">CO₂ Calculated</div>
                 </CardContent>
               </Card>
             </div>
@@ -233,8 +354,20 @@ const Dashboard = () => {
                           <p className="text-xs text-muted-foreground">{dest.business_type}</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="default">Approve</Button>
-                          <Button size="sm" variant="destructive">Reject</Button>
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => handleApproveDestination(dest.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleRejectDestination(dest.id)}
+                          >
+                            Reject
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -245,14 +378,14 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Top Users */}
+              {/* All Users Management */}
               <Card className="shadow-eco">
                 <CardHeader>
-                  <CardTitle className="text-xl text-forest">Top Users by Points</CardTitle>
+                  <CardTitle className="text-xl text-forest">All Users</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {allUsers.slice(0, 10).map((user, index) => (
+                    {allUsers.map((user, index) => (
                       <div key={user.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="text-lg">
@@ -261,10 +394,68 @@ const Dashboard = () => {
                           <div>
                             <h4 className="font-semibold text-forest">{user.full_name || "Anonymous"}</h4>
                             <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Joined: {new Date(user.joined_at).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold text-amber-600">{user.points || 0} pts</div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="font-bold text-amber-600">{user.points || 0} pts</div>
+                          </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEditingUser(user)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Edit User: {user.full_name || user.email}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label>Full Name</Label>
+                                  <Input 
+                                    defaultValue={user.full_name || ""} 
+                                    onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Points</Label>
+                                  <Input 
+                                    type="number"
+                                    defaultValue={user.points || 0} 
+                                    onChange={(e) => setEditingUser({...editingUser, points: parseInt(e.target.value)})}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Bio</Label>
+                                  <Input 
+                                    defaultValue={user.bio || ""} 
+                                    onChange={(e) => setEditingUser({...editingUser, bio: e.target.value})}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Location</Label>
+                                  <Input 
+                                    defaultValue={user.location || ""} 
+                                    onChange={(e) => setEditingUser({...editingUser, location: e.target.value})}
+                                  />
+                                </div>
+                                <Button 
+                                  onClick={() => handleUpdateUser(user.user_id, editingUser)}
+                                  className="w-full"
+                                >
+                                  Update User
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
                     ))}
