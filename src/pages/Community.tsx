@@ -264,9 +264,9 @@ const Community = () => {
                           <h3 className="font-semibold text-lg text-forest mb-2">
                             {post.title}
                           </h3>
-                          <p className="text-muted-foreground mb-4 leading-relaxed">
-                            {post.content}
-                          </p>
+                           <p className="text-muted-foreground mb-4 leading-relaxed break-words whitespace-pre-wrap overflow-hidden">
+                             {post.content}
+                           </p>
                           
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">

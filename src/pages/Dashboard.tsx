@@ -8,15 +8,19 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
+  const { isAdmin, role } = useUserRole();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<any>(null);
   const [userDestinations, setUserDestinations] = useState<any[]>([]);
+  const [allDestinations, setAllDestinations] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ const Dashboard = () => {
     if (user) {
       loadUserData();
     }
-  }, [user, loading, navigate, toast]);
+  }, [user, loading, navigate, toast, isAdmin]);
 
   const loadUserData = async () => {
     try {
@@ -60,6 +64,27 @@ const Dashboard = () => {
       if (destinationsError) throw destinationsError;
 
       setUserDestinations(destinationsData || []);
+
+      // If admin, load all destinations and users
+      if (isAdmin) {
+        // Load all destinations for admin
+        const { data: allDestinationsData, error: allDestinationsError } = await supabase
+          .from('destinations')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (allDestinationsError) throw allDestinationsError;
+        setAllDestinations(allDestinationsData || []);
+
+        // Load all users for admin
+        const { data: allUsersData, error: allUsersError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('points', { ascending: false });
+
+        if (allUsersError) throw allUsersError;
+        setAllUsers(allUsersData || []);
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
       toast({
@@ -125,6 +150,137 @@ const Dashboard = () => {
 
   const levelProgress = (userStats.greenPoints / userStats.nextLevelPoints) * 100;
 
+  // Admin Dashboard
+  if (isAdmin) {
+    const totalDestinations = allDestinations.length;
+    const pendingDestinations = allDestinations.filter(d => d.status === 'pending').length;
+    const approvedDestinations = allDestinations.filter(d => d.status === 'approved').length;
+    const totalUsers = allUsers.length;
+    const totalPoints = allUsers.reduce((sum, user) => sum + (user.points || 0), 0);
+
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        
+        {/* Admin Header */}
+        <div className="bg-gradient-to-r from-red-600 to-red-800 py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center space-x-6">
+              <Avatar className="w-20 h-20">
+                <AvatarFallback className="bg-white text-red-600 text-2xl font-bold">
+                  {userStats.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-4xl font-bold">Admin Dashboard</h1>
+                  <Badge variant="destructive">ADMIN</Badge>
+                </div>
+                <p className="text-xl text-white/90">
+                  Managing EcoLakbay Platform
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Admin Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card className="shadow-eco">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-2">{totalUsers}</div>
+                  <div className="text-sm text-muted-foreground">Total Users</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-eco">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-2">{totalDestinations}</div>
+                  <div className="text-sm text-muted-foreground">Total Destinations</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-eco">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-amber-600 mb-2">{pendingDestinations}</div>
+                  <div className="text-sm text-muted-foreground">Pending Approvals</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-eco">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-purple-600 mb-2">{totalPoints.toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground">Total Points Awarded</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Pending Destinations */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-xl text-forest">Pending Destinations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {allDestinations.filter(d => d.status === 'pending').map((dest) => (
+                      <div key={dest.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
+                        <div>
+                          <h4 className="font-semibold text-forest">{dest.business_name}</h4>
+                          <p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p>
+                          <p className="text-xs text-muted-foreground">{dest.business_type}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="default">Approve</Button>
+                          <Button size="sm" variant="destructive">Reject</Button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingDestinations === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No pending destinations</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Users */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-xl text-forest">Top Users by Points</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {allUsers.slice(0, 10).map((user, index) => (
+                      <div key={user.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg">
+                            {index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-forest">{user.full_name || "Anonymous"}</h4>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-amber-600">{user.points || 0} pts</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // Regular User Dashboard
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
