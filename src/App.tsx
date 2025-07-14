@@ -10,6 +10,8 @@ import Destinations from "./pages/Destinations";
 import Community from "./pages/Community";
 import Calculator from "./pages/Calculator";
 import Dashboard from "./pages/Dashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import UserAccount from "./pages/UserAccount";
 import DestinationRegistration from "./pages/DestinationRegistration";
 import Help from "./pages/Help";
 import Contact from "./pages/Contact";
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/community" element={<Community />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/account" element={<UserAccount />} />
             <Route path="/register-destination" element={<DestinationRegistration />} />
             <Route path="/help" element={<Help />} />
             <Route path="/contact" element={<Contact />} />

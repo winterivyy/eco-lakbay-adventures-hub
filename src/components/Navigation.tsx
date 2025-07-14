@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import SignInModal from "./SignInModal";
 import JoinUsModal from "./JoinUsModal";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Settings, Shield } from "lucide-react";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +15,9 @@ const Navigation = () => {
   const [isJoinUsOpen, setIsJoinUsOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
+  const { isAdmin } = useUserRole();
+  
+  const isSuperAdmin = user?.email === 'johnleomedina@gmail.com' && isAdmin;
 
   const handleSignIn = () => {
     setIsSignInOpen(true);
@@ -55,16 +61,40 @@ const Navigation = () => {
 
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-                  <User className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-                <Button variant="outline" size="sm" onClick={signOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Avatar className="w-6 h-6 mr-2">
+                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarFallback className="text-xs">
+                        {user.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    Menu
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => navigate("/account")}>
+                    <User className="w-4 h-4 mr-2" />
+                    Account Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  {isSuperAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/super-admin")}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Super Admin
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Button variant="outline" size="sm" onClick={handleSignIn}>
@@ -107,10 +137,20 @@ const Navigation = () => {
                <div className="flex flex-col space-y-2 px-4 pt-4">
                 {user ? (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+                    <Button variant="ghost" size="sm" onClick={() => {navigate("/account"); setIsMenuOpen(false);}}>
                       <User className="w-4 h-4 mr-2" />
+                      Account
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => {navigate("/dashboard"); setIsMenuOpen(false);}}>
+                      <Settings className="w-4 h-4 mr-2" />
                       Dashboard
                     </Button>
+                    {isSuperAdmin && (
+                      <Button variant="ghost" size="sm" onClick={() => {navigate("/super-admin"); setIsMenuOpen(false);}}>
+                        <Shield className="w-4 h-4 mr-2" />
+                        Super Admin
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={signOut}>
                       <LogOut className="w-4 h-4 mr-2" />
                       Sign Out

@@ -4,19 +4,23 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreatePostModal } from "@/components/CreatePostModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Shield, Users, TrendingUp } from "lucide-react";
+import { Plus, Shield, Users, TrendingUp, Heart, MessageSquare, Share2, Send } from "lucide-react";
 
 const Community = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
+  const [comments, setComments] = useState<{ [key: string]: any[] }>({});
+  const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
+  const [showComments, setShowComments] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuth();
   const { isAdmin, role } = useUserRole();
   const { toast } = useToast();
@@ -117,6 +121,154 @@ const Community = () => {
   const getInitials = (name: string | null) => {
     if (!name) return "U";
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const handleLike = async (postId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to like posts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      if (post.userLiked) {
+        // Unlike the post
+        await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+
+        // Update likes count
+        await supabase
+          .from('posts')
+          .update({ likes_count: (post.likes_count || 0) - 1 })
+          .eq('id', postId);
+      } else {
+        // Like the post
+        await supabase
+          .from('post_likes')
+          .insert([{ post_id: postId, user_id: user.id }]);
+
+        // Update likes count
+        await supabase
+          .from('posts')
+          .update({ likes_count: (post.likes_count || 0) + 1 })
+          .eq('id', postId);
+      }
+
+      // Refresh posts
+      fetchPosts();
+    } catch (error) {
+      console.error('Error liking post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to like post",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchComments = async (postId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          profiles!comments_author_id_fkey (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setComments(prev => ({ ...prev, [postId]: data || [] }));
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const handleAddComment = async (postId: string) => {
+    if (!user || !newComment[postId]?.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert([{
+          post_id: postId,
+          author_id: user.id,
+          content: newComment[postId].trim()
+        }]);
+
+      if (error) throw error;
+
+      // Update comments count
+      const post = posts.find(p => p.id === postId);
+      await supabase
+        .from('posts')
+        .update({ comments_count: (post?.comments_count || 0) + 1 })
+        .eq('id', postId);
+
+      // Clear the comment input
+      setNewComment(prev => ({ ...prev, [postId]: '' }));
+      
+      // Refresh comments and posts
+      fetchComments(postId);
+      fetchPosts();
+
+      toast({
+        title: "Comment added",
+        description: "Your comment has been posted successfully"
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleShare = async (post: any) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: post.title,
+          text: post.content,
+          url: window.location.href
+        });
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        await navigator.clipboard.writeText(`${post.title}\n\n${post.content}\n\nShared from EcoLakbay Community`);
+        toast({
+          title: "Link copied",
+          description: "Post content has been copied to clipboard"
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to share post",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const toggleComments = (postId: string) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+    if (!comments[postId]) {
+      fetchComments(postId);
+    }
   };
 
   const upcomingEvents = [
@@ -268,22 +420,100 @@ const Community = () => {
                              {post.content}
                            </p>
                           
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
-                                <span>❤️</span>
-                                <span className="text-sm">{post.likes_count || 0}</span>
-                              </button>
-                              <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
-                                <span>💬</span>
-                                <span className="text-sm">{post.comments_count || 0}</span>
-                              </button>
-                              <button className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors">
-                                <span>📤</span>
-                                <span className="text-sm">Share</span>
-                              </button>
-                            </div>
-                          </div>
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center space-x-4">
+                               <button 
+                                 onClick={() => handleLike(post.id)}
+                                 className={`flex items-center space-x-1 transition-colors ${
+                                   post.userLiked 
+                                     ? 'text-red-500 hover:text-red-600' 
+                                     : 'text-muted-foreground hover:text-red-500'
+                                 }`}
+                               >
+                                 <Heart className={`w-4 h-4 ${post.userLiked ? 'fill-current' : ''}`} />
+                                 <span className="text-sm">{post.likes_count || 0}</span>
+                               </button>
+                               <button 
+                                 onClick={() => toggleComments(post.id)}
+                                 className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors"
+                               >
+                                 <MessageSquare className="w-4 h-4" />
+                                 <span className="text-sm">{post.comments_count || 0}</span>
+                               </button>
+                               <button 
+                                 onClick={() => handleShare(post)}
+                                 className="flex items-center space-x-1 text-muted-foreground hover:text-forest transition-colors"
+                               >
+                                 <Share2 className="w-4 h-4" />
+                                 <span className="text-sm">Share</span>
+                               </button>
+                             </div>
+                           </div>
+                           
+                           {/* Comments Section */}
+                           {showComments[post.id] && (
+                             <div className="mt-4 pt-4 border-t">
+                               {/* Comments List */}
+                               <div className="space-y-3 mb-4">
+                                 {comments[post.id]?.map((comment) => (
+                                   <div key={comment.id} className="flex space-x-3">
+                                     <Avatar className="w-8 h-8">
+                                       <AvatarImage src={comment.profiles?.avatar_url} />
+                                       <AvatarFallback className="text-xs">
+                                         {getInitials(comment.profiles?.full_name)}
+                                       </AvatarFallback>
+                                     </Avatar>
+                                     <div className="flex-1">
+                                       <div className="bg-muted rounded-lg p-3">
+                                         <p className="font-medium text-sm">
+                                           {comment.profiles?.full_name || "Anonymous"}
+                                         </p>
+                                         <p className="text-sm">{comment.content}</p>
+                                       </div>
+                                       <p className="text-xs text-muted-foreground mt-1">
+                                         {formatDate(comment.created_at)}
+                                       </p>
+                                     </div>
+                                   </div>
+                                 ))}
+                               </div>
+                               
+                               {/* Add Comment */}
+                               {user && (
+                                 <div className="flex space-x-2">
+                                   <Avatar className="w-8 h-8">
+                                     <AvatarImage src={user.user_metadata?.avatar_url} />
+                                     <AvatarFallback className="text-xs">
+                                       {user.email?.charAt(0).toUpperCase()}
+                                     </AvatarFallback>
+                                   </Avatar>
+                                   <div className="flex-1 flex space-x-2">
+                                     <Input
+                                       placeholder="Write a comment..."
+                                       value={newComment[post.id] || ''}
+                                       onChange={(e) => setNewComment(prev => ({ 
+                                         ...prev, 
+                                         [post.id]: e.target.value 
+                                       }))}
+                                       onKeyPress={(e) => {
+                                         if (e.key === 'Enter') {
+                                           e.preventDefault();
+                                           handleAddComment(post.id);
+                                         }
+                                       }}
+                                     />
+                                     <Button 
+                                       size="sm" 
+                                       onClick={() => handleAddComment(post.id)}
+                                       disabled={!newComment[post.id]?.trim()}
+                                     >
+                                       <Send className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                           )}
                         </div>
                       </CardContent>
                     </Card>
