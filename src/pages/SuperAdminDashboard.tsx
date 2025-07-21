@@ -43,7 +43,7 @@ const SuperAdminDashboard = () => {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .order('joined_at', { ascending: false });
+        .order('full_name', { ascending: true });
 
       if (profilesError) throw profilesError;
 

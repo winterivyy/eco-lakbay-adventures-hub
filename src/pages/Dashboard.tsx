@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Edit2, Users, TrendingUp, MapPin } from "lucide-react";
+import { Edit2, Users, TrendingUp, MapPin, Search, Plus } from "lucide-react";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -28,6 +28,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState<any>({});
   const [editingUser, setEditingUser] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -86,7 +87,7 @@ const Dashboard = () => {
         const { data: allUsersData, error: allUsersError } = await supabase
           .from('profiles')
           .select('*')
-          .order('points', { ascending: false });
+          .order('full_name', { ascending: true });
 
         if (allUsersError) throw allUsersError;
         setAllUsers(allUsersData || []);
@@ -142,7 +143,7 @@ const Dashboard = () => {
       const { data: updatedUsers } = await supabase
         .from('profiles')
         .select('*')
-        .order('points', { ascending: false });
+        .order('full_name', { ascending: true });
       
       setAllUsers(updatedUsers || []);
       setEditingUser(null);
@@ -381,15 +382,30 @@ const Dashboard = () => {
               {/* All Users Management */}
               <Card className="shadow-eco">
                 <CardHeader>
-                  <CardTitle className="text-xl text-forest">All Users</CardTitle>
+                  <CardTitle className="text-xl text-forest flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    All Users
+                  </CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {allUsers.map((user, index) => (
+                    {allUsers.filter(user => 
+                      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).map((user, index) => (
                       <div key={user.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
                         <div className="flex items-center space-x-3">
-                          <div className="text-lg">
-                            {index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            {user.full_name?.charAt(0) || user.email?.charAt(0)}
                           </div>
                           <div>
                             <h4 className="font-semibold text-forest">{user.full_name || "Anonymous"}</h4>
