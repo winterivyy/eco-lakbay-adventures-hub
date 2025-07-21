@@ -39,16 +39,31 @@ const SuperAdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_roles (role)
-        `)
+        .select('*')
         .order('joined_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Then fetch user roles separately and merge
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      // Merge the data
+      const usersWithRoles = profiles?.map(profile => {
+        const role = userRoles?.find(ur => ur.user_id === profile.user_id)?.role;
+        return {
+          ...profile,
+          user_roles: role ? [{ role }] : []
+        };
+      });
+
+      setUsers(usersWithRoles || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
