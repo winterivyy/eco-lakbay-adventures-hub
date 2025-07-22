@@ -37,11 +37,12 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="lg:col-span-1">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-gradient-accent rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">E</span>
-              </div>
-              <span className="text-xl font-bold">EcoLakbay</span>
+            <div className="mb-4">
+              <img 
+                src="/lovable-uploads/f91ba406-163e-4e12-ab08-1481effe6d76.png" 
+                alt="EcoLakbay Logo" 
+                className="h-8 w-auto"
+              />
             </div>
             <p className="text-white/80 mb-6 leading-relaxed">
               Transforming tourism in Pampanga through sustainable practices, 
