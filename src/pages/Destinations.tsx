@@ -11,26 +11,31 @@ import { Star, MapPin, Calendar, Users } from "lucide-react";
 // Import images
 import bataanBeach from "@/assets/bataan-beach.jpg";
 import tarlacTerraces from "@/assets/tarlac-terraces.jpg";
-import nuevaEcijaCanopy from "@/assets/nueva-ecija-canopy.jpg";
-import zambalesVillage from "@/assets/zambales-village.jpg";
+import nuevaEcijaCanopy from "@/assets/nueva-ecija-real-canopy.jpg";
+import zambalesVillage from "@/assets/zambales-real-village.jpg";
 import bulacanFarm from "@/assets/bulacan-farm.jpg";
-import auroraCrater from "@/assets/aurora-crater.jpg";
-import batangasWind from "@/assets/batangas-wind.jpg";
-import caviteCoffee from "@/assets/cavite-coffee.jpg";
+import auroraCrater from "@/assets/aurora-real-crater.jpg";
+import batangasWind from "@/assets/batangas-real-wind.jpg";
+import caviteCoffee from "@/assets/cavite-real-coffee.jpg";
 import rizalMangroves from "@/assets/rizal-mangroves.jpg";
 import quezonResort from "@/assets/quezon-resort.jpg";
-import lagunaPottery from "@/assets/laguna-pottery.jpg";
-import pangasinanHerbs from "@/assets/pangasinan-herbs.jpg";
+import lagunaPottery from "@/assets/laguna-real-pottery.jpg";
+import pangasinanHerbs from "@/assets/pangasinan-real-herbs.jpg";
 import batangasCoral from "@/assets/batangas-coral.jpg";
-import subicTreehouse from "@/assets/subic-treehouse.jpg";
-import ilocosWeaving from "@/assets/ilocos-weaving.jpg";
-import manilaRooftop from "@/assets/manila-rooftop.jpg";
+import subicTreehouse from "@/assets/subic-real-treehouse.jpg";
+import ilocosWeaving from "@/assets/ilocos-real-weaving.jpg";
+import manilaRooftop from "@/assets/manila-real-rooftop.jpg";
 
 const Destinations = () => {
   const [selectedDestination, setSelectedDestination] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleDestinationClick = (destination: any) => {
+    setSelectedDestination(destination);
+    setIsModalOpen(true);
+  };
+
+  const handleLearnMore = (destination: any) => {
     setSelectedDestination(destination);
     setIsModalOpen(true);
   };

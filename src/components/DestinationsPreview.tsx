@@ -17,10 +17,7 @@ const DestinationsPreview = () => {
   const { toast } = useToast();
 
   const handleLearnMore = (destinationName: string) => {
-    toast({
-      title: `${destinationName}`,
-      description: "Detailed destination information coming soon!",
-    });
+    navigate("/destinations");
   };
 
   const handleViewAllDestinations = () => {

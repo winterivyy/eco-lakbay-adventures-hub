@@ -14,7 +14,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Edit2, Users, TrendingUp, MapPin, Search, Plus } from "lucide-react";
+import { Edit2, Users, TrendingUp, MapPin, Search, Plus, BarChart3 } from "lucide-react";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -29,6 +31,7 @@ const Dashboard = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {

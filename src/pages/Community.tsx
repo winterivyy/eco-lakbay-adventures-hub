@@ -45,10 +45,24 @@ const Community = () => {
 
         if (profilesError) throw profilesError;
 
-        // Combine posts with their author profiles
+        // Get user's likes if authenticated
+        let userLikes: any[] = [];
+        if (user) {
+          const { data: likesData, error: likesError } = await supabase
+            .from('post_likes')
+            .select('post_id')
+            .eq('user_id', user.id);
+          
+          if (!likesError) {
+            userLikes = likesData || [];
+          }
+        }
+
+        // Combine posts with their author profiles and like status
         const postsWithProfiles = postsData.map(post => ({
           ...post,
-          profiles: profilesData?.find(profile => profile.user_id === post.author_id)
+          profiles: profilesData?.find(profile => profile.user_id === post.author_id),
+          userLiked: userLikes.some(like => like.post_id === post.id)
         }));
 
         setPosts(postsWithProfiles);
@@ -88,7 +102,7 @@ const Community = () => {
     };
 
     loadData();
-  }, []);
+  }, [user]); // Re-fetch when user changes to get proper like status
 
   const handleCreatePost = () => {
     if (!user) {
