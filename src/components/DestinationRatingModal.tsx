@@ -169,21 +169,79 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
         }))
       };
 
-      const { error } = await supabase
+      // Check if destination exists in database, if not, create it first
+      let destinationId = destination.id;
+      
+      // If destination ID is not a UUID format, we need to create/find the destination in database
+      if (typeof destinationId === 'number' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(destinationId)) {
+        // Check if destination already exists with this business name
+        const { data: existingDestination, error: searchError } = await supabase
+          .from('destinations')
+          .select('id')
+          .eq('business_name', destination.name)
+          .maybeSingle();
+
+        if (searchError) {
+          console.error('Error searching for destination:', searchError);
+        }
+
+        if (existingDestination) {
+          destinationId = existingDestination.id;
+        } else {
+          // For demo destinations, we'll show a different message
+          toast({
+            title: "Demo Destination",
+            description: "This is a demo destination. Ratings are not saved for demo content.",
+            variant: "destructive"
+          });
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      // Try to find existing rating first
+      const { data: existingRating, error: fetchError } = await supabase
         .from('destination_ratings')
-        .upsert({
-          destination_id: destination.id,
-          user_id: user.id,
-          rating_data: ratingData,
-          overall_score: overallRating.score,
-          comments: comments.trim() || null
-        });
+        .select('id')
+        .eq('destination_id', destinationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching existing rating:', fetchError);
+      }
+
+      let operation;
+      if (existingRating) {
+        // Update existing rating
+        operation = supabase
+          .from('destination_ratings')
+          .update({
+            rating_data: ratingData,
+            overall_score: overallRating.score,
+            comments: comments.trim() || null
+          })
+          .eq('id', existingRating.id);
+      } else {
+        // Insert new rating
+        operation = supabase
+          .from('destination_ratings')
+          .insert({
+            destination_id: destinationId,
+            user_id: user.id,
+            rating_data: ratingData,
+            overall_score: overallRating.score,
+            comments: comments.trim() || null
+          });
+      }
+
+      const { error } = await operation;
 
       if (error) throw error;
       
       toast({
         title: "Rating Submitted!",
-        description: `Thank you for rating ${destination?.business_name}. Overall score: ${overallRating.label}`,
+        description: `Thank you for rating ${destination?.business_name || destination?.name}. Overall score: ${overallRating.label}`,
       });
       
       onClose();
