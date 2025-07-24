@@ -85,6 +85,48 @@ export type Database = {
           },
         ]
       }
+      destination_permits: {
+        Row: {
+          destination_id: string | null
+          file_name: string
+          file_url: string
+          id: string
+          notes: string | null
+          permit_type: string
+          uploaded_at: string
+          user_id: string
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          destination_id?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          notes?: string | null
+          permit_type: string
+          uploaded_at?: string
+          user_id: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          destination_id?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          notes?: string | null
+          permit_type?: string
+          uploaded_at?: string
+          user_id?: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       destination_ratings: {
         Row: {
           comments: string | null
