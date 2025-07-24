@@ -15,11 +15,12 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 // --- MODIFIED IMPORTS ---
-import { Edit2, Users, TrendingUp, MapPin, Search, Plus, BarChart3, MoreHorizontal, Archive } from "lucide-react";
+import { Edit2, Users, TrendingUp, MapPin, Search, Plus, BarChart3, MoreHorizontal, Archive, FileText } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EditDestinationModal } from "@/components/EditDestinationModal";
+import { ViewPermitsModal } from "@/components/admin/ViewPermitsModal"; // --- 1. IMPORT THE NEW MODAL ---
 
 // Helper for status badge colors
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
@@ -45,21 +46,20 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [chartData, setChartData] = useState<any[]>([]);
 
-  // --- NEW STATE for Edit Destination Modal ---
+  // State for Edit Destination Modal
   const [editingDestination, setEditingDestination] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // --- 2. ADD STATE FOR THE PERMITS MODAL ---
+  const [viewingDestinationPermits, setViewingDestinationPermits] = useState<any>(null);
+  const [isPermitsModalOpen, setIsPermitsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to access your dashboard.",
-        variant: "destructive",
-      });
+      toast({ title: "Authentication Required", description: "Please sign in to access your dashboard.", variant: "destructive" });
       navigate("/");
       return;
     }
-
     if (user) {
       loadUserData();
     }
@@ -67,45 +67,38 @@ const Dashboard = () => {
 
   const loadUserData = async () => {
     try {
-      // Load user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user!.id)
-        .single();
+      const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
       if (profileError && profileError.code !== 'PGRST116') throw profileError;
       setProfile(profileData);
 
-      // Load user destinations
-      const { data: destinationsData, error: destinationsError } = await supabase
-        .from('destinations').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false });
+      const { data: destinationsData, error: destinationsError } = await supabase.from('destinations').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false });
       if (destinationsError) throw destinationsError;
       setUserDestinations(destinationsData || []);
 
-      // If admin, load all destinations and users
       if (isAdmin) {
+        // --- 3. MODIFY THE QUERY TO FETCH PERMITS ---
         const { data: allDestinationsData, error: allDestinationsError } = await supabase
-          .from('destinations').select('*').order('created_at', { ascending: false });
+          .from('destinations')
+          .select('*, destination_permits(*)') // Fetch all destinations and their related permits
+          .order('created_at', { ascending: false });
         if (allDestinationsError) throw allDestinationsError;
         setAllDestinations(allDestinationsData || []);
 
-        const { data: allUsersData, error: allUsersError } = await supabase
-          .from('profiles').select('*').order('full_name', { ascending: true });
+        const { data: allUsersData, error: allUsersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
         if (allUsersError) throw allUsersError;
         setAllUsers(allUsersData || []);
 
-        const { data: ratingsData, error: ratingsError } = await supabase
-          .from('destination_ratings').select(`*, destinations!inner(business_name, business_type), profiles!inner(full_name, email)`).order('created_at', { ascending: false });
+        const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name, business_type), profiles!inner(full_name, email)`).order('created_at', { ascending: false });
         if (ratingsError) throw ratingsError;
         setAllRatings(ratingsData || []);
-
-        // Load statistics...
+        
         const { data: postsData } = await supabase.from('posts').select('id');
         const { data: calculatorData } = await supabase.from('calculator_entries').select('carbon_footprint');
-        const totalPosts = postsData?.length || 0;
-        const totalCalculations = calculatorData?.length || 0;
-        const totalCarbonSaved = calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0;
-        setStats({ totalPosts, totalCalculations, totalCarbonSaved: Math.round(totalCarbonSaved * 100) / 100 });
+        setStats({
+          totalPosts: postsData?.length || 0,
+          totalCalculations: calculatorData?.length || 0,
+          totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0 * 100) / 100
+        });
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -129,7 +122,6 @@ const Dashboard = () => {
     }
   };
 
-  // --- NEW Generic function to update destination status ---
   const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived') => {
     try {
       const { error } = await supabase.from('destinations').update({ status, updated_at: new Date().toISOString() }).eq('id', destinationId);
@@ -142,32 +134,19 @@ const Dashboard = () => {
     }
   };
 
-  // --- NEW handlers for the Edit Destination Modal ---
-  const handleOpenEditModal = (destination: any) => {
-    setEditingDestination(destination);
-    setIsEditModalOpen(true);
-  };
+  const handleOpenEditModal = (destination: any) => { setEditingDestination(destination); setIsEditModalOpen(true); };
+  const handleCloseEditModal = () => { setIsEditModalOpen(false); setEditingDestination(null); };
+  const handleSaveEditModal = () => { handleCloseEditModal(); toast({ title: "Success", description: "Destination details have been updated." }); loadUserData(); };
   
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setEditingDestination(null);
-  };
-
-  const handleSaveEditModal = () => {
-    handleCloseEditModal();
-    toast({ title: "Success", description: "Destination details have been updated." });
-    loadUserData();
-  };
+  const handleOpenPermitsModal = (destination: any) => { setViewingDestinationPermits(destination); setIsPermitsModalOpen(true); };
+  const handleClosePermitsModal = () => { setIsPermitsModalOpen(false); setViewingDestinationPermits(null); };
 
   if (loading || loadingData) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forest mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading your dashboard...</p>
-          </div>
+          <div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forest mx-auto mb-4"></div><p className="text-muted-foreground">Loading your dashboard...</p></div>
         </div>
         <Footer />
       </div>
@@ -189,7 +168,6 @@ const Dashboard = () => {
         <div className="min-h-screen bg-background">
           <Navigation />
           
-          {/* Admin Header (from your original code) */}
           <div className="bg-gradient-to-r from-red-600 to-red-800 py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center space-x-6">
@@ -204,7 +182,6 @@ const Dashboard = () => {
 
           <div className="py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {/* Admin Stats Grid (from your original code) */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><Users className="w-8 h-8 text-blue-600 mx-auto mb-2" /><div className="text-3xl font-bold text-blue-600 mb-2">{totalUsers}</div><div className="text-sm text-muted-foreground">Total Users</div></CardContent></Card>
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><MapPin className="w-8 h-8 text-green-600 mx-auto mb-2" /><div className="text-3xl font-bold text-green-600 mb-2">{totalDestinations}</div><div className="text-sm text-muted-foreground">Destinations</div></CardContent></Card>
@@ -213,14 +190,12 @@ const Dashboard = () => {
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><div className="text-2xl mb-2">🌱</div><div className="text-3xl font-bold text-nature mb-2">{stats.totalCarbonSaved || 0}kg</div><div className="text-sm text-muted-foreground">CO₂ Calculated</div></CardContent></Card>
               </div>
               
-              {/* --- NEW/MODIFIED SECTION --- */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                {/* Manage All Destinations Card (Full Width) */}
                 <Card className="shadow-eco xl:col-span-3">
                   <CardHeader><CardTitle className="text-xl text-forest">Manage All Destinations</CardTitle></CardHeader>
                   <CardContent>
                     <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                      {allDestinations.length > 0 ? allDestinations.map((dest) => (
+                      {allDestinations.map((dest) => (
                         <div key={dest.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
                           <div>
                             <h4 className="font-semibold text-forest">{dest.business_name}</h4>
@@ -231,6 +206,7 @@ const Dashboard = () => {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenPermitsModal(dest)}><FileText className="mr-2 h-4 w-4" /> View Permits</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOpenEditModal(dest)}><Edit2 className="mr-2 h-4 w-4" /> Update Details</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusUpdate(dest.id, 'approved')} disabled={dest.status === 'approved'}>Approve</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusUpdate(dest.id, 'rejected')} disabled={dest.status === 'rejected'}>Reject</DropdownMenuItem>
@@ -239,12 +215,11 @@ const Dashboard = () => {
                             </DropdownMenu>
                           </div>
                         </div>
-                      )) : <p className="text-center text-muted-foreground py-8">No destinations found.</p>}
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Recent Ratings Card (from your original code) */}
                 <Card className="shadow-eco">
                   <CardHeader><CardTitle className="text-xl text-forest">Recent Ratings</CardTitle></CardHeader>
                   <CardContent>
@@ -264,7 +239,6 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
 
-                {/* All Users Management Card (from your original code) */}
                 <Card className="shadow-eco xl:col-span-2">
                   <CardHeader>
                     <CardTitle className="text-xl text-forest flex items-center gap-2"><Users className="h-5 w-5" />All Users</CardTitle>
@@ -308,7 +282,9 @@ const Dashboard = () => {
           </div>
           <Footer />
         </div>
+        
         <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />
+        <ViewPermitsModal isOpen={isPermitsModalOpen} onClose={handleClosePermitsModal} destination={viewingDestinationPermits} />
       </>
     );
   }
