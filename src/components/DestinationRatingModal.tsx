@@ -77,15 +77,10 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Map business types to rating categories
   const getCategoryFromBusinessType = (businessType: string) => {
-    const type = businessType?.toLowerCase();
-    if (type?.includes('restaurant') || type?.includes('café') || type?.includes('cafe') || type?.includes('food')) {
-      return "Cafés and Restaurants";
-    }
-    if (type?.includes('hotel') || type?.includes('resort') || type?.includes('lodge') || type?.includes('accommodation')) {
-      return "Lodging";
-    }
+    const type = businessType?.toLowerCase() || '';
+    if (type.includes('restaurant') || type.includes('café') || type.includes('cafe') || type.includes('food')) return "Cafés and Restaurants";
+    if (type.includes('hotel') || type.includes('resort') || type.includes('lodge') || type.includes('accommodation')) return "Lodging";
     return "Tourist Sites";
   };
   
@@ -94,38 +89,24 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
   const getCurrentCriteria = () => {
     switch (selectedCategory) {
       case "Tourist Sites":
-        return ratingCriteria["Tourist Sites"].concat(
-          ratingCriteria["Community Engagement"],
-          ratingCriteria["Education & Awareness"]
-        );
+        return [...ratingCriteria["Tourist Sites"], ...ratingCriteria["Community Engagement"], ...ratingCriteria["Education & Awareness"]];
       case "Cafés and Restaurants":
-        return accommodationCriteria["Food and Waste Management"].concat(
-          accommodationCriteria["Sustainable Operations"],
-          accommodationCriteria["Eco Awareness"]
-        );
+        return [...accommodationCriteria["Food and Waste Management"], ...accommodationCriteria["Sustainable Operations"], ...accommodationCriteria["Eco Awareness"]];
       case "Lodging":
-        return lodgingCriteria["Energy and Water Conservation"].concat(
-          lodgingCriteria["Waste Reduction"],
-          lodgingCriteria["Local and Cultural Support"]
-        );
+        return [...lodgingCriteria["Energy and Water Conservation"], ...lodgingCriteria["Waste Reduction"], ...lodgingCriteria["Local and Cultural Support"]];
       default:
         return [];
     }
   };
 
   const handleRatingChange = (criteriaIndex: string, value: string) => {
-    setRatings(prev => ({
-      ...prev,
-      [criteriaIndex]: parseInt(value)
-    }));
+    setRatings(prev => ({ ...prev, [criteriaIndex]: parseInt(value) }));
   };
 
   const calculateOverallRating = () => {
     const ratingValues = Object.values(ratings);
     if (ratingValues.length === 0) return { score: 0, label: "Not Rated", color: "bg-gray-400", description: "No ratings yet" };
-    
     const average = ratingValues.reduce((sum, rating) => sum + rating, 0) / ratingValues.length;
-    
     if (average >= 4.5) return { score: 5, label: "Excellent", color: "bg-green-500", description: "Highly Sustainable" };
     if (average >= 3.5) return { score: 4, label: "Good", color: "bg-lime-500", description: "Sustainable" };
     if (average >= 2.5) return { score: 3, label: "Moderate", color: "bg-yellow-500", description: "Developing Sustainability" };
@@ -135,23 +116,12 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
 
   const handleSubmitRating = async () => {
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to submit a rating.",
-        variant: "destructive"
-      });
+      toast({ title: "Authentication Required", description: "Please sign in to submit a rating.", variant: "destructive" });
       return;
     }
-
     const criteria = getCurrentCriteria();
-    const missingRatings = criteria.filter((_, index) => !ratings[index.toString()]);
-    
-    if (missingRatings.length > 0) {
-      toast({
-        title: "Incomplete Rating",
-        description: "Please rate all criteria before submitting.",
-        variant: "destructive"
-      });
+    if (Object.keys(ratings).length < criteria.length) {
+      toast({ title: "Incomplete Rating", description: "Please rate all criteria before submitting.", variant: "destructive" });
       return;
     }
 
@@ -159,57 +129,20 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
     
     try {
       const overallRating = calculateOverallRating();
-      
-      // Prepare rating data with criteria and scores
       const ratingData = {
         category: selectedCategory,
-        criteria: criteria.map((criterion, index) => ({
-          question: criterion,
-          score: ratings[index.toString()]
-        }))
+        criteria: criteria.map((criterion, index) => ({ question: criterion, score: ratings[index.toString()] }))
       };
 
-      // Check if destination exists in database, if not, create it first
-      let destinationId = destination.id;
-      
-      // If destination ID is not a UUID format, we need to create/find the destination in database
-      if (typeof destinationId === 'number' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(destinationId)) {
-        // Check if destination already exists with this business name
-        const { data: existingDestination, error: searchError } = await supabase
-          .from('destinations')
-          .select('id')
-          .eq('business_name', destination.name)
-          .maybeSingle();
+      const destinationId = destination.id;
 
-        if (searchError) {
-          console.error('Error searching for destination:', searchError);
-        }
-
-        if (existingDestination) {
-          destinationId = existingDestination.id;
-        } else {
-          // For demo destinations, we'll show a different message
-          toast({
-            title: "Demo Destination",
-            description: "This is a demo destination. Ratings are not saved for demo content.",
-            variant: "destructive"
-          });
-          setSubmitting(false);
-          return;
-        }
-      }
-
-      // Try to find existing rating first
-      const { data: existingRating, error: fetchError } = await supabase
+      // Check if user has already rated this destination
+      const { data: existingRating } = await supabase
         .from('destination_ratings')
         .select('id')
         .eq('destination_id', destinationId)
         .eq('user_id', user.id)
         .maybeSingle();
-
-      if (fetchError) {
-        console.error('Error fetching existing rating:', fetchError);
-      }
 
       let operation;
       if (existingRating) {
@@ -223,12 +156,13 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
           })
           .eq('id', existingRating.id);
       } else {
-        // Insert new rating
+        // --- THIS IS THE FIX ---
+        // Insert new rating, now including the user.id
         operation = supabase
           .from('destination_ratings')
           .insert({
             destination_id: destinationId,
-            user_id: user.id,
+            user_id: user.id, // This line ensures the relationship is created
             rating_data: ratingData,
             overall_score: overallRating.score,
             comments: comments.trim() || null
@@ -236,22 +170,14 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
       }
 
       const { error } = await operation;
-
       if (error) throw error;
       
-      toast({
-        title: "Rating Submitted!",
-        description: `Thank you for rating ${destination?.business_name || destination?.name}. Overall score: ${overallRating.label}`,
-      });
-      
+      toast({ title: "Rating Submitted!", description: `Thank you for rating ${destination?.business_name || destination?.name}.` });
       onClose();
+
     } catch (error) {
       console.error('Error submitting rating:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit rating. Please try again.",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to submit rating. Please try again.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -264,51 +190,24 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-forest">
-            Rate {destination?.business_name}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Rate each criterion from 1 (Strongly Disagree) to 5 (Excellent) based on your observation.
-          </p>
+          <DialogTitle className="text-2xl font-bold text-forest">Rate {destination?.business_name}</DialogTitle>
+          <p className="text-sm text-muted-foreground">Rate each criterion from 1 (Strongly Disagree) to 5 (Excellent) based on your observation.</p>
         </DialogHeader>
-
         <div className="space-y-6">
-          {/* Category Display */}
           <div className="bg-muted/50 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-medium">
-                {selectedCategory}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                Category automatically determined from business type: {destination?.business_type}
-              </span>
-            </div>
+            <div className="flex items-center gap-2"><Badge variant="outline" className="font-medium">{selectedCategory}</Badge><span className="text-sm text-muted-foreground">Category determined by: {destination?.business_type}</span></div>
           </div>
-
-          {/* Rating Criteria */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-forest">{selectedCategory} Criteria</h3>
             {criteria.map((criterion, index) => (
               <Card key={index} className="border-forest/20">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">{criterion}</CardTitle>
-                </CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">{criterion}</CardTitle></CardHeader>
                 <CardContent>
-                  <RadioGroup
-                    value={ratings[index.toString()]?.toString() || ""}
-                    onValueChange={(value) => handleRatingChange(index.toString(), value)}
-                    className="flex gap-4"
-                  >
+                  <RadioGroup value={ratings[index.toString()]?.toString() || ""} onValueChange={(value) => handleRatingChange(index.toString(), value)} className="flex gap-4">
                     {ratingScale.map((scale) => (
                       <div key={scale.value} className="flex items-center space-x-2">
                         <RadioGroupItem value={scale.value.toString()} id={`${index}-${scale.value}`} />
-                        <Label
-                          htmlFor={`${index}-${scale.value}`}
-                          className="text-xs cursor-pointer flex items-center gap-1"
-                        >
-                          <div className={`w-3 h-3 rounded-full ${scale.color}`} />
-                          {scale.value}
-                        </Label>
+                        <Label htmlFor={`${index}-${scale.value}`} className="text-xs cursor-pointer flex items-center gap-1"><div className={`w-3 h-3 rounded-full ${scale.color}`} />{scale.value}</Label>
                       </div>
                     ))}
                   </RadioGroup>
@@ -316,53 +215,25 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
               </Card>
             ))}
           </div>
-
-          {/* Overall Rating Preview */}
           {Object.keys(ratings).length > 0 && (
             <Card className="border-forest bg-forest/5">
-              <CardHeader>
-                <CardTitle className="text-forest">Overall Rating Preview</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-forest">Overall Rating Preview</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full ${overallRating.color}`} />
-                  <div>
-                    <div className="font-semibold">{overallRating.label}</div>
-                    <div className="text-sm text-muted-foreground">{overallRating.description}</div>
-                  </div>
-                  <Badge variant="outline" className="ml-auto">
-                    {overallRating.score}/5
-                  </Badge>
+                  <div><div className="font-semibold">{overallRating.label}</div><div className="text-sm text-muted-foreground">{overallRating.description}</div></div>
+                  <Badge variant="outline" className="ml-auto">{overallRating.score}/5</Badge>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Comments */}
           <div className="space-y-2">
             <Label htmlFor="comments">Additional Comments (Optional)</Label>
-            <Textarea
-              id="comments"
-              placeholder="Share your experience and suggestions for improvement..."
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              className="min-h-[100px]"
-            />
+            <Textarea id="comments" placeholder="Share your experience and suggestions..." value={comments} onChange={(e) => setComments(e.target.value)} className="min-h-[100px]" />
           </div>
-
-          {/* Action Buttons */}
           <div className="flex gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
-              Cancel
-            </Button>
-            <Button 
-              variant="eco" 
-              onClick={handleSubmitRating} 
-              className="flex-1"
-              disabled={submitting}
-            >
-              {submitting ? "Submitting..." : "Submit Rating"}
-            </Button>
+            <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>Cancel</Button>
+            <Button variant="eco" onClick={handleSubmitRating} className="flex-1" disabled={submitting}>{submitting ? "Submitting..." : "Submit Rating"}</Button>
           </div>
         </div>
       </DialogContent>
