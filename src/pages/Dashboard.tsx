@@ -9,30 +9,105 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-// --- MODIFIED IMPORTS ---
-import { Edit2, Users, TrendingUp, MapPin, Search, Plus, BarChart3, MoreHorizontal, Archive, FileText } from "lucide-react";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { Edit2, Users, TrendingUp, MapPin, Search, MoreHorizontal, Archive, FileText, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { EditDestinationModal } from "@/components/EditDestinationModal";
-import { ViewPermitsModal } from "@/components/ViewPermitsModal"; // --- 1. IMPORT THE NEW MODAL ---
+import { Textarea } from "@/components/ui/textarea";
 
-// Helper for status badge colors
+// ===================================================================================
+// --- INLINE MODAL COMPONENT #1: View Permits ---
+// ===================================================================================
+const ViewPermitsModal = ({ isOpen, onClose, destination }: { isOpen: boolean, onClose: () => void, destination: any }) => {
+    if (!destination) return null;
+    const permits = destination.destination_permits || [];
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader><DialogTitle>Permits for: {destination.business_name}</DialogTitle></DialogHeader>
+                <div className="py-4 space-y-4">
+                    {permits.length > 0 ? (
+                        permits.map((permit: any) => (
+                            <div key={permit.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <FileText className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                        <p className="font-medium capitalize">{permit.permit_type.replace(/_/g, ' ')}</p>
+                                        <p className="text-xs text-muted-foreground">{permit.file_name}</p>
+                                    </div>
+                                </div>
+                                <Button asChild variant="outline" size="sm">
+                                    <a href={permit.file_url} target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4 mr-2" /> View</a>
+                                </Button>
+                            </div>
+                        ))
+                    ) : <p className="text-center text-muted-foreground py-8">No permits were uploaded for this destination.</p>}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// ===================================================================================
+// --- INLINE MODAL COMPONENT #2: Edit Destination ---
+// ===================================================================================
+const EditDestinationModal = ({ isOpen, onClose, onSave, destination }: { isOpen: boolean, onClose: () => void, onSave: () => void, destination: any }) => {
+    const [formData, setFormData] = useState(destination);
+    const [isSaving, setIsSaving] = useState(false);
+    useEffect(() => { setFormData(destination); }, [destination]);
+    if (!destination) return null;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData((prev: any) => ({ ...prev, [e.target.id]: e.target.value }));
+    };
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        const { id, created_at, owner_id, status, destination_permits, ...updateData } = formData;
+        updateData.updated_at = new Date().toISOString();
+        const { error } = await supabase.from('destinations').update(updateData).eq('id', id);
+        setIsSaving(false);
+        if (!error) onSave();
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
+                <div className="grid gap-4 py-4">
+                    {Object.keys(formData).filter(key => !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'destination_permits', 'images'].includes(key)).map(key => (
+                        <div className="grid grid-cols-4 items-center gap-4" key={key}>
+                            <Label htmlFor={key} className="text-right capitalize">{key.replace(/_/g, ' ')}</Label>
+                            {key === 'description' || key === 'sustainability_practices' ? (
+                                <Textarea id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
+                            ) : (
+                                <Input id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// ===================================================================================
+// --- MAIN DASHBOARD COMPONENT ---
+// ===================================================================================
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
-  pending: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  archived: 'outline',
+  pending: 'secondary', approved: 'default', rejected: 'destructive', archived: 'outline',
 };
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<any>(null);
@@ -44,13 +119,9 @@ const Dashboard = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [chartData, setChartData] = useState<any[]>([]);
-
-  // State for Edit Destination Modal
+  
   const [editingDestination, setEditingDestination] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  
-  // --- 2. ADD STATE FOR THE PERMITS MODAL ---
   const [viewingDestinationPermits, setViewingDestinationPermits] = useState<any>(null);
   const [isPermitsModalOpen, setIsPermitsModalOpen] = useState(false);
 
@@ -63,33 +134,25 @@ const Dashboard = () => {
     if (user) {
       loadUserData();
     }
-  }, [user, loading, navigate, toast, isAdmin]);
+  }, [user, loading, navigate, isAdmin]);
 
   const loadUserData = async () => {
+    setLoadingData(true);
     try {
-      const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
-      if (profileError && profileError.code !== 'PGRST116') throw profileError;
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
       setProfile(profileData);
 
-      const { data: destinationsData, error: destinationsError } = await supabase.from('destinations').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false });
-      if (destinationsError) throw destinationsError;
-      setUserDestinations(destinationsData || []);
+      const { data: userDestinationsData } = await supabase.from('destinations').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false });
+      setUserDestinations(userDestinationsData || []);
 
       if (isAdmin) {
-        // --- 3. MODIFY THE QUERY TO FETCH PERMITS ---
-        const { data: allDestinationsData, error: allDestinationsError } = await supabase
-          .from('destinations')
-          .select('*, destination_permits(*)') // Fetch all destinations and their related permits
-          .order('created_at', { ascending: false });
-        if (allDestinationsError) throw allDestinationsError;
-        setAllDestinations(allDestinationsData || []);
+        const { data: destData } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
+        setAllDestinations(destData || []);
+        
+        const { data: usersData } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+        setAllUsers(usersData || []);
 
-        const { data: allUsersData, error: allUsersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-        if (allUsersError) throw allUsersError;
-        setAllUsers(allUsersData || []);
-
-        const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name, business_type), profiles!inner(full_name, email)`).order('created_at', { ascending: false });
-        if (ratingsError) throw ratingsError;
+        const { data: ratingsData } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
         setAllRatings(ratingsData || []);
         
         const { data: postsData } = await supabase.from('posts').select('id');
@@ -101,8 +164,7 @@ const Dashboard = () => {
         });
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
-      toast({ title: "Error", description: "Failed to load dashboard data. Please try again.", variant: "destructive" });
+      // Catch block is silent to avoid error toasts for non-critical failures like PGRST116 (no row)
     } finally {
       setLoadingData(false);
     }
@@ -113,33 +175,29 @@ const Dashboard = () => {
       const { error } = await supabase.from('profiles').update(updates).eq('user_id', userId);
       if (error) throw error;
       toast({ title: "User Updated", description: "User profile has been updated successfully." });
-      const { data: updatedUsers } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-      setAllUsers(updatedUsers || []);
+      loadUserData();
       setEditingUser(null);
     } catch (error) {
-      console.error('Error updating user:', error);
       toast({ title: "Error", description: "Failed to update user profile.", variant: "destructive" });
     }
   };
-
+  
   const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived') => {
-    try {
-      const { error } = await supabase.from('destinations').update({ status, updated_at: new Date().toISOString() }).eq('id', destinationId);
-      if (error) throw error;
-      toast({ title: "Destination Updated", description: `The destination has been successfully ${status}.` });
-      loadUserData();
-    } catch (error: any) {
-      console.error(`Error updating destination status:`, error);
-      toast({ title: "Error", description: `Failed to update destination: ${error.message}`, variant: "destructive" });
+    const { error } = await supabase.from('destinations').update({ status, updated_at: new Date().toISOString() }).eq('id', destinationId);
+    if (!error) {
+        toast({ title: "Success", description: `Destination has been ${status}.` });
+        loadUserData();
+    } else {
+        toast({ title: "Error", description: `Failed to ${status} destination.`, variant: "destructive" });
     }
   };
 
-  const handleOpenEditModal = (destination: any) => { setEditingDestination(destination); setIsEditModalOpen(true); };
-  const handleCloseEditModal = () => { setIsEditModalOpen(false); setEditingDestination(null); };
-  const handleSaveEditModal = () => { handleCloseEditModal(); toast({ title: "Success", description: "Destination details have been updated." }); loadUserData(); };
+  const handleOpenEditModal = (dest: any) => { setEditingDestination(dest); setIsEditModalOpen(true); };
+  const handleCloseEditModal = () => setIsEditModalOpen(false);
+  const handleSaveEditModal = () => { handleCloseEditModal(); toast({ title: "Success", description: "Destination details updated." }); loadUserData(); };
   
-  const handleOpenPermitsModal = (destination: any) => { setViewingDestinationPermits(destination); setIsPermitsModalOpen(true); };
-  const handleClosePermitsModal = () => { setIsPermitsModalOpen(false); setViewingDestinationPermits(null); };
+  const handleOpenPermitsModal = (dest: any) => { setViewingDestinationPermits(dest); setIsPermitsModalOpen(true); };
+  const handleClosePermitsModal = () => setIsPermitsModalOpen(false);
 
   if (loading || loadingData) {
     return (
@@ -155,10 +213,8 @@ const Dashboard = () => {
 
   if (!user) return null;
 
-  const userName = profile?.full_name || user.email?.split('@')[0] || 'EcoLakbay User';
-  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
+  const userName = profile?.full_name || user.email?.split('@')[0] || 'User';
 
-  // Admin Dashboard
   if (isAdmin) {
     const totalDestinations = allDestinations.length;
     const totalUsers = allUsers.length;
@@ -167,7 +223,6 @@ const Dashboard = () => {
       <>
         <div className="min-h-screen bg-background">
           <Navigation />
-          
           <div className="bg-gradient-to-r from-red-600 to-red-800 py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center space-x-6">
@@ -179,7 +234,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
           <div className="py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -189,7 +243,6 @@ const Dashboard = () => {
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><div className="text-2xl mb-2">📊</div><div className="text-3xl font-bold text-purple-600 mb-2">{stats.totalCalculations || 0}</div><div className="text-sm text-muted-foreground">Calculations Made</div></CardContent></Card>
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><div className="text-2xl mb-2">🌱</div><div className="text-3xl font-bold text-nature mb-2">{stats.totalCarbonSaved || 0}kg</div><div className="text-sm text-muted-foreground">CO₂ Calculated</div></CardContent></Card>
               </div>
-              
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <Card className="shadow-eco xl:col-span-3">
                   <CardHeader><CardTitle className="text-xl text-forest">Manage All Destinations</CardTitle></CardHeader>
@@ -197,13 +250,9 @@ const Dashboard = () => {
                     <div className="space-y-4 max-h-[600px] overflow-y-auto">
                       {allDestinations.map((dest) => (
                         <div key={dest.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
-                          <div>
-                            <h4 className="font-semibold text-forest">{dest.business_name}</h4>
-                            <p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p>
-                          </div>
+                          <div><p className="font-semibold">{dest.business_name}</p><p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p></div>
                           <div className="flex items-center gap-2">
-                            
-                            <Badge variant={statusColors[dest.status] || 'default'} className="capitalize w-24 text-center justify-center">{dest.status}</Badge>
+                            <Badge variant={statusColors[dest.status] || 'default'} className="capitalize w-24 justify-center">{dest.status}</Badge>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
@@ -220,17 +269,13 @@ const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-
                 <Card className="shadow-eco">
                   <CardHeader><CardTitle className="text-xl text-forest">Recent Ratings</CardTitle></CardHeader>
                   <CardContent>
                     <div className="space-y-4 max-h-96 overflow-y-auto">
                       {allRatings.slice(0, 10).map((rating) => (
                         <div key={rating.id} className="p-4 bg-gradient-card rounded-lg">
-                          <div className="flex items-start justify-between mb-2">
-                            <div><h4 className="font-semibold text-forest">{rating.destinations?.business_name}</h4><p className="text-sm text-muted-foreground">by {rating.profiles?.full_name}</p></div>
-                            <div className="flex items-center gap-1"><span className="text-sm font-medium">{rating.overall_score}/5</span></div>
-                          </div>
+                          <div className="flex items-start justify-between mb-2"><div><h4 className="font-semibold text-forest">{rating.destinations?.business_name}</h4><p className="text-sm text-muted-foreground">by {rating.profiles?.full_name}</p></div><div className="flex items-center gap-1"><span className="text-sm font-medium">{rating.overall_score}/5</span></div></div>
                           <p className="text-xs text-muted-foreground">{new Date(rating.created_at).toLocaleDateString()}</p>
                           {rating.comments && <p className="text-sm mt-2 italic line-clamp-2">{rating.comments}</p>}
                         </div>
@@ -239,7 +284,6 @@ const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-
                 <Card className="shadow-eco xl:col-span-2">
                   <CardHeader>
                     <CardTitle className="text-xl text-forest flex items-center gap-2"><Users className="h-5 w-5" />All Users</CardTitle>
@@ -247,7 +291,7 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {allUsers.filter(user => user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || user.email?.toLowerCase().includes(searchTerm.toLowerCase())).map((user) => (
+                      {allUsers.filter(u => u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase())).map((user) => (
                         <div key={user.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">{user.full_name?.charAt(0) || user.email?.charAt(0)}</div>
@@ -283,14 +327,13 @@ const Dashboard = () => {
           </div>
           <Footer />
         </div>
-        
-        <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />
         <ViewPermitsModal isOpen={isPermitsModalOpen} onClose={handleClosePermitsModal} destination={viewingDestinationPermits} />
+        <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />
       </>
     );
   }
 
-  // Regular User Dashboard
+  // --- REGULAR USER DASHBOARD ---
   const userStats = { name: userName, greenPoints: 0, level: "Eco Starter", tripsCompleted: userDestinations.filter(d => d.status === 'approved').length, carbonSaved: 0, rank: 0, nextLevelPoints: 500 };
   const recentDestinations = userDestinations.slice(0, 3).map(dest => ({ destination: dest.business_name, date: new Date(dest.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), status: dest.status, type: dest.business_type }));
   const achievements = [ { title: "First Eco Trip", icon: "🌱", unlocked: true }, { title: "Carbon Saver", icon: "🌍", unlocked: true }, { title: "Community Helper", icon: "🤝", unlocked: true }, { title: "Green Ambassador", icon: "🏆", unlocked: false }, { title: "Eco Master", icon: "🌟", unlocked: false }, { title: "Planet Protector", icon: "🛡️", unlocked: false } ];
