@@ -20,7 +20,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EditDestinationModal } from "@/components/EditDestinationModal";
-import { ViewPermitsModal } from "@/components/admin/ViewPermitsModal"; // --- 1. IMPORT THE NEW MODAL ---
+import { ViewPermitsModal } from "@/components/ViewPermitsModal"; // --- 1. IMPORT THE NEW MODAL ---
 
 // Helper for status badge colors
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
