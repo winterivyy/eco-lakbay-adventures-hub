@@ -495,7 +495,7 @@ const Destinations = () => {
           </h1>
           <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
             Discover verified eco-friendly destinations that promote environmental conservation 
-            and support local communities in Pampanga.
+            and support local communities across the Philippines.
           </p>
           
           {/* Search and Filter */}
@@ -718,10 +718,10 @@ const Destinations = () => {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
+                 {/* Action Buttons */}
                 <div className="flex gap-3 pt-4 border-t">
                   <Button variant="eco" className="flex-1">
-                    Book Experience
+                    ⭐ Rate It
                   </Button>
                   <Button variant="outline">
                     ❤️ Save
