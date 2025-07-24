@@ -7,15 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useProfanityFilter } from '@/hooks/useProfanityFilter';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
-interface CreatePostModalProps {
+interface EditPostModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPostCreated?: () => void;
+  onPostUpdated?: () => void;
+  post: any;
 }
 
 const postTypes = [
@@ -26,18 +26,27 @@ const postTypes = [
   { value: 'general', label: 'General', points: 5 }
 ];
 
-export const CreatePostModal: React.FC<CreatePostModalProps> = ({ 
+export const EditPostModal: React.FC<EditPostModalProps> = ({ 
   open, 
   onOpenChange, 
-  onPostCreated 
+  onPostUpdated,
+  post 
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
-  const { checkProfanity, hasProfanity, detectedWords, resetFilter } = useProfanityFilter();
+  const { checkProfanity, hasProfanity, resetFilter } = useProfanityFilter();
+
+  // Initialize form with post data
+  useEffect(() => {
+    if (post && open) {
+      setTitle(post.title || '');
+      setContent(post.content || '');
+      setType(post.type || '');
+    }
+  }, [post, open]);
 
   // Check for profanity whenever content or title changes
   useEffect(() => {
@@ -52,15 +61,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to create a post.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!title.trim() || !content.trim() || !type) {
       toast({
         title: "Missing information",
@@ -84,35 +84,27 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     try {
       const { error } = await supabase
         .from('posts')
-        .insert({
+        .update({
           title: title.trim(),
           content: content.trim(),
           type,
-          author_id: user.id
-        });
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', post.id);
 
       if (error) throw error;
 
-      const selectedType = postTypes.find(t => t.value === type);
-      const basePoints = selectedType?.points || 5;
-      const bonusPoints = content.length > 100 ? 5 : 0;
-      const totalPoints = basePoints + bonusPoints;
-
       toast({
-        title: "Post created successfully!",
-        description: `You earned ${totalPoints} points for this ${selectedType?.label.toLowerCase()}!`,
+        title: "Post updated successfully!",
+        description: "Your changes have been saved.",
       });
 
-      // Reset form
-      setTitle('');
-      setContent('');
-      setType('');
       onOpenChange(false);
-      onPostCreated?.();
+      onPostUpdated?.();
     } catch (error) {
-      console.error('Error creating post:', error);
+      console.error('Error updating post:', error);
       toast({
-        title: "Error creating post",
+        title: "Error updating post",
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
@@ -121,11 +113,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
+  const handleClose = () => {
+    setTitle('');
+    setContent('');
+    setType('');
+    resetFilter();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Post</DialogTitle>
+          <DialogTitle>Edit Post</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -137,7 +137,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <SelectContent>
                 {postTypes.map((postType) => (
                   <SelectItem key={postType.value} value={postType.value}>
-                    {postType.label} (+{postType.points} points)
+                    {postType.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -165,10 +165,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               rows={6}
               required
             />
-            <p className="text-sm text-muted-foreground mt-1">
-              {content.length > 100 ? '+5 bonus points for detailed content!' : 
-               `${100 - content.length} more characters for bonus points`}
-            </p>
           </div>
           
           {hasProfanity && (
@@ -184,14 +180,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
               className="flex-1"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button type="submit" disabled={loading || hasProfanity} className="flex-1">
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Create Post
+              Update Post
             </Button>
           </div>
         </form>

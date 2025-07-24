@@ -11,18 +11,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Shield, Users, TrendingUp, Heart, MessageSquare, Share2, Send } from "lucide-react";
+import { Plus, Shield, Users, TrendingUp, Heart, MessageSquare, Share2, Send, Edit, Trash2, MoreVertical } from "lucide-react";
+import { EditPostModal } from "@/components/EditPostModal";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Community = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
+  const [editPostModalOpen, setEditPostModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<any>(null);
   const [comments, setComments] = useState<{ [key: string]: any[] }>({});
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [showComments, setShowComments] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuth();
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin, isModerator, role } = useUserRole();
   const { toast } = useToast();
 
   const fetchPosts = async () => {
@@ -285,6 +290,58 @@ const Community = () => {
     }
   };
 
+  const handleEditPost = (post: any) => {
+    setEditingPost(post);
+    setEditPostModalOpen(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      // Delete all comments first
+      await supabase
+        .from('comments')
+        .delete()
+        .eq('post_id', postId);
+
+      // Delete all likes
+      await supabase
+        .from('post_likes')
+        .delete()
+        .eq('post_id', postId);
+
+      // Delete the post
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Post deleted",
+        description: "The post has been successfully removed.",
+      });
+
+      fetchPosts();
+      fetchTopProfiles();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete post",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const canEditPost = (post: any) => {
+    return isAdmin || isModerator || (user && post.author_id === user.id);
+  };
+
+  const canDeletePost = (post: any) => {
+    return isAdmin || (user && post.author_id === user.id);
+  };
+
   const upcomingEvents = [
     {
       title: "Mangrove Planting Day",
@@ -412,17 +469,66 @@ const Community = () => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {post.type}
-                            </Badge>
-                            {post.profiles?.points && (
-                              <div className="flex items-center space-x-1 text-amber-600">
-                                <span className="text-xs">🌟</span>
-                                <span className="text-xs font-medium">{post.profiles.points} pts</span>
-                              </div>
-                            )}
-                          </div>
+                           <div className="flex items-center gap-2">
+                             <Badge variant="outline" className="text-xs capitalize">
+                               {post.type}
+                             </Badge>
+                             {post.profiles?.points && (
+                               <div className="flex items-center space-x-1 text-amber-600">
+                                 <span className="text-xs">🌟</span>
+                                 <span className="text-xs font-medium">{post.profiles.points} pts</span>
+                               </div>
+                             )}
+                             
+                             {/* Admin Controls */}
+                             {(canEditPost(post) || canDeletePost(post)) && (
+                               <DropdownMenu>
+                                 <DropdownMenuTrigger asChild>
+                                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                     <MoreVertical className="h-4 w-4" />
+                                   </Button>
+                                 </DropdownMenuTrigger>
+                                 <DropdownMenuContent align="end">
+                                   {canEditPost(post) && (
+                                     <DropdownMenuItem onClick={() => handleEditPost(post)}>
+                                       <Edit className="h-4 w-4 mr-2" />
+                                       Edit Post
+                                     </DropdownMenuItem>
+                                   )}
+                                   {canDeletePost(post) && (
+                                     <AlertDialog>
+                                       <AlertDialogTrigger asChild>
+                                         <DropdownMenuItem 
+                                           onSelect={(e) => e.preventDefault()}
+                                           className="text-destructive focus:text-destructive"
+                                         >
+                                           <Trash2 className="h-4 w-4 mr-2" />
+                                           Delete Post
+                                         </DropdownMenuItem>
+                                       </AlertDialogTrigger>
+                                       <AlertDialogContent>
+                                         <AlertDialogHeader>
+                                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                           <AlertDialogDescription>
+                                             This action cannot be undone. This will permanently delete the post and all its comments.
+                                           </AlertDialogDescription>
+                                         </AlertDialogHeader>
+                                         <AlertDialogFooter>
+                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                           <AlertDialogAction 
+                                             onClick={() => handleDeletePost(post.id)}
+                                             className="bg-destructive hover:bg-destructive/90"
+                                           >
+                                             Delete
+                                           </AlertDialogAction>
+                                         </AlertDialogFooter>
+                                       </AlertDialogContent>
+                                     </AlertDialog>
+                                   )}
+                                 </DropdownMenuContent>
+                               </DropdownMenu>
+                             )}
+                           </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -645,6 +751,13 @@ const Community = () => {
         open={createPostModalOpen}
         onOpenChange={setCreatePostModalOpen}
         onPostCreated={handlePostCreated}
+      />
+      
+      <EditPostModal 
+        open={editPostModalOpen}
+        onOpenChange={setEditPostModalOpen}
+        onPostUpdated={handlePostCreated}
+        post={editingPost}
       />
     </div>
   );
