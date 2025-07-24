@@ -136,6 +136,7 @@ const Dashboard = () => {
     }
   }, [user, loading, navigate, isAdmin]);
 
+  // --- REVISED `loadUserData` with proper error handling ---
   const loadUserData = async () => {
     setLoadingData(true);
     try {
@@ -146,13 +147,16 @@ const Dashboard = () => {
       setUserDestinations(userDestinationsData || []);
 
       if (isAdmin) {
-        const { data: destData } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
+        const { data: destData, error: destError } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
+        if (destError) throw destError;
         setAllDestinations(destData || []);
         
-        const { data: usersData } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+        const { data: usersData, error: usersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+        if (usersError) throw usersError;
         setAllUsers(usersData || []);
 
-        const { data: ratingsData } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
+        const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
+        if (ratingsError) throw ratingsError;
         setAllRatings(ratingsData || []);
         
         const { data: postsData } = await supabase.from('posts').select('id');
@@ -163,8 +167,14 @@ const Dashboard = () => {
           totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0 * 100) / 100
         });
       }
-    } catch (error) {
-      // Catch block is silent to avoid error toasts for non-critical failures like PGRST116 (no row)
+    } catch (error: any) {
+        console.error('Error loading dashboard data:', error);
+        toast({
+            title: "Data Loading Error",
+            description: `Failed to load data: ${error.message}. Please check your RLS policies.`,
+            variant: "destructive",
+            duration: 9000,
+        });
     } finally {
       setLoadingData(false);
     }
@@ -175,7 +185,7 @@ const Dashboard = () => {
       const { error } = await supabase.from('profiles').update(updates).eq('user_id', userId);
       if (error) throw error;
       toast({ title: "User Updated", description: "User profile has been updated successfully." });
-      loadUserData();
+      loadUserData(); // Refresh data after update
       setEditingUser(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to update user profile.", variant: "destructive" });
