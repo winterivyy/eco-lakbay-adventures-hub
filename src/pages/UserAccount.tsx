@@ -32,11 +32,12 @@ const UserAccount = () => {
   }, [user]);
 
   const fetchProfile = async () => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -64,11 +65,13 @@ const UserAccount = () => {
 
     setLoading(true);
     try {
+      // --- THE FIX IS HERE ---
+      // We remove the 'email' field because it's part of the 'auth.users' table,
+      // not your 'profiles' table.
       const { error } = await supabase
         .from('profiles')
         .upsert({
-          user_id: user.id,
-          email: user.email!,
+          user_id: user.id, // This is the primary key and link to the auth user
           full_name: profile.full_name,
           bio: profile.bio,
           location: profile.location,
@@ -103,9 +106,10 @@ const UserAccount = () => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
+      // Using 'upsert: true' is safer as it will overwrite an existing file if needed.
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file);
+        .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -114,10 +118,16 @@ const UserAccount = () => {
         .getPublicUrl(fileName);
 
       setProfile(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      
+      // Also update the database immediately after uploading a new avatar
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('user_id', user.id);
 
       toast({
         title: "Success",
-        description: "Profile picture uploaded successfully"
+        description: "Profile picture uploaded and saved."
       });
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -136,6 +146,7 @@ const UserAccount = () => {
   }
 
   const getInitials = (name: string) => {
+    if (!name) return "";
     return name
       .split(' ')
       .map(n => n[0])
@@ -167,7 +178,7 @@ const UserAccount = () => {
                 <Avatar className="w-32 h-32">
                   <AvatarImage src={profile.avatar_url} />
                   <AvatarFallback className="text-2xl">
-                    {profile.full_name ? getInitials(profile.full_name) : user.email?.charAt(0).toUpperCase()}
+                    {getInitials(profile.full_name) || user.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 
