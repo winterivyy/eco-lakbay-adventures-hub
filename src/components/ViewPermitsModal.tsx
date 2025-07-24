@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { FileText, Download } from 'lucide-react';
 
 // Define the shape of the permit object based on your schema
@@ -27,6 +26,7 @@ interface ViewPermitsModalProps {
 export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onClose, destination }) => {
     if (!destination) return null;
 
+    // Use a safety check in case destination_permits is null or undefined
     const permits = destination.destination_permits || [];
 
     return (
