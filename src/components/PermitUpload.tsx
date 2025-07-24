@@ -14,7 +14,7 @@ interface PermitFile {
   id: string;
   file: File;
   permitType: string;
-  status: 'uploading' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'success' | 'error';
   url?: string;
 }
 
@@ -94,7 +94,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
       id: Math.random().toString(36).substr(2, 9),
       file,
       permitType: '',
-      status: 'uploading' as const
+      status: 'pending' as const
     }));
 
     setPermits(prev => [...prev, ...newPermits]);
@@ -111,9 +111,15 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
   };
 
   const uploadPermits = async () => {
+    console.log('All permits:', permits);
     const permitsToUpload = permits.filter(permit => permit.permitType && permit.status !== 'success');
+    console.log('Permits to upload:', permitsToUpload);
     
     if (permitsToUpload.length === 0) {
+      console.log('No permits to upload - checking reasons:');
+      permits.forEach(permit => {
+        console.log(`Permit ${permit.id}: type=${permit.permitType}, status=${permit.status}`);
+      });
       toast({
         title: "No permits to upload",
         description: "Please add permits and select their types.",
