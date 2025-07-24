@@ -16,19 +16,26 @@ interface EditDestinationModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: () => void;
-    destination: Destination | null;
+    destination: Destination | null; // Allow destination to be null
 }
 
 export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOpen, onClose, onSave, destination }) => {
-    const [formData, setFormData] = useState(destination);
+    const [formData, setFormData] = useState<Destination | null>(destination);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // This hook keeps the form data in sync with the selected destination
     useEffect(() => {
         setFormData(destination);
     }, [destination]);
 
-    if (!destination) return null;
+    // --- THIS IS THE FIX ---
+    // If there is no destination, don't render anything. This prevents
+    // the crash when the modal is closing.
+    if (!destination || !formData) {
+        return null;
+    }
+    // -----------------------
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
@@ -40,7 +47,8 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
         setIsSaving(true);
         setError(null);
 
-        const { id, created_at, owner_id, status, ...updateData } = formData;
+        // Exclude fields that shouldn't be updated directly
+        const { id, created_at, owner_id, status, rating, review_count, ...updateData } = formData;
         updateData.updated_at = new Date().toISOString();
 
         const { error } = await supabase
@@ -64,7 +72,13 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
                     <DialogTitle>Update Destination: {destination.business_name}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    {Object.keys(formData).filter(key => !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count'].includes(key) && typeof formData[key] !== 'object').map(key => (
+                    {/* Filter out keys we don't want to show in the form */}
+                    {Object.keys(formData).filter(key => 
+                        ![
+                            'id', 'created_at', 'updated_at', 'owner_id', 'status', 
+                            'rating', 'review_count', 'images' // also hiding images for now
+                        ].includes(key) && typeof formData[key] !== 'object'
+                    ).map(key => (
                          <div className="grid grid-cols-4 items-center gap-4" key={key}>
                             <Label htmlFor={key} className="text-right capitalize">
                                 {key.replace(/_/g, ' ')}
