@@ -60,26 +60,32 @@ const UserAccount = () => {
     }
   };
 
-  const updateProfile = async () => {
+  // Replace the existing updateProfile function in your UserAccount.tsx
+
+const updateProfile = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // --- THE FIX IS HERE ---
-      // We remove the 'email' field because it's part of the 'auth.users' table,
-      // not your 'profiles' table.
+      // Define the specific data payload to send.
+      // This prevents accidentally trying to update columns like user_id or created_at.
+      const updatePayload = {
+        full_name: profile.full_name,
+        bio: profile.bio,
+        location: profile.location,
+        avatar_url: profile.avatar_url,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id, // This is the primary key and link to the auth user
-          full_name: profile.full_name,
-          bio: profile.bio,
-          location: profile.location,
-          avatar_url: profile.avatar_url,
-          updated_at: new Date().toISOString()
-        });
+        .update(updatePayload) // Use .update() since we are only editing an existing profile
+        .eq('user_id', user.id); // Specify which row to update
 
-      if (error) throw error;
+      if (error) {
+        // This will now throw an error if RLS is blocking the update
+        throw error;
+      }
 
       toast({
         title: "Success",
@@ -88,15 +94,14 @@ const UserAccount = () => {
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
-        title: "Error",
-        description: "Failed to update profile",
+        title: "Error updating profile",
+        description: (error as any).message || "Please check the console for details.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
