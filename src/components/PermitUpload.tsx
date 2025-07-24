@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileText, X, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'; // Added Loader2 for spinner
 import { Badge } from '@/components/ui/badge';
 
+// 1. Updated Interface with 'uploading' status
 interface PermitFile {
   id: string;
   file: File;
@@ -52,7 +53,6 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
@@ -72,7 +72,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
       if (!validTypes.includes(file.type)) {
         toast({
           title: "Invalid file type",
-          description: `${file.name} is not a supported file type. Please upload PDF, JPG, or PNG files.`,
+          description: `${file.name} is not a supported file type.`,
           variant: "destructive",
         });
         return false;
@@ -81,12 +81,11 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
       if (file.size > maxSize) {
         toast({
           title: "File too large",
-          description: `${file.name} is too large. Maximum file size is 10MB.`,
+          description: `${file.name} exceeds the 10MB size limit.`,
           variant: "destructive",
         });
         return false;
       }
-      
       return true;
     });
 
@@ -110,28 +109,27 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
     setPermits(prev => prev.filter(permit => permit.id !== permitId));
   };
 
+  // 2. Reworked uploadPermits function for individual error handling
   const uploadPermits = async () => {
-    console.log('All permits:', permits);
-    const permitsToUpload = permits.filter(permit => permit.permitType && permit.status !== 'success');
-    console.log('Permits to upload:', permitsToUpload);
+    const permitsToUpload = permits.filter(permit => 
+      permit.permitType && (permit.status === 'pending' || permit.status === 'error')
+    );
     
     if (permitsToUpload.length === 0) {
-      console.log('No permits to upload - checking reasons:');
-      permits.forEach(permit => {
-        console.log(`Permit ${permit.id}: type=${permit.permitType}, status=${permit.status}`);
-      });
       toast({
-        title: "No permits to upload",
-        description: "Please add permits and select their types.",
+        title: "No new permits to upload",
+        description: "Please add documents and select their types, or retry failed uploads.",
         variant: "destructive",
       });
       return;
     }
 
-    // Check for required permits
     const requiredTypes = permitTypes.filter(type => type.required).map(type => type.value);
-    const uploadedTypes = permitsToUpload.map(permit => permit.permitType);
-    const missingRequired = requiredTypes.filter(type => !uploadedTypes.includes(type));
+    const allPermitTypes = permits
+      .filter(p => p.status === 'success' || permitsToUpload.some(ptu => ptu.id === p.id))
+      .map(p => p.permitType);
+      
+    const missingRequired = requiredTypes.filter(type => !allPermitTypes.includes(type));
     
     if (missingRequired.length > 0) {
       const missingLabels = permitTypes
@@ -141,34 +139,35 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
       
       toast({
         title: "Missing required permits",
-        description: `Please upload the following required permits: ${missingLabels}`,
+        description: `Please upload the following: ${missingLabels}`,
         variant: "destructive",
       });
       return;
     }
 
     setIsUploading(true);
+    const successfulUploads: any[] = [];
+    const failedUploads: PermitFile[] = [];
 
-    try {
-      const uploadedPermits = [];
+    for (const permit of permitsToUpload) {
+      try {
+        setPermits(prev => prev.map(p => 
+          p.id === permit.id ? { ...p, status: 'uploading' as const } : p
+        ));
 
-      for (const permit of permitsToUpload) {
         const fileExt = permit.file.name.split('.').pop();
         const fileName = `${userId}/${permit.permitType}_${Date.now()}.${fileExt}`;
         
-        // Upload file to storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('permits')
           .upload(fileName, permit.file);
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('permits')
           .getPublicUrl(fileName);
 
-        // Save permit record to database
         const { data: permitData, error: permitError } = await supabase
           .from('destination_permits')
           .insert({
@@ -183,37 +182,40 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
 
         if (permitError) throw permitError;
 
-        uploadedPermits.push(permitData);
-
-        // Update permit status
         setPermits(prev => prev.map(p => 
           p.id === permit.id ? { ...p, status: 'success' as const, url: publicUrl } : p
         ));
+        successfulUploads.push(permitData);
+
+      } catch (error) {
+        console.error('Failed to upload permit:', permit.file.name, error);
+        failedUploads.push(permit);
+        
+        setPermits(prev => prev.map(p => 
+          p.id === permit.id ? { ...p, status: 'error' as const } : p
+        ));
       }
+    }
 
+    setIsUploading(false);
+
+    if (successfulUploads.length > 0) {
       toast({
-        title: "Permits uploaded successfully",
-        description: `${uploadedPermits.length} permit(s) uploaded and submitted for verification.`,
+        title: "Uploads Complete",
+        description: `${successfulUploads.length} document(s) uploaded successfully.`,
       });
+    }
 
-      onPermitsUploaded?.(uploadedPermits);
-
-    } catch (error) {
-      console.error('Error uploading permits:', error);
+    if (failedUploads.length > 0) {
       toast({
-        title: "Upload failed",
-        description: "There was an error uploading your permits. Please try again.",
+        title: "Some uploads failed",
+        description: `${failedUploads.length} document(s) failed. Please review them and try again.`,
         variant: "destructive",
       });
+    }
 
-      // Update failed permits
-      setPermits(prev => prev.map(permit => 
-        permitsToUpload.some(p => p.id === permit.id) 
-          ? { ...permit, status: 'error' as const }
-          : permit
-      ));
-    } finally {
-      setIsUploading(false);
+    if (onPermitsUploaded && successfulUploads.length > 0) {
+      onPermitsUploaded(successfulUploads);
     }
   };
 
@@ -223,13 +225,14 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
     return '📎';
   };
 
-  const requiredPermits = permitTypes.filter(type => type.required);
-  const uploadedRequiredTypes = permits
+  const allUploadedPermitTypes = permits
     .filter(p => p.status === 'success')
     .map(p => p.permitType);
-  const missingRequired = requiredPermits.filter(type => 
-    !uploadedRequiredTypes.includes(type.value)
-  );
+
+  const pendingOrFailedPermits = permits.filter(p => p.status === 'pending' || p.status === 'error');
+  const allRequiredPermitsAreStaged = permitTypes
+    .filter(p => p.required)
+    .every(req => [...allUploadedPermitTypes, ...pendingOrFailedPermits.map(p => p.permitType)].includes(req.value));
 
   return (
     <Card className="w-full">
@@ -241,62 +244,38 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Upload the required permits and licenses for your establishment. All documents must be valid and current.
-            Supported formats: PDF, JPG, PNG (max 10MB each).
+            Upload the required permits for your establishment. Supported formats: PDF, JPG, PNG (max 10MB each).
           </AlertDescription>
         </Alert>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Required Permits Checklist */}
         <div>
-          <h4 className="font-medium mb-3">Required Documents:</h4>
+          <h4 className="font-medium mb-3">Required Documents Checklist:</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {requiredPermits.map(type => {
-              const isUploaded = uploadedRequiredTypes.includes(type.value);
+            {permitTypes.filter(t => t.required).map(type => {
+              const isUploaded = allUploadedPermitTypes.includes(type.value);
               return (
                 <div key={type.value} className="flex items-center gap-2">
-                  {isUploaded ? (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                  )}
-                  <span className={`text-sm ${isUploaded ? 'text-green-700' : 'text-muted-foreground'}`}>
+                  {isUploaded ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-muted-foreground" />}
+                  <span className={`text-sm ${isUploaded ? 'text-green-700 font-medium' : 'text-muted-foreground'}`}>
                     {type.label}
                   </span>
-                  {isUploaded && (
-                    <Badge variant="secondary" className="text-xs">
-                      Uploaded
-                    </Badge>
-                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* File Upload Area */}
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
           }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
         >
           <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <h4 className="text-lg font-medium mb-2">Upload Permit Documents</h4>
-          <p className="text-muted-foreground mb-4">
-            Drag and drop files here, or click to browse
-          </p>
-          <Input
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={handleFileInput}
-            className="hidden"
-            id="permit-upload"
-          />
+          <p className="text-muted-foreground mb-4">Drag and drop files here, or click to browse</p>
+          <Input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileInput} className="hidden" id="permit-upload" />
           <Label htmlFor="permit-upload">
             <Button variant="outline" asChild>
               <span>Choose Files</span>
@@ -304,10 +283,9 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
           </Label>
         </div>
 
-        {/* Uploaded Files List */}
         {permits.length > 0 && (
           <div className="space-y-3">
-            <h4 className="font-medium">Uploaded Documents:</h4>
+            <h4 className="font-medium">Documents to be Uploaded:</h4>
             {permits.map(permit => (
               <div key={permit.id} className="flex items-center gap-3 p-3 border rounded-lg">
                 <span className="text-2xl">{getFileIcon(permit.file.type)}</span>
@@ -322,9 +300,10 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
                   <Select
                     value={permit.permitType}
                     onValueChange={(value) => updatePermitType(permit.id, value)}
+                    disabled={permit.status === 'success' || permit.status === 'uploading'}
                   >
                     <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Select permit type" />
+                      <SelectValue placeholder="Select permit type..." />
                     </SelectTrigger>
                     <SelectContent>
                       {permitTypes.map(type => (
@@ -335,23 +314,18 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
                     </SelectContent>
                   </Select>
                   
-                  {permit.status === 'success' && (
-                    <Badge variant="secondary" className="text-green-700">
-                      Uploaded
-                    </Badge>
-                  )}
-                  
-                  {permit.status === 'error' && (
-                    <Badge variant="destructive">
-                      Failed
-                    </Badge>
-                  )}
+                  {/* 3. Added visual indicators for all statuses */}
+                  {permit.status === 'uploading' && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                  {permit.status === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
+                  {permit.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" title="Upload Failed" />}
                   
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    className="w-8 h-8"
                     onClick={() => removePermit(permit.id)}
                     disabled={permit.status === 'success'}
+                    aria-label="Remove file"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -361,26 +335,16 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, onPermitsUpl
           </div>
         )}
 
-        {/* Upload Button */}
         {permits.length > 0 && (
-          <div className="flex flex-col gap-4">
-            {missingRequired.length > 0 && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Missing required permits: {missingRequired.map(type => type.label).join(', ')}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <Button
-              onClick={uploadPermits}
-              disabled={isUploading || permits.every(p => p.status === 'success') || missingRequired.length > 0}
-              className="w-full"
-            >
-              {isUploading ? 'Uploading...' : 'Submit Documents for Verification'}
-            </Button>
-          </div>
+          <Button
+            onClick={uploadPermits}
+            disabled={isUploading || pendingOrFailedPermits.length === 0 || !allRequiredPermitsAreStaged}
+            className="w-full"
+          >
+            {isUploading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
+            ) : `Submit ${pendingOrFailedPermits.length > 0 ? pendingOrFailedPermits.length : ''} Document(s)`}
+          </Button>
         )}
       </CardContent>
     </Card>
