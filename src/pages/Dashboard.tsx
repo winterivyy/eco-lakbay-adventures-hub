@@ -202,6 +202,7 @@ const Dashboard = () => {
                             <p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p>
                           </div>
                           <div className="flex items-center gap-2">
+                            
                             <Badge variant={statusColors[dest.status] || 'default'} className="capitalize w-24 text-center justify-center">{dest.status}</Badge>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
