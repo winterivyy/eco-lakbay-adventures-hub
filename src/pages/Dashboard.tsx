@@ -19,7 +19,7 @@ import { Edit2, Users, TrendingUp, MapPin, Search, Plus, BarChart3, MoreHorizont
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { EditDestinationModal } from "@/components/admin/EditDestinationModal";
+import { EditDestinationModal } from "@/components/EditDestinationModal";
 
 // Helper for status badge colors
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
