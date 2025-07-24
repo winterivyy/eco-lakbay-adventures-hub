@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Star, MapPin, Calendar, Users } from "lucide-react";
+import { DestinationRatingModal } from "@/components/DestinationRatingModal";
 
 // Import images
 import bataanBeach from "@/assets/bataan-beach.jpg";
@@ -29,6 +30,7 @@ import manilaRooftop from "@/assets/manila-real-rooftop.jpg";
 const Destinations = () => {
   const [selectedDestination, setSelectedDestination] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
   const handleDestinationClick = (destination: any) => {
     setSelectedDestination(destination);
@@ -38,6 +40,11 @@ const Destinations = () => {
   const handleLearnMore = (destination: any) => {
     setSelectedDestination(destination);
     setIsModalOpen(true);
+  };
+
+  const handleRateDestination = (destination: any) => {
+    setSelectedDestination(destination);
+    setIsRatingModalOpen(true);
   };
 
   const destinations = [
@@ -720,7 +727,14 @@ const Destinations = () => {
 
                  {/* Action Buttons */}
                 <div className="flex gap-3 pt-4 border-t">
-                  <Button variant="eco" className="flex-1">
+                  <Button 
+                    variant="eco" 
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRateDestination(selectedDestination);
+                    }}
+                  >
                     ⭐ Rate It
                   </Button>
                   <Button variant="outline">
@@ -735,6 +749,13 @@ const Destinations = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Destination Rating Modal */}
+      <DestinationRatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        destination={selectedDestination}
+      />
 
       <Footer />
     </div>
