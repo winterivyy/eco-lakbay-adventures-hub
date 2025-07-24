@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DestinationRatingModalProps {
   isOpen: boolean;
@@ -69,10 +71,25 @@ const ratingScale = [
 ];
 
 export const DestinationRatingModal = ({ isOpen, onClose, destination }: DestinationRatingModalProps) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("Tourist Sites");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Map business types to rating categories
+  const getCategoryFromBusinessType = (businessType: string) => {
+    const type = businessType?.toLowerCase();
+    if (type?.includes('restaurant') || type?.includes('café') || type?.includes('cafe') || type?.includes('food')) {
+      return "Cafés and Restaurants";
+    }
+    if (type?.includes('hotel') || type?.includes('resort') || type?.includes('lodge') || type?.includes('accommodation')) {
+      return "Lodging";
+    }
+    return "Tourist Sites";
+  };
+  
+  const selectedCategory = getCategoryFromBusinessType(destination?.business_type);
 
   const getCurrentCriteria = () => {
     switch (selectedCategory) {
@@ -116,7 +133,16 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
     return { score: 1, label: "Poor", color: "bg-red-500", description: "Unsustainable" };
   };
 
-  const handleSubmitRating = () => {
+  const handleSubmitRating = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to submit a rating.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const criteria = getCurrentCriteria();
     const missingRatings = criteria.filter((_, index) => !ratings[index.toString()]);
     
@@ -129,15 +155,48 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
       return;
     }
 
-    const overallRating = calculateOverallRating();
+    setSubmitting(true);
     
-    // Here you would typically save to database
-    toast({
-      title: "Rating Submitted!",
-      description: `Thank you for rating ${destination?.name}. Overall score: ${overallRating.label}`,
-    });
-    
-    onClose();
+    try {
+      const overallRating = calculateOverallRating();
+      
+      // Prepare rating data with criteria and scores
+      const ratingData = {
+        category: selectedCategory,
+        criteria: criteria.map((criterion, index) => ({
+          question: criterion,
+          score: ratings[index.toString()]
+        }))
+      };
+
+      const { error } = await supabase
+        .from('destination_ratings')
+        .upsert({
+          destination_id: destination.id,
+          user_id: user.id,
+          rating_data: ratingData,
+          overall_score: overallRating.score,
+          comments: comments.trim() || null
+        });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Rating Submitted!",
+        description: `Thank you for rating ${destination?.business_name}. Overall score: ${overallRating.label}`,
+      });
+      
+      onClose();
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit rating. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const criteria = getCurrentCriteria();
@@ -148,7 +207,7 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-forest">
-            Rate {destination?.name}
+            Rate {destination?.business_name}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             Rate each criterion from 1 (Strongly Disagree) to 5 (Excellent) based on your observation.
@@ -156,18 +215,16 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Category Selection */}
-          <div className="flex gap-2 flex-wrap">
-            {["Tourist Sites", "Cafés and Restaurants", "Lodging"].map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                onClick={() => setSelectedCategory(category)}
-                className="text-sm"
-              >
-                {category}
-              </Button>
-            ))}
+          {/* Category Display */}
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-medium">
+                {selectedCategory}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Category automatically determined from business type: {destination?.business_type}
+              </span>
+            </div>
           </div>
 
           {/* Rating Criteria */}
@@ -237,11 +294,16 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+            <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
               Cancel
             </Button>
-            <Button variant="eco" onClick={handleSubmitRating} className="flex-1">
-              Submit Rating
+            <Button 
+              variant="eco" 
+              onClick={handleSubmitRating} 
+              className="flex-1"
+              disabled={submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Rating"}
             </Button>
           </div>
         </div>

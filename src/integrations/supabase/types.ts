@@ -85,6 +85,47 @@ export type Database = {
           },
         ]
       }
+      destination_ratings: {
+        Row: {
+          comments: string | null
+          created_at: string
+          destination_id: string
+          id: string
+          overall_score: number
+          rating_data: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          destination_id: string
+          id?: string
+          overall_score: number
+          rating_data: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          destination_id?: string
+          id?: string
+          overall_score?: number
+          rating_data?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "destination_ratings_destination_id_fkey"
+            columns: ["destination_id"]
+            isOneToOne: false
+            referencedRelation: "destinations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       destinations: {
         Row: {
           address: string

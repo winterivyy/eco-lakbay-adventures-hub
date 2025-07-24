@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [userDestinations, setUserDestinations] = useState<any[]>([]);
   const [allDestinations, setAllDestinations] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allRatings, setAllRatings] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
   const [editingUser, setEditingUser] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -94,6 +95,19 @@ const Dashboard = () => {
 
         if (allUsersError) throw allUsersError;
         setAllUsers(allUsersData || []);
+
+        // Load all ratings for admin
+        const { data: ratingsData, error: ratingsError } = await supabase
+          .from('destination_ratings')
+          .select(`
+            *,
+            destinations!inner(business_name, business_type),
+            profiles!inner(full_name, email)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (ratingsError) throw ratingsError;
+        setAllRatings(ratingsData || []);
 
         // Load statistics
         const { data: postsData, error: postsError } = await supabase
@@ -342,7 +356,7 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               {/* Pending Destinations */}
               <Card className="shadow-eco">
                 <CardHeader>
@@ -377,6 +391,45 @@ const Dashboard = () => {
                     ))}
                     {pendingDestinations === 0 && (
                       <p className="text-center text-muted-foreground py-8">No pending destinations</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Ratings */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-xl text-forest">Recent Ratings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {allRatings.slice(0, 10).map((rating) => (
+                      <div key={rating.id} className="p-4 bg-gradient-card rounded-lg">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-semibold text-forest">{rating.destinations?.business_name}</h4>
+                            <p className="text-sm text-muted-foreground">by {rating.profiles?.full_name}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-6 h-6 rounded-full ${
+                              rating.overall_score >= 4.5 ? 'bg-green-500' :
+                              rating.overall_score >= 3.5 ? 'bg-lime-500' :
+                              rating.overall_score >= 2.5 ? 'bg-yellow-500' :
+                              rating.overall_score >= 1.5 ? 'bg-orange-500' : 'bg-red-500'
+                            }`} />
+                            <span className="text-sm font-medium">{rating.overall_score}/5</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(rating.created_at).toLocaleDateString()}
+                        </p>
+                        {rating.comments && (
+                          <p className="text-sm mt-2 italic line-clamp-2">{rating.comments}</p>
+                        )}
+                      </div>
+                    ))}
+                    {allRatings.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No ratings yet</p>
                     )}
                   </div>
                 </CardContent>

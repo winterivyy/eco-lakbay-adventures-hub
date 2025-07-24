@@ -22,6 +22,7 @@ const SuperAdminDashboard = () => {
   const { isAdmin, loading } = useUserRole();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
+  const [allRatings, setAllRatings] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState({ full_name: "", email: "", bio: "", location: "" });
@@ -29,7 +30,9 @@ const SuperAdminDashboard = () => {
     totalUsers: 0,
     totalPosts: 0,
     totalDestinations: 0,
-    totalAdmins: 0
+    totalAdmins: 0,
+    totalRatings: 0,
+    averageRating: 0
   });
   const [chartData, setChartData] = useState<any[]>([]);
 
@@ -70,6 +73,19 @@ const SuperAdminDashboard = () => {
       });
 
       setUsers(usersWithRoles || []);
+
+      // Load ratings
+      const { data: ratingsData, error: ratingsError } = await supabase
+        .from('destination_ratings')
+        .select(`
+          *,
+          destinations!inner(business_name, business_type),
+          profiles!inner(full_name, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (ratingsError) throw ratingsError;
+      setAllRatings(ratingsData || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -82,18 +98,25 @@ const SuperAdminDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const [usersResult, postsResult, destinationsResult, adminsResult] = await Promise.all([
+      const [usersResult, postsResult, destinationsResult, adminsResult, ratingsResult] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('posts').select('id', { count: 'exact' }),
         supabase.from('destinations').select('id', { count: 'exact' }),
-        supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin')
+        supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
+        supabase.from('destination_ratings').select('overall_score', { count: 'exact' })
       ]);
+
+      const avgRating = ratingsResult.data && ratingsResult.data.length > 0 
+        ? ratingsResult.data.reduce((sum, r) => sum + r.overall_score, 0) / ratingsResult.data.length 
+        : 0;
 
       setStats({
         totalUsers: usersResult.count || 0,
         totalPosts: postsResult.count || 0,
         totalDestinations: destinationsResult.count || 0,
-        totalAdmins: adminsResult.count || 0
+        totalAdmins: adminsResult.count || 0,
+        totalRatings: ratingsResult.count || 0,
+        averageRating: Math.round(avgRating * 100) / 100
       });
 
       // Generate chart data for the last 7 days
@@ -230,7 +253,7 @@ const SuperAdminDashboard = () => {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -268,6 +291,26 @@ const SuperAdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Ratings</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalRatings}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.averageRating}/5</div>
               </CardContent>
             </Card>
           </div>
