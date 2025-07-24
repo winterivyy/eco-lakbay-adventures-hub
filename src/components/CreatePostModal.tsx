@@ -37,51 +37,34 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { checkProfanity, hasProfanity, detectedWords, resetFilter } = useProfanityFilter();
+  const { hasProfanity, checkProfanity } = useProfanityFilter();
 
-  // Check for profanity whenever content or title changes
   useEffect(() => {
-    const fullText = `${title} ${content}`;
-    if (fullText.trim()) {
-      checkProfanity(fullText);
-    } else {
-      resetFilter();
-    }
-  }, [title, content, checkProfanity, resetFilter]);
+    checkProfanity(`${title} ${content}`);
+  }, [title, content, checkProfanity]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to create a post.",
-        variant: "destructive",
-      });
+      toast({ title: "Authentication required", variant: "destructive" });
       return;
     }
-
     if (!title.trim() || !content.trim() || !type) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all fields.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing information", description: "Please fill in all fields.", variant: "destructive" });
       return;
     }
-
     if (hasProfanity) {
-      toast({
-        title: "Inappropriate content detected",
-        description: "Please remove inappropriate language from your post.",
-        variant: "destructive",
-      });
+      toast({ title: "Inappropriate content detected", description: "Please remove inappropriate language.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     
     try {
+      // --- THE CHANGE IS HERE ---
+      // We no longer calculate points in the browser. We just insert the post.
+      // The Supabase Trigger we created will handle awarding the points automatically.
       const { error } = await supabase
         .from('posts')
         .insert({
@@ -93,29 +76,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
       if (error) throw error;
 
-      const selectedType = postTypes.find(t => t.value === type);
-      const basePoints = selectedType?.points || 5;
-      const bonusPoints = content.length > 100 ? 5 : 0;
-      const totalPoints = basePoints + bonusPoints;
-
+      // The toast is now simpler.
       toast({
         title: "Post created successfully!",
-        description: `You earned ${totalPoints} points for this ${selectedType?.label.toLowerCase()}!`,
+        description: `Your story has been shared with the community.`,
       });
 
-      // Reset form
+      // Reset form and close modal
       setTitle('');
       setContent('');
       setType('');
       onOpenChange(false);
       onPostCreated?.();
+
     } catch (error) {
       console.error('Error creating post:', error);
-      toast({
-        title: "Error creating post",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error creating post", description: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -146,28 +122,15 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           
           <div>
             <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter post title"
-              required
-            />
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter post title" required />
           </div>
           
           <div>
             <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Share your thoughts..."
-              rows={6}
-              required
-            />
+            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder="Share your thoughts..." rows={6} required />
             <p className="text-sm text-muted-foreground mt-1">
               {content.length > 100 ? '+5 bonus points for detailed content!' : 
-               `${100 - content.length} more characters for bonus points`}
+               `${101 - content.length} more characters for bonus points`}
             </p>
           </div>
           
@@ -175,20 +138,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                Inappropriate language detected. Please keep your content respectful and family-friendly.
+                Inappropriate language detected. Please keep your content respectful.
               </AlertDescription>
             </Alert>
           )}
           
           <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">Cancel</Button>
             <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Create Post
