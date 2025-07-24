@@ -26,8 +26,6 @@ const postTypes = [
   { value: 'general', label: 'General', points: 5 }
 ];
 
-// --- THIS IS THE FIX ---
-// We are using "export const" to create a named export that matches your import statement.
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({ 
   open, 
   onOpenChange, 
@@ -39,11 +37,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { hasProfanity, checkProfanity } = useProfanityFilter();
+  const { hasProfanity, checkProfanity, resetFilter } = useProfanityFilter();
 
   useEffect(() => {
-    checkProfanity(`${title} ${content}`);
-  }, [title, content, checkProfanity]);
+    const fullText = `${title} ${content}`;
+    if (fullText.trim()) {
+      checkProfanity(fullText);
+    } else {
+      resetFilter();
+    }
+  }, [title, content, checkProfanity, resetFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,5 +143,3 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     </Dialog>
   );
 };
-
-// Ensure there is NO "export default CreatePostModal;" at the end of the file.
