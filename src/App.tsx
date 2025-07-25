@@ -18,6 +18,7 @@ import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
+import DestinationDashboard from "./pages/DestinationDashboard";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/account" element={<UserAccount />} />
             <Route path="/register-destination" element={<DestinationRegistration />} />
             <Route path="/help" element={<Help />} />
+            <Route path="/my-destinations" element={<DestinationDashboard />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
