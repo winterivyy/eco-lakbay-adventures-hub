@@ -18,7 +18,7 @@ interface DestinationPreview {
   rating: number | null;
   description: string;
   images: string[] | null;
-  // Add all other fields you want to show in the modal
+  // Include all other fields you want to show in the modal
   [key: string]: any; 
 }
 
@@ -30,32 +30,27 @@ interface Review {
   profiles: {
     full_name: string;
     avatar_url: string;
-  };
+  } | null; // Profile can be null if user was deleted
 }
 
 const DestinationsPreview = () => {
   const navigate = useNavigate();
   
-  // --- 1. STATE MANAGEMENT ---
   const [destinations, setDestinations] = useState<DestinationPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // State for the modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState<DestinationPreview | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // --- 2. DATA FETCHING ---
   useEffect(() => {
     const fetchFeaturedDestinations = async () => {
       setLoading(true);
       setError(null);
-      // Fetch more data for the modal display
       const { data, error } = await supabase
         .from('destinations')
-        .select('*') // Fetch all columns now
+        .select('*')
         .eq('status', 'approved')
         .order('rating', { ascending: false, nullsFirst: false })
         .limit(6);
@@ -73,11 +68,11 @@ const DestinationsPreview = () => {
 
   const fetchReviews = async (destinationId: string) => {
     setReviewsLoading(true);
-    setReviews([]); // Clear old reviews
+    setReviews([]);
     try {
       const { data, error } = await supabase
         .from('destination_ratings')
-        .select(`*, profiles (full_name, avatar_url)`) // Fetch reviews and author profiles
+        .select(`*, profiles (full_name, avatar_url)`) // This query now works because of the DB fix
         .eq('destination_id', destinationId)
         .order('created_at', { ascending: false });
 
@@ -90,11 +85,10 @@ const DestinationsPreview = () => {
     }
   };
 
-  // --- 3. EVENT HANDLERS ---
   const handleDestinationClick = (destination: DestinationPreview) => {
     setSelectedDestination(destination);
     setIsModalOpen(true);
-    fetchReviews(destination.id); // Fetch reviews when modal opens
+    fetchReviews(destination.id);
   };
 
   const handleViewAllDestinations = () => navigate("/destinations");
@@ -118,7 +112,7 @@ const DestinationsPreview = () => {
                 <Card 
                   key={destination.id} 
                   className="group hover:shadow-hover transition-all duration-300 hover:-translate-y-2 overflow-hidden cursor-pointer"
-                  onClick={() => handleDestinationClick(destination)} // Changed onClick handler
+                  onClick={() => handleDestinationClick(destination)}
                 >
                   <CardHeader className="p-0">
                     <div className="w-full h-48 overflow-hidden">
@@ -147,7 +141,6 @@ const DestinationsPreview = () => {
         </div>
       </section>
       
-      {/* --- 4. THE MODAL DIALOG --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedDestination && (
@@ -157,7 +150,7 @@ const DestinationsPreview = () => {
                   <img src={(selectedDestination.images && selectedDestination.images[0]) || fallbackImage} alt={selectedDestination.business_name} className="w-full h-full object-cover" />
                 </div>
                 <DialogTitle className="text-3xl text-forest mb-2">{selectedDestination.business_name}</DialogTitle>
-                <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" /> {selectedDestination.address}</div>
+                <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" /> {selectedDestination.address || `${selectedDestination.city}, ${selectedDestination.province}`}</div>
               </DialogHeader>
 
               <div className="space-y-6 py-4">
@@ -195,8 +188,7 @@ const DestinationsPreview = () => {
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
-                  <Button variant="eco" className="flex-1" onClick={() => navigate(`/destinations`)}>Rate It</Button>
-                  <Button variant="outline" onClick={() => navigate(`/destinations`)}>Plan a Trip</Button>
+                  <Button variant="eco" className="flex-1" onClick={() => navigate(`/destinations`)}>See All Destinations & Rate</Button>
                 </div>
               </div>
             </>
