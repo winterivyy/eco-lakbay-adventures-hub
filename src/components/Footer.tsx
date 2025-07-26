@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { Input } from "@/components/ui/input"; // Import Input
+import { Button } from "@/components/ui/button"; // Import Button
+import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react"; // Import professional icons
 
 const Footer = () => {
   const footerSections = [
@@ -31,12 +34,38 @@ const Footer = () => {
     }
   ];
 
+  const socialLinks = [
+    { icon: <Facebook className="w-5 h-5" />, href: "#", label: "Facebook" },
+    { icon: <Twitter className="w-5 h-5" />, href: "#", label: "Twitter" },
+    { icon: <Instagram className="w-5 h-5" />, href: "#", label: "Instagram" },
+    { icon: <Linkedin className="w-5 h-5" />, href: "#", label: "LinkedIn" },
+  ];
+
   return (
     <footer className="bg-forest text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* --- 1. New Newsletter CTA Section --- */}
+        <div className="py-12 border-b border-white/20 flex flex-col lg:flex-row justify-between items-center gap-8">
+          <div className="text-center lg:text-left">
+            <h2 className="text-2xl font-bold mb-2">Join the Sustainable Movement</h2>
+            <p className="text-white/80">Get the latest eco-travel tips, featured destinations, and community news delivered to your inbox.</p>
+          </div>
+          <form className="w-full max-w-md flex gap-2">
+            <Input 
+              type="email" 
+              placeholder="Enter your email" 
+              className="bg-white/10 border-white/20 placeholder:text-white/60 text-white flex-1"
+              aria-label="Email for newsletter"
+            />
+            <Button variant="gold" type="submit">Subscribe</Button>
+          </form>
+        </div>
+
+        {/* --- 2. Modernized Main Footer Layout --- */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 py-16">
           {/* Brand Section */}
-          <div className="lg:col-span-1">
+          <div className="col-span-2 lg:col-span-2">
             <div className="mb-4">
               <img 
                 src="/lovable-uploads/f91ba406-163e-4e12-ab08-1481effe6d76.png" 
@@ -44,30 +73,15 @@ const Footer = () => {
                 className="h-8 w-auto"
               />
             </div>
-            <p className="text-white/80 mb-6 leading-relaxed">
-              Transforming tourism in Pampanga through sustainable practices, 
-              community engagement, and environmental responsibility.
+            <p className="text-white/80 leading-relaxed max-w-xs">
+              Transforming tourism in the Philippines through sustainable practices, community engagement, and environmental responsibility.
             </p>
-            <div className="flex space-x-4">
-              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                📱
-              </button>
-              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                🐦
-              </button>
-              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                📘
-              </button>
-              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                📸
-              </button>
-            </div>
           </div>
 
           {/* Navigation Sections */}
           {footerSections.map((section, index) => (
-            <div key={index}>
-              <h3 className="font-semibold text-lg mb-4">{section.title}</h3>
+            <div key={index} className="col-span-1">
+              <h3 className="font-semibold text-white mb-4">{section.title}</h3>
               <ul className="space-y-3">
                 {section.links.map((link, linkIndex) => (
                   <li key={linkIndex}>
@@ -84,18 +98,22 @@ const Footer = () => {
           ))}
         </div>
 
-        <div className="border-t border-white/20 mt-12 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-white/60 text-sm">
-              © 2024 EcoLakbay. All rights reserved. Made with 🌱 for sustainable tourism.
-            </p>
-            <div className="flex items-center space-x-6 mt-4 md:mt-0">
-              <span className="text-white/60 text-sm">Powered by</span>
-              <div className="flex items-center space-x-2">
-                <span className="text-amber">⚡</span>
-                <span className="text-sm font-medium">Green Technology</span>
-              </div>
-            </div>
+        {/* --- 3. Refined Bottom Bar --- */}
+        <div className="py-8 border-t border-white/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-white/60 text-sm text-center sm:text-left">
+            © {new Date().getFullYear()} EcoLakbay. All rights reserved.
+          </p>
+          <div className="flex space-x-4">
+            {socialLinks.map((link, index) => (
+              <a 
+                key={index} 
+                href={link.href}
+                aria-label={link.label}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                {link.icon}
+              </a>
+            ))}
           </div>
         </div>
       </div>
