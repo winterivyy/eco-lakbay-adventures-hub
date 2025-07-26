@@ -18,7 +18,6 @@ interface DestinationPreview {
   rating: number | null;
   description: string;
   images: string[] | null;
-  // Include all other fields you want to show in the modal
   [key: string]: any; 
 }
 
@@ -30,7 +29,7 @@ interface Review {
   profiles: {
     full_name: string;
     avatar_url: string;
-  } | null; // Profile can be null if user was deleted
+  } | null;
 }
 
 const DestinationsPreview = () => {
@@ -72,7 +71,7 @@ const DestinationsPreview = () => {
     try {
       const { data, error } = await supabase
         .from('destination_ratings')
-        .select(`*, profiles (full_name, avatar_url)`) // This query now works because of the DB fix
+        .select(`*, profiles (full_name, avatar_url)`)
         .eq('destination_id', destinationId)
         .order('created_at', { ascending: false });
 
