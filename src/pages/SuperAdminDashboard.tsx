@@ -7,532 +7,213 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3 } from "lucide-react";
+import { Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3, Trash2, Clock, PieChart as PieChartIcon } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const SuperAdminDashboard = () => {
   const { user } = useAuth();
   const { isAdmin, loading } = useUserRole();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
-  const [allRatings, setAllRatings] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState({ full_name: "", email: "", bio: "", location: "" });
   const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalPosts: 0,
-    totalDestinations: 0,
-    totalAdmins: 0,
-    totalRatings: 0,
-    averageRating: 0
+    totalUsers: 0, totalPosts: 0, totalDestinations: 0, totalAdmins: 0,
+    pendingDestinations: 0 // New Stat
   });
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [userGrowthChartData, setUserGrowthChartData] = useState<any[]>([]);
+  const [destinationStatusChartData, setDestinationStatusChartData] = useState<any[]>([]);
 
-  // Check if user is the super admin
   const isSuperAdmin = user?.email === 'johnleomedina@gmail.com' && isAdmin;
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      fetchUsers();
-      fetchStats();
+    if (!loading && isSuperAdmin) {
+      fetchAllData();
     }
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, loading]);
 
-  const fetchUsers = async () => {
+  const fetchAllData = async () => {
     try {
-      // First fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('full_name', { ascending: true });
-
-      if (profilesError) throw profilesError;
-
-      // Then fetch user roles separately and merge
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
-
-      // Merge the data
-      const usersWithRoles = profiles?.map(profile => {
-        const role = userRoles?.find(ur => ur.user_id === profile.user_id)?.role;
-        return {
-          ...profile,
-          user_roles: role ? [{ role }] : []
-        };
-      });
-
-      setUsers(usersWithRoles || []);
-
-      // Load ratings
-      const { data: ratingsData, error: ratingsError } = await supabase
-        .from('destination_ratings')
-        .select(`
-          *,
-          destinations!inner(business_name, business_type),
-          profiles!inner(full_name, email)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (ratingsError) throw ratingsError;
-      setAllRatings(ratingsData || []);
+      await Promise.all([fetchUsers(), fetchStats(), fetchChartData()]);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive"
-      });
+      console.error('Error fetching dashboard data:', error);
+      toast({ title: "Error", description: "Failed to load dashboard data.", variant: "destructive" });
     }
   };
 
+  const fetchUsers = async () => {
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+    if (profilesError) throw profilesError;
+    const { data: userRoles, error: rolesError } = await supabase.from('user_roles').select('user_id, role');
+    if (rolesError) throw rolesError;
+    const usersWithRoles = profiles?.map(profile => ({ ...profile, role: userRoles?.find(ur => ur.user_id === profile.user_id)?.role || 'user' }));
+    setUsers(usersWithRoles || []);
+  };
+
   const fetchStats = async () => {
-    try {
-      const [usersResult, postsResult, destinationsResult, adminsResult, ratingsResult] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact' }),
-        supabase.from('posts').select('id', { count: 'exact' }),
-        supabase.from('destinations').select('id', { count: 'exact' }),
-        supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
-        supabase.from('destination_ratings').select('overall_score', { count: 'exact' })
-      ]);
+    const [usersResult, postsResult, destinationsResult, adminsResult, pendingDestinationsResult] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact' }),
+      supabase.from('posts').select('id', { count: 'exact' }),
+      supabase.from('destinations').select('id', { count: 'exact' }),
+      supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
+      supabase.from('destinations').select('id', { count: 'exact' }).eq('status', 'pending'),
+    ]);
+    setStats({
+      totalUsers: usersResult.count || 0,
+      totalPosts: postsResult.count || 0,
+      totalDestinations: destinationsResult.count || 0,
+      totalAdmins: adminsResult.count || 0,
+      pendingDestinations: pendingDestinationsResult.count || 0,
+    });
+  };
 
-      const avgRating = ratingsResult.data && ratingsResult.data.length > 0 
-        ? ratingsResult.data.reduce((sum, r) => sum + r.overall_score, 0) / ratingsResult.data.length 
-        : 0;
+  const fetchChartData = async () => {
+    const { data: userGrowth, error: userGrowthError } = await supabase.rpc('get_daily_user_signups');
+    if (userGrowthError) console.error("Error fetching user growth:", userGrowthError);
+    else setUserGrowthChartData(userGrowth.map((d: any) => ({ ...d, date: new Date(d.signup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
 
-      setStats({
-        totalUsers: usersResult.count || 0,
-        totalPosts: postsResult.count || 0,
-        totalDestinations: destinationsResult.count || 0,
-        totalAdmins: adminsResult.count || 0,
-        totalRatings: ratingsResult.count || 0,
-        averageRating: Math.round(avgRating * 100) / 100
-      });
-
-      // Generate chart data for the last 7 days
-      const chartData = [
-        { name: 'Mon', users: usersResult.count! * 0.12, posts: postsResult.count! * 0.15 },
-        { name: 'Tue', users: usersResult.count! * 0.13, posts: postsResult.count! * 0.12 },
-        { name: 'Wed', users: usersResult.count! * 0.15, posts: postsResult.count! * 0.18 },
-        { name: 'Thu', users: usersResult.count! * 0.14, posts: postsResult.count! * 0.14 },
-        { name: 'Fri', users: usersResult.count! * 0.16, posts: postsResult.count! * 0.20 },
-        { name: 'Sat', users: usersResult.count! * 0.15, posts: postsResult.count! * 0.11 },
-        { name: 'Sun', users: usersResult.count! * 0.15, posts: postsResult.count! * 0.10 },
-      ];
-      setChartData(chartData);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
+    const { data: destStatus, error: destStatusError } = await supabase.rpc('get_destination_status_counts');
+    if (destStatusError) console.error("Error fetching destination statuses:", destStatusError);
+    else setDestinationStatusChartData(destStatus);
   };
 
   const promoteToAdmin = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .insert([
-          { user_id: userId, role: 'admin' }
-        ]);
-
+      const { error } = await supabase.from('user_roles').insert([{ user_id: userId, role: 'admin' }]);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "User promoted to admin successfully"
-      });
-      fetchUsers();
-      fetchStats();
+      toast({ title: "Success", description: "User promoted to admin." });
+      fetchAllData();
     } catch (error) {
-      console.error('Error promoting user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to promote user",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to promote user.", variant: "destructive" });
     }
   };
 
   const removeAdminRole = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('role', 'admin');
-
+      const { error } = await supabase.from('user_roles').delete().match({ user_id: userId, role: 'admin' });
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Admin role removed successfully"
-      });
-      fetchUsers();
-      fetchStats();
+      toast({ title: "Success", description: "Admin role removed." });
+      fetchAllData();
     } catch (error) {
-      console.error('Error removing admin role:', error);
-      toast({
-        title: "Error",
-        description: "Failed to remove admin role",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to remove admin role.", variant: "destructive" });
     }
   };
 
   const handleEditUser = (user: any) => {
     setEditingUser(user);
-    setEditForm({
-      full_name: user.full_name || "",
-      email: user.email || "",
-      bio: user.bio || "",
-      location: user.location || ""
-    });
+    setEditForm({ full_name: user.full_name || "", email: user.email || "", bio: user.bio || "", location: user.location || "" });
   };
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editForm.full_name,
-          bio: editForm.bio,
-          location: editForm.location
-        })
-        .eq('user_id', editingUser.user_id);
-
+      const { error } = await supabase.from('profiles').update({ full_name: editForm.full_name, bio: editForm.bio, location: editForm.location }).eq('user_id', editingUser.user_id);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "User updated successfully"
-      });
+      toast({ title: "Success", description: "User updated successfully." });
       setEditingUser(null);
       fetchUsers();
     } catch (error) {
-      console.error('Error updating user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to update user.", variant: "destructive" });
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
+  const handleDeleteUser = async (userIdToDelete: string, userEmail: string) => {
+    if (userEmail === 'johnleomedina@gmail.com') {
+      toast({ title: "Action Forbidden", description: "The Super Admin account cannot be deleted.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { error } = await supabase.rpc('hard_delete_user', { user_id_to_delete: userIdToDelete });
+      if (error) throw error;
+      toast({ title: "Success", description: "User and all their data have been permanently deleted." });
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: "Error", description: `Failed to delete user: ${error.message}`, variant: "destructive" });
+    }
+  };
 
-  if (!user || !isSuperAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  if (!user || !isSuperAdmin) return <Navigate to="/" replace />;
 
-  const filteredUsers = users.filter(user => 
-    user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const PIE_CHART_COLORS = { approved: "#22c55e", pending: "#f59e0b", rejected: "#ef4444", archived: "#64748b" };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
       <main className="pt-20 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-forest mb-2">Super Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage users and platform administration</p>
+            <p className="text-muted-foreground">Platform health, analytics, and user management</p>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalPosts}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Destinations</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalDestinations}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Admins</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalAdmins}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Ratings</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalRatings}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.averageRating}/5</div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalUsers}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Destinations</CardTitle><MapPin className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalDestinations}</div></CardContent></Card>
+            <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-200">Pending Destinations</CardTitle><Clock className="h-4 w-4 text-amber-600" /></CardHeader><CardContent><div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.pendingDestinations}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Admins</CardTitle><Shield className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAdmins}</div></CardContent></Card>
           </div>
 
-          {/* Analytics Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Weekly Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    users: {
-                      label: "Users",
-                      color: "hsl(var(--primary))",
-                    },
-                    posts: {
-                      label: "Posts",
-                      color: "hsl(var(--secondary))",
-                    },
-                  }}
-                  className="h-[300px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="users" stroke="hsl(var(--primary))" strokeWidth={2} />
-                      <Line type="monotone" dataKey="posts" stroke="hsl(var(--secondary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Platform Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    users: {
-                      label: "Users",
-                      color: "hsl(var(--primary))",
-                    },
-                    posts: {
-                      label: "Posts", 
-                      color: "hsl(var(--secondary))",
-                    },
-                    destinations: {
-                      label: "Destinations",
-                      color: "hsl(var(--accent))",
-                    },
-                  }}
-                  className="h-[300px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { name: 'Users', value: stats.totalUsers },
-                      { name: 'Posts', value: stats.totalPosts },
-                      { name: 'Destinations', value: stats.totalDestinations },
-                      { name: 'Admins', value: stats.totalAdmins },
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="value" fill="hsl(var(--primary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis allowDecimals={false} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+            <Card><CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader><CardContent className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>{destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}</Pie><Legend /><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ResponsiveContainer></CardContent></Card>
           </div>
 
-          {/* User Management */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                User Management
-              </CardTitle>
-              <div className="flex items-center space-x-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
-            </CardHeader>
+            <CardHeader><CardTitle>User Management</CardTitle><div className="flex items-center space-x-2"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Search users by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" /></div></CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {filteredUsers.map((user) => {
-                  const userRole = user.user_roles?.[0]?.role;
-                  const isCurrentUserAdmin = userRole === 'admin';
-                  const isSuper = user.email === 'johnleomedina@gmail.com';
-                  
-                  return (
+                {filteredUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          {user.full_name?.charAt(0) || user.email?.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.full_name || 'No name'}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Joined: {new Date(user.joined_at).toLocaleDateString()}
-                          </p>
-                        </div>
+                        <Avatar><AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback></Avatar>
+                        <div><p className="font-medium">{user.full_name || 'No name'}</p><p className="text-sm text-muted-foreground">{user.email}</p></div>
                       </div>
-                      
                       <div className="flex items-center space-x-2">
-                        {isSuper && (
-                          <Badge variant="destructive">Super Admin</Badge>
+                        {user.email === 'johnleomedina@gmail.com' ? <Badge variant="destructive">Super Admin</Badge> : user.role === 'admin' ? <Badge variant="secondary">Admin</Badge> : <Badge variant="outline">User</Badge>}
+                        <Dialog onOpenChange={(open) => !open && setEditingUser(null)}>
+                          <DialogTrigger asChild><Button size="sm" variant="outline" onClick={() => handleEditUser(user)}><Edit className="h-4 w-4 mr-1" />Edit</Button></DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Edit User Profile</DialogTitle></DialogHeader>
+                            {editingUser && <div className="space-y-4">
+                              <div><Label htmlFor="full_name">Full Name</Label><Input id="full_name" value={editForm.full_name} onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))} /></div>
+                              <div><Label htmlFor="email">Email (Read-only)</Label><Input id="email" value={editForm.email} disabled /></div>
+                              <div><Label htmlFor="bio">Bio</Label><Input id="bio" value={editForm.bio} onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))} /></div>
+                              <div><Label htmlFor="location">Location</Label><Input id="location" value={editForm.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></div>
+                              <Button onClick={handleUpdateUser} className="w-full">Update Profile</Button>
+                            </div>}
+                          </DialogContent>
+                        </Dialog>
+                        {user.email !== 'johnleomedina@gmail.com' && (user.role !== 'admin' ? 
+                          <Button size="sm" onClick={() => promoteToAdmin(user.user_id)}><Plus className="h-4 w-4 mr-1" /> Make Admin</Button> : 
+                          <Button size="sm" variant="outline" onClick={() => removeAdminRole(user.user_id)}>Remove Admin</Button>
                         )}
-                        {isCurrentUserAdmin && !isSuper && (
-                          <Badge variant="secondary">Admin</Badge>
+                        {user.email !== 'johnleomedina@gmail.com' && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action is irreversible. It will permanently delete this user and all their associated data (posts, destinations, etc.).</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(user.user_id, user.email)}>Confirm Delete</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
-                        {!isCurrentUserAdmin && (
-                          <Badge variant="outline">User</Badge>
-                        )}
-                         
-                         <Dialog>
-                           <DialogTrigger asChild>
-                             <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
-                               <Edit className="h-4 w-4 mr-1" />
-                               Edit
-                             </Button>
-                           </DialogTrigger>
-                           <DialogContent>
-                             <DialogHeader>
-                               <DialogTitle>Edit User Profile</DialogTitle>
-                             </DialogHeader>
-                             <div className="space-y-4">
-                               <div>
-                                 <Label htmlFor="full_name">Full Name</Label>
-                                 <Input
-                                   id="full_name"
-                                   value={editForm.full_name}
-                                   onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
-                                 />
-                               </div>
-                               <div>
-                                 <Label htmlFor="email">Email (Read-only)</Label>
-                                 <Input
-                                   id="email"
-                                   value={editForm.email}
-                                   disabled
-                                 />
-                               </div>
-                               <div>
-                                 <Label htmlFor="bio">Bio</Label>
-                                 <Input
-                                   id="bio"
-                                   value={editForm.bio}
-                                   onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                                 />
-                               </div>
-                               <div>
-                                 <Label htmlFor="location">Location</Label>
-                                 <Input
-                                   id="location"
-                                   value={editForm.location}
-                                   onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                                 />
-                               </div>
-                               <div className="text-sm text-muted-foreground">
-                                 <strong>Points:</strong> {user.points || 0}
-                               </div>
-                               <Button onClick={handleUpdateUser} className="w-full">
-                                 Update Profile
-                               </Button>
-                             </div>
-                           </DialogContent>
-                         </Dialog>
-                         
-                         {!isSuper && (
-                           <>
-                             {!isCurrentUserAdmin ? (
-                               <Button
-                                 size="sm"
-                                 onClick={() => promoteToAdmin(user.user_id)}
-                                 className="ml-2"
-                               >
-                                 <Plus className="h-4 w-4 mr-1" />
-                                 Make Admin
-                               </Button>
-                             ) : (
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => removeAdminRole(user.user_id)}
-                                 className="ml-2"
-                               >
-                                 Remove Admin
-                               </Button>
-                             )}
-                           </>
-                         )}
                       </div>
                     </div>
-                  );
-                })}
+                ))}
               </div>
             </CardContent>
           </Card>
         </div>
       </main>
-
       <Footer />
     </div>
   );
