@@ -27,7 +27,7 @@ const SuperAdminDashboard = () => {
   const [editForm, setEditForm] = useState({ full_name: "", email: "", bio: "", location: "" });
   const [stats, setStats] = useState({
     totalUsers: 0, totalPosts: 0, totalDestinations: 0, totalAdmins: 0,
-    pendingDestinations: 0 // New Stat
+    pendingDestinations: 0
   });
   const [userGrowthChartData, setUserGrowthChartData] = useState<any[]>([]);
   const [destinationStatusChartData, setDestinationStatusChartData] = useState<any[]>([]);
@@ -45,7 +45,7 @@ const SuperAdminDashboard = () => {
       await Promise.all([fetchUsers(), fetchStats(), fetchChartData()]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      toast({ title: "Error", description: "Failed to load dashboard data.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to load all dashboard data.", variant: "destructive" });
     }
   };
 
@@ -144,7 +144,7 @@ const SuperAdminDashboard = () => {
   if (!user || !isSuperAdmin) return <Navigate to="/" replace />;
 
   const filteredUsers = users.filter(u => u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const PIE_CHART_COLORS = { approved: "#22c55e", pending: "#f59e0b", rejected: "#ef4444", archived: "#64748b" };
+  const PIE_CHART_COLORS: { [key: string]: string } = { approved: "#22c55e", pending: "#f59e0b", rejected: "#ef4444", archived: "#64748b" };
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,15 +157,30 @@ const SuperAdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalUsers}</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Destinations</CardTitle><MapPin className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalDestinations}</div></CardContent></Card>
-            <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-200">Pending Destinations</CardTitle><Clock className="h-4 w-4 text-amber-600" /></CardHeader><CardContent><div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.pendingDestinations}</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Admins</CardTitle><Shield className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAdmins}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalUsers}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Destinations</CardTitle><MapPin className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalDestinations}</div></CardContent></Card>
+            <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-200">Pending Destinations</CardTitle><Clock className="h-4 w-4 text-amber-600" /></CardHeader><CardContent><div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.pendingDestinations}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Admins</CardTitle><Shield className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAdmins}</div></CardContent></Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis allowDecimals={false} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-            <Card><CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader><CardContent className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>{destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}</Pie><Legend /><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ResponsiveContainer></CardContent></Card>
+            <Card>
+              <CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader>
+              <CardContent className="h-[300px]">
+                <ChartContainer config={{}} className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
+                        {destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}
+                      </Pie>
+                      <Legend />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
