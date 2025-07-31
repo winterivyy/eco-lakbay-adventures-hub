@@ -168,7 +168,7 @@ const SuperAdminDashboard = () => {
             <Card>
               <CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader>
               <CardContent className="h-[300px]">
-                <ChartContainer config={{}} className="h-full w-full">
+                 <ChartContainer config={{}} className="h-full w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
@@ -178,7 +178,7 @@ const SuperAdminDashboard = () => {
                       <ChartTooltip content={<ChartTooltipContent />} />
                     </PieChart>
                   </ResponsiveContainer>
-                </ChartContainer>
+                </ChartContainer>  
               </CardContent>
             </Card>
           </div>
