@@ -164,21 +164,40 @@ const SuperAdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis allowDecimals={false} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader>
+              <CardContent className="h-[300px]">
+                {/* --- BAR CHART FIX --- */}
+                <ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={userGrowthChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {/* Tooltip is a direct child of ChartContainer */}
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </ChartContainer>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader>
-              <CardContent className="h-[300px]">
-                 <ChartContainer config={{}} className="h-full w-full">
+              <CardContent className="h-[300px] flex items-center justify-center">
+                {/* --- PIE CHART FIX --- */}
+                <ChartContainer config={{}} className="h-full w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
                         {destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}
                       </Pie>
                       <Legend />
-                      <ChartTooltip content={<ChartTooltipContent />} />
                     </PieChart>
                   </ResponsiveContainer>
-                </ChartContainer>  
+                  {/* Tooltip is a direct child of ChartContainer */}
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </ChartContainer>
               </CardContent>
             </Card>
           </div>
