@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+// --- THIS IS THE FIX: Added Avatar and AvatarFallback back to the imports ---
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3, Trash2, Clock, PieChart as PieChartIcon, MapPin } from "lucide-react";
@@ -77,12 +79,12 @@ const SuperAdminDashboard = () => {
 
   const fetchChartData = async () => {
     const { data: userGrowth, error: userGrowthError } = await supabase.rpc('get_daily_user_signups');
-    if (userGrowthError) console.error("Error fetching user growth:", userGrowthError);
-    else setUserGrowthChartData(userGrowth.map((d: any) => ({ ...d, date: new Date(d.signup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
+    if (userGrowthError) { console.error("Error fetching user growth:", userGrowthError); return; }
+    setUserGrowthChartData(userGrowth.map((d: any) => ({ ...d, date: new Date(d.signup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
 
     const { data: destStatus, error: destStatusError } = await supabase.rpc('get_destination_status_counts');
-    if (destStatusError) console.error("Error fetching destination statuses:", destStatusError);
-    else setDestinationStatusChartData(destStatus);
+    if (destStatusError) { console.error("Error fetching destination statuses:", destStatusError); return; }
+    setDestinationStatusChartData(destStatus);
   };
 
   const promoteToAdmin = async (userId: string) => {
@@ -164,42 +166,8 @@ const SuperAdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <Card className="lg:col-span-2">
-              <CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader>
-              <CardContent className="h-[300px]">
-                {/* --- BAR CHART FIX --- */}
-                <ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={userGrowthChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  {/* Tooltip is a direct child of ChartContainer */}
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </ChartContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader>
-              <CardContent className="h-[300px] flex items-center justify-center">
-                {/* --- PIE CHART FIX --- */}
-                <ChartContainer config={{}} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
-                        {destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}
-                      </Pie>
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* Tooltip is a direct child of ChartContainer */}
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </ChartContainer>
-              </CardContent>
-            </Card>
+            <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer><ChartTooltip content={<ChartTooltipContent />} /></ChartContainer></CardContent></Card>
+            <Card><CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center"><ChartContainer config={{}} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>{destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}</Pie><Legend /><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ResponsiveContainer></ChartContainer></CardContent></Card>
           </div>
 
           <Card>
@@ -209,7 +177,9 @@ const SuperAdminDashboard = () => {
                 {filteredUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
-                        <Avatar><AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback></Avatar>
+                        <Avatar>
+                          <AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
+                        </Avatar>
                         <div><p className="font-medium">{user.full_name || 'No name'}</p><p className="text-sm text-muted-foreground">{user.email}</p></div>
                       </div>
                       <div className="flex items-center space-x-2">
