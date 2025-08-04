@@ -10,11 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-// --- THIS IS THE FIX: Added Avatar and AvatarFallback back to the imports ---
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3, Trash2, Clock, PieChart as PieChartIcon, MapPin } from "lucide-react";
+import { Users, Shield, TrendingUp, Search, Plus, Edit, Trash2, Clock, MapPin } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -27,10 +26,7 @@ const SuperAdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState({ full_name: "", email: "", bio: "", location: "" });
-  const [stats, setStats] = useState({
-    totalUsers: 0, totalPosts: 0, totalDestinations: 0, totalAdmins: 0,
-    pendingDestinations: 0
-  });
+  const [stats, setStats] = useState({ totalUsers: 0, totalDestinations: 0, totalAdmins: 0, pendingDestinations: 0 });
   const [userGrowthChartData, setUserGrowthChartData] = useState<any[]>([]);
   const [destinationStatusChartData, setDestinationStatusChartData] = useState<any[]>([]);
 
@@ -61,16 +57,14 @@ const SuperAdminDashboard = () => {
   };
 
   const fetchStats = async () => {
-    const [usersResult, postsResult, destinationsResult, adminsResult, pendingDestinationsResult] = await Promise.all([
+    const [usersResult, destinationsResult, adminsResult, pendingDestinationsResult] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact' }),
-      supabase.from('posts').select('id', { count: 'exact' }),
       supabase.from('destinations').select('id', { count: 'exact' }),
       supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
       supabase.from('destinations').select('id', { count: 'exact' }).eq('status', 'pending'),
     ]);
     setStats({
       totalUsers: usersResult.count || 0,
-      totalPosts: postsResult.count || 0,
       totalDestinations: destinationsResult.count || 0,
       totalAdmins: adminsResult.count || 0,
       pendingDestinations: pendingDestinationsResult.count || 0,
@@ -157,19 +151,16 @@ const SuperAdminDashboard = () => {
             <h1 className="text-4xl font-bold text-forest mb-2">Super Admin Dashboard</h1>
             <p className="text-muted-foreground">Platform health, analytics, and user management</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalUsers}</div></CardContent></Card>
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Destinations</CardTitle><MapPin className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalDestinations}</div></CardContent></Card>
             <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-200">Pending Destinations</CardTitle><Clock className="h-4 w-4 text-amber-600" /></CardHeader><CardContent><div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.pendingDestinations}</div></CardContent></Card>
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Admins</CardTitle><Shield className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAdmins}</div></CardContent></Card>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer><ChartTooltip content={<ChartTooltipContent />} /></ChartContainer></CardContent></Card>
             <Card><CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center"><ChartContainer config={{}} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>{destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}</Pie><Legend /><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ResponsiveContainer></ChartContainer></CardContent></Card>
           </div>
-
           <Card>
             <CardHeader><CardTitle>User Management</CardTitle><div className="flex items-center space-x-2"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Search users by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" /></div></CardHeader>
             <CardContent>
@@ -177,9 +168,7 @@ const SuperAdminDashboard = () => {
                 {filteredUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
-                        <Avatar>
-                          <AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                        <Avatar><AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback></Avatar>
                         <div><p className="font-medium">{user.full_name || 'No name'}</p><p className="text-sm text-muted-foreground">{user.email}</p></div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -197,19 +186,8 @@ const SuperAdminDashboard = () => {
                             </div>}
                           </DialogContent>
                         </Dialog>
-                        {user.email !== 'johnleomedina@gmail.com' && (user.role !== 'admin' ? 
-                          <Button size="sm" onClick={() => promoteToAdmin(user.user_id)}><Plus className="h-4 w-4 mr-1" /> Make Admin</Button> : 
-                          <Button size="sm" variant="outline" onClick={() => removeAdminRole(user.user_id)}>Remove Admin</Button>
-                        )}
-                        {user.email !== 'johnleomedina@gmail.com' && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action is irreversible. It will permanently delete this user and all their associated data (posts, destinations, etc.).</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(user.user_id, user.email)}>Confirm Delete</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                        {user.email !== 'johnleomedina@gmail.com' && (user.role !== 'admin' ? <Button size="sm" onClick={() => promoteToAdmin(user.user_id)}><Plus className="h-4 w-4 mr-1" /> Make Admin</Button> : <Button size="sm" variant="outline" onClick={() => removeAdminRole(user.user_id)}>Remove Admin</Button>)}
+                        {user.email !== 'johnleomedina@gmail.com' && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action is irreversible. It will permanently delete this user and all their associated data.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(user.user_id, user.email)}>Confirm Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
                       </div>
                     </div>
                 ))}
