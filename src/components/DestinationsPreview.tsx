@@ -76,7 +76,7 @@ const DestinationsPreview = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setReviews(data as Review[]);
+      setReviews((data || []) as Review[]);
     } catch (error) {
       console.error("Error fetching reviews:", error);
     } finally {
