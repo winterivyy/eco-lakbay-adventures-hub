@@ -63,7 +63,7 @@ const Community = () => {
 
   const fetchTopProfiles = async () => {
     try {
-      const { data, error } = await supabase.from('profiles').select('full_name, points').order('points', { ascending: false }).limit(5);
+      const { data, error } = await supabase.from('profiles').select('full_name, points').order('points', { ascending: false, nullsLast: true }).limit(5);
       if (error) throw error;
       setProfiles(data || []);
     } catch (error) {

@@ -72,25 +72,13 @@ const SuperAdminDashboard = () => {
   };
 
   const fetchChartData = async () => {
-    // For now, using mock data since the RPC functions need to be implemented
-    const mockUserGrowth = [
-      { signup_date: '2024-01-01', count: 5 },
-      { signup_date: '2024-01-02', count: 8 },
-      { signup_date: '2024-01-03', count: 12 },
-      { signup_date: '2024-01-04', count: 7 },
-      { signup_date: '2024-01-05', count: 15 },
-      { signup_date: '2024-01-06', count: 10 },
-      { signup_date: '2024-01-07', count: 18 }
-    ];
-    setUserGrowthChartData(mockUserGrowth.map((d: any) => ({ ...d, date: new Date(d.signup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
+    const { data: userGrowth, error: userGrowthError } = await supabase.rpc('get_daily_user_signups');
+    if (userGrowthError) { console.error("Error fetching user growth:", userGrowthError); return; }
+    setUserGrowthChartData(userGrowth.map((d: any) => ({ ...d, date: new Date(d.signup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })));
 
-    const mockDestStatus = [
-      { status: 'approved', count: 25 },
-      { status: 'pending', count: 8 },
-      { status: 'rejected', count: 3 },
-      { status: 'archived', count: 2 }
-    ];
-    setDestinationStatusChartData(mockDestStatus);
+    const { data: destStatus, error: destStatusError } = await supabase.rpc('get_destination_status_counts');
+    if (destStatusError) { console.error("Error fetching destination statuses:", destStatusError); return; }
+    setDestinationStatusChartData(destStatus);
   };
 
   const promoteToAdmin = async (userId: string) => {
@@ -139,10 +127,9 @@ const SuperAdminDashboard = () => {
       return;
     }
     try {
-      // Direct deletion from profiles table - this will need proper implementation
-      const { error } = await supabase.from('profiles').delete().eq('user_id', userIdToDelete);
+      const { error } = await supabase.rpc('hard_delete_user', { user_id_to_delete: userIdToDelete });
       if (error) throw error;
-      toast({ title: "Success", description: "User profile has been deleted." });
+      toast({ title: "Success", description: "User and all their data have been permanently deleted." });
       fetchAllData();
     } catch (error: any) {
       toast({ title: "Error", description: `Failed to delete user: ${error.message}`, variant: "destructive" });
@@ -171,7 +158,7 @@ const SuperAdminDashboard = () => {
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Admins</CardTitle><Shield className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAdmins}</div></CardContent></Card>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart><ChartTooltip content={<ChartTooltipContent />} /></ResponsiveContainer></ChartContainer></CardContent></Card>
+            <Card className="lg:col-span-2"><CardHeader><CardTitle>New Users (Last 7 Days)</CardTitle></CardHeader><CardContent className="h-[300px]"><ChartContainer config={{ count: { label: "New Users" } }} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={userGrowthChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer><ChartTooltip content={<ChartTooltipContent />} /></ChartContainer></CardContent></Card>
             <Card><CardHeader><CardTitle>Destination Status Breakdown</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center"><ChartContainer config={{}} className="h-full w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={destinationStatusChartData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>{destinationStatusChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.status as keyof typeof PIE_CHART_COLORS] || '#8884d8'} />))}</Pie><Legend /><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ResponsiveContainer></ChartContainer></CardContent></Card>
           </div>
           <Card>
@@ -188,33 +175,16 @@ const SuperAdminDashboard = () => {
                         {user.email === 'johnleomedina@gmail.com' ? <Badge variant="destructive">Super Admin</Badge> : user.role === 'admin' ? <Badge variant="secondary">Admin</Badge> : <Badge variant="outline">User</Badge>}
                         <Dialog onOpenChange={(open) => !open && setEditingUser(null)}>
                           <DialogTrigger asChild><Button size="sm" variant="outline" onClick={() => handleEditUser(user)}><Edit className="h-4 w-4 mr-1" />Edit</Button></DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader><DialogTitle>Edit User Profile</DialogTitle></DialogHeader>
-                              {editingUser && (
-                                <div className="space-y-4">
-                                  <div><Label htmlFor="full_name">Full Name</Label><Input id="full_name" value={editForm.full_name} onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))} /></div>
-                                  <div><Label htmlFor="email">Email (Read-only)</Label><Input id="email" value={editForm.email} disabled /></div>
-                                  <div><Label htmlFor="bio">Bio</Label><Input id="bio" value={editForm.bio} onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))} /></div>
-                                  <div><Label htmlFor="location">Location</Label><Input id="location" value={editForm.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></div>
-                                  <div className="space-y-2">
-                                    <Button onClick={handleUpdateUser} className="w-full">Update Profile</Button>
-                                    <Button 
-                                      variant="outline" 
-                                      className="w-full"
-                                      onClick={() => {
-                                        toast({ 
-                                          title: "Security Notice", 
-                                          description: "For security reasons, passwords cannot be viewed. Consider implementing a password reset feature instead.", 
-                                          variant: "destructive" 
-                                        });
-                                      }}
-                                    >
-                                      Reset Password (Coming Soon)
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </DialogContent>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Edit User Profile</DialogTitle></DialogHeader>
+                            {editingUser && <div className="space-y-4">
+                              <div><Label htmlFor="full_name">Full Name</Label><Input id="full_name" value={editForm.full_name} onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))} /></div>
+                              <div><Label htmlFor="email">Email (Read-only)</Label><Input id="email" value={editForm.email} disabled /></div>
+                              <div><Label htmlFor="bio">Bio</Label><Input id="bio" value={editForm.bio} onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))} /></div>
+                              <div><Label htmlFor="location">Location</Label><Input id="location" value={editForm.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></div>
+                              <Button onClick={handleUpdateUser} className="w-full">Update Profile</Button>
+                            </div>}
+                          </DialogContent>
                         </Dialog>
                         {user.email !== 'johnleomedina@gmail.com' && (user.role !== 'admin' ? <Button size="sm" onClick={() => promoteToAdmin(user.user_id)}><Plus className="h-4 w-4 mr-1" /> Make Admin</Button> : <Button size="sm" variant="outline" onClick={() => removeAdminRole(user.user_id)}>Remove Admin</Button>)}
                         {user.email !== 'johnleomedina@gmail.com' && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action is irreversible. It will permanently delete this user and all their associated data.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(user.user_id, user.email)}>Confirm Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}

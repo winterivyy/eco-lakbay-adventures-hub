@@ -67,8 +67,8 @@ const DestinationDashboard = () => {
 
       if (error) throw error;
       
-      setDestinations((data || []) as any);
-      calculateStats((data || []) as any);
+      setDestinations(data || []);
+      calculateStats(data || []);
 
     } catch (error: any) {
       console.error("Error fetching user destinations:", error);

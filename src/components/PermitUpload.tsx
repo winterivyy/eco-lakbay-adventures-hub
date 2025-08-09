@@ -218,7 +218,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
                   </Select>
                   {permit.status === 'uploading' && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
                   {permit.status === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
-                  {permit.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
+                  {permit.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" title="Upload Failed" />}
                   <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => removePermit(permit.id)} disabled={permit.status === 'success'} aria-label="Remove file"><X className="w-4 h-4" /></Button>
                 </div>
               </div>
