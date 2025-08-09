@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface SignInModalProps {
   open: boolean;
@@ -14,7 +16,10 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const { signIn } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +35,43 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
       onOpenChange(false);
       setEmail("");
       setPassword("");
+      setResetEmailSent(false);
     }
     
     setIsLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setResetEmailSent(true);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Check your email for password reset instructions.",
+      });
+    }
+    
+    setIsResettingPassword(false);
   };
 
   return (
@@ -75,12 +114,32 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
               Cancel
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground text-center">
-            Don't have an account?{" "}
-            <span className="text-forest cursor-pointer hover:underline">
-              Join us instead
-            </span>
-          </p>
+          
+          {resetEmailSent && (
+            <div className="text-sm text-center p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-700">
+                Password reset email sent! Check your inbox and follow the instructions to reset your password.
+              </p>
+            </div>
+          )}
+          
+          <div className="text-center space-y-2">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={isResettingPassword}
+              className="text-sm text-forest hover:underline disabled:opacity-50"
+            >
+              {isResettingPassword ? "Sending..." : "Forgot Password?"}
+            </button>
+            
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <span className="text-forest cursor-pointer hover:underline">
+                Join us instead
+              </span>
+            </p>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
