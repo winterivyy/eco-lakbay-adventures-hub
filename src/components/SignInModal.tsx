@@ -40,17 +40,33 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
     
     setIsLoading(false);
   };
-
-  const handleForgotPassword = async () => {
+const handlePasswordReset = async (email: string) => {
     if (!email) {
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address first.",
-        variant: "destructive",
-      });
-      return;
+        toast({ title: "Please enter your email address.", variant: "destructive" });
+        return;
     }
+    setLoading(true);
+    try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            // This is the crucial part. It tells Supabase where to send the user
+            // AFTER they click the link in their email.
+            redirectTo: `${window.location.origin}/update-password`,
+        });
 
+        if (error) throw error;
+        
+        toast({
+            title: "Password Reset Email Sent",
+            description: "Please check your inbox for a link to reset your password.",
+        });
+        // Close the modal or switch views
+        
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+        setLoading(false);
+    }
+};
     setIsResettingPassword(true);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -126,7 +142,7 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
           <div className="text-center space-y-2">
             <button
               type="button"
-              onClick={handleForgotPassword}
+              onClick={handlePasswordReset}
               disabled={isResettingPassword}
               className="text-sm text-forest hover:underline disabled:opacity-50"
             >
