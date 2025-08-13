@@ -15,11 +15,11 @@ const UpdatePassword = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [recoverySession, setRecoverySession] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Determine password strength
+  // Password strength
   const getPasswordStrength = (pw: string) => {
     if (pw.length >= 12 && /[A-Z]/.test(pw) && /\d/.test(pw) && /[\W_]/.test(pw)) return 'Strong';
     if (pw.length >= 8) return 'Medium';
@@ -27,37 +27,32 @@ const UpdatePassword = () => {
     return '';
   };
 
-  // Get user role safely using Supabase client
-  const getUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user role:', error.message);
-      return null;
-    }
-    return data?.role || null;
-  };
-
+  // Check session and fetch role
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error.message);
-        return;
-      }
+    const init = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) console.error('Error getting session:', sessionError.message);
 
-      if (session?.user?.recoveryToken) {
-        setRecoverySession(true);
-        const role = await getUserRole(session.user.id);
-        setUserRole(role);
+      if (session?.user?.recoveryToken) setRecoverySession(true);
+
+      // Fetch user role safely
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching role:', error.message);
+          setRole(null);
+        } else {
+          setRole(data?.role ?? null);
+        }
       }
     };
 
-    checkSession();
+    init();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') setRecoverySession(true);
@@ -69,12 +64,10 @@ const UpdatePassword = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (password !== confirmPassword) {
       toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-
     if (password.length < 6) {
       toast({
         title: 'Password too short',
@@ -118,7 +111,9 @@ const UpdatePassword = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Set Your New Password</CardTitle>
-            <CardDescription>Please enter and confirm your new password below.</CardDescription>
+            <CardDescription>
+              Please enter and confirm your new password below.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdatePassword} className="space-y-6">
@@ -140,11 +135,9 @@ const UpdatePassword = () => {
                 </button>
                 {password && (
                   <p className={`text-sm mt-1 ${
-                    getPasswordStrength(password) === 'Strong'
-                      ? 'text-green-600'
-                      : getPasswordStrength(password) === 'Medium'
-                      ? 'text-yellow-600'
-                      : 'text-red-600'
+                    getPasswordStrength(password) === 'Strong' ? 'text-green-600' :
+                    getPasswordStrength(password) === 'Medium' ? 'text-yellow-600' :
+                    'text-red-600'
                   }`}>
                     Strength: {getPasswordStrength(password)}
                   </p>
@@ -163,10 +156,10 @@ const UpdatePassword = () => {
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Updating...' : 'Update Password'}
               </Button>
+              {role === 'admin' && (
+                <p className="text-sm mt-2 text-blue-600">Admin privileges detected</p>
+              )}
             </form>
-            {userRole && (
-              <p className="mt-4 text-sm text-gray-600">Your role: {userRole}</p>
-            )}
           </CardContent>
         </Card>
       </main>
