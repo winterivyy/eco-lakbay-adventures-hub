@@ -14,36 +14,36 @@ const UpdatePassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [recoverySession, setRecoverySession] = useState(false);
-
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const restoreSession = async () => {
-      // Get the session from the URL recovery link
-      const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: false });
+    // Check if there is a recovery session
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
-        console.error('Error restoring recovery session:', error.message);
-      } else if (data?.session) {
-        console.log('Recovery session restored');
-        setRecoverySession(true); // Mark recovery session active
+        console.error('Error getting session:', error.message);
+      }
+
+      if (session?.user && session?.user.recoveryToken) {
+        // If the user arrived via password recovery link
+        setRecoverySession(true);
       }
     };
 
-    restoreSession();
+    checkSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    // Redirect if user is fully logged in and not recovering password
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('Password recovery session active');
-        setRecoverySession(true); // Ensure we stay on the password form
-      } else if (session) {
-        // Only redirect for normal login sessions
+        setRecoverySession(true);
+      } else if (session && !session.user?.recoveryToken) {
         navigate('/dashboard');
       }
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -54,7 +54,6 @@ const UpdatePassword = () => {
       toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-
     if (password.length < 6) {
       toast({
         title: 'Password too short',
@@ -74,7 +73,6 @@ const UpdatePassword = () => {
         description: 'Please log in with your new password.',
       });
 
-      // Force logout after password reset
       await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {
@@ -88,11 +86,10 @@ const UpdatePassword = () => {
     }
   };
 
-  // Show nothing or a loading state if recovery session is not ready
   if (!recoverySession) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading password recovery session...</p>
+        <p>Invalid or expired password recovery link.</p>
       </div>
     );
   }
