@@ -17,33 +17,35 @@ const UpdatePassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const restoreSession = async () => {
-      // If coming from a Supabase recovery link, restore session
-      const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
-      if (error) {
-        console.error('Error restoring session:', error.message);
-      } else if (data.session) {
-        console.log('Recovery session restored');
+  const restoreSession = async () => {
+    const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: false });
+    if (error) {
+      console.error('Error restoring session:', error);
+    } else if (data.session) {
+      console.log('Recovery session restored:', data.session);
+      // User can now set a new password
+    }
+  };
+
+  restoreSession();
+
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery session active');
+        // Do NOT redirect — show the password form
+      } else if (session) {
+        // Normal login (not recovery), redirect to dashboard
+        navigate('/dashboard');
       }
-    };
+    }
+  );
 
-    restoreSession();
+  return () => {
+    authListener.subscription.unsubscribe();
+  };
+}, [navigate]);
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          console.log('Password recovery session active');
-        } else if (session && event !== 'PASSWORD_RECOVERY') {
-          // Normal login, redirect to dashboard
-          navigate('/dashboard');
-        }
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
