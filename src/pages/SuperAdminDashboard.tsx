@@ -35,7 +35,11 @@ const SuperAdminDashboard = () => {
 
   const isSuperAdmin = user?.email === 'johnleomedina@gmail.com' && isAdmin;
 
- 
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchAllData();
+    }
+  }, [isSuperAdmin]);
 
   const fetchAllData = async () => {
     try {
@@ -137,8 +141,6 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  if (!user || !isSuperAdmin) return <Navigate to="/" replace />;
 
   const filteredUsers = users.filter(u => u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
   const PIE_CHART_COLORS: { [key: string]: string } = { approved: "#22c55e", pending: "#f59e0b", rejected: "#ef4444", archived: "#64748b" };
