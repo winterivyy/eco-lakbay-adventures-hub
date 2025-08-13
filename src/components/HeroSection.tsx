@@ -47,7 +47,7 @@ const HeroSection = () => {
               <Button variant="eco" size="lg" className="text-lg px-8 py-6" onClick={handleExploreDestinations}>
                 Explore Destinations
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-white text-white hover:bg-white hover:text-forest" onClick={handlePlanTrip}>
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-white hover:bg-white hover:text-forest" onClick={handlePlanTrip}>
                 Plan Your Trip
               </Button>
             </div>
