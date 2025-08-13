@@ -1,57 +1,61 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from './useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
-export type UserRole = 'admin' | 'moderator' | 'user' | null;
+interface UserRoleContextType {
+  role: string | null;
+  isAdmin: boolean;
+  isModerator: boolean;
+  loading: boolean;
+}
 
-export const useUserRole = () => {
-  const [role, setRole] = useState<UserRole>(null);
-  const [loading, setLoading] = useState(true);
+const UserRoleContext = createContext<UserRoleContextType | undefined>(undefined);
+
+export const UserRoleProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      if (!user) {
-        setRole(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .order('role', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
+    if (!user) {
+      setRole(null);
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching user role:', error);
-          setRole('user'); // Default to user role
-        } else {
-          setRole(data?.role || 'user');
         }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-        setRole('user');
-      } finally {
+        setRole(data?.role || 'user'); // Default to 'user' if no role found
         setLoading(false);
-      }
-    };
-
-    fetchUserRole();
+      });
   }, [user]);
 
-  const isAdmin = role === 'admin';
-  const isModerator = role === 'moderator';
-  const isUser = role === 'user';
-
-  return {
+  const value = {
     role,
+    isAdmin: role === 'admin' || role === 'super_admin', // Handle both admin types
+    isModerator: role === 'moderator',
     loading,
-    isAdmin,
-    isModerator,
-    isUser
   };
+
+  return (
+    <UserRoleContext.Provider value={value}>
+      {children}
+    </UserRoleContext.Provider>
+  );
+};
+
+export const useUserRole = () => {
+  const context = useContext(UserRoleContext);
+  if (context === undefined) {
+    throw new Error('useUserRole must be used within a UserRoleProvider');
+  }
+  return context;
 };
