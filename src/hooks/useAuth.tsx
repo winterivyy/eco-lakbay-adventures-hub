@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signOut: () => Promise<void>; // Modified to be simpler
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,30 +20,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate(); // For redirecting after sign out
+  const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true);
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    // --- THIS IS THE CRUCIAL FIX ---
-    // The auth state listener is now smarter.
+    // --- THIS IS THE FINAL, ROBUST VERSION ---
+    // We rely ONLY on `onAuthStateChange`. It fires immediately with the
+    // current session, so a separate `getSession()` call is not needed and can cause race conditions.
+    // This is the recommended Supabase pattern.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        
-        // This event fires when the user clicks the password reset link in their email.
-        // We set the session to get the temporary token, but we MUST keep the user null
-        // to prevent protected route logic from redirecting us away from the update page.
+        // Handle the special case for password recovery
         if (event === 'PASSWORD_RECOVERY') {
-          console.log("Password recovery event detected.");
           setSession(session);
-          setUser(null); // Keep user null to allow access to the UpdatePassword page
+          setUser(null);
         } 
         else {
           // For all other events, set both session and user normally.
@@ -66,7 +55,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [toast]);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    // This function remains the same as your original
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
       email, password, options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } }
@@ -80,7 +68,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    // This function remains the same as your original
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
@@ -89,13 +76,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    // Simplified this function slightly for clarity
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({ title: "Sign Out Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
-      // It's often good practice to redirect to home after sign out
       navigate('/'); 
     }
   };
