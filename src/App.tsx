@@ -33,10 +33,8 @@ const App = () => (
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/update-password" element={<UpdatePassword />} />
-      {/* The catch-all "*" route must always be last */}
       <Route path="*" element={<NotFound />} />
     </Routes>
-    {/* The Chatbot can be here as it will appear on every page */}
     <Chatbot />
   </>
 );
