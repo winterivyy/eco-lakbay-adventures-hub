@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,105 +8,58 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import { Loader2 } from 'lucide-react';
 
 const UpdatePassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [recoverySession, setRecoverySession] = useState(false);
-
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const restoreSession = async () => {
-      // Get the session from the URL recovery link
-      const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: false });
-      if (error) {
-        console.error('Error restoring recovery session:', error.message);
-      } else if (data?.session) {
-        console.log('Recovery session restored');
-        setRecoverySession(true); // Mark recovery session active
-      }
-    };
-
-    restoreSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        console.log('Password recovery session active');
-        setRecoverySession(true); // Ensure we stay on the password form
-      } else if (session) {
-        // Only redirect for normal login sessions
-        navigate('/dashboard');
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
+  // The onAuthStateChange listener in useAuth.tsx now handles everything.
+  // We no longer need a separate useEffect here, which simplifies the component.
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (password !== confirmPassword) {
-      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      toast({ title: "Passwords do not match", variant: "destructive" });
       return;
     }
-
     if (password.length < 6) {
-      toast({
-        title: 'Password too short',
-        description: 'Password should be at least 6 characters.',
-        variant: 'destructive',
-      });
+      toast({ title: "Password too short", description: "Password should be at least 6 characters.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      // With a valid recovery session active, updateUser is all that's needed.
+      const { error } = await supabase.auth.updateUser({ password: password });
+      
       if (error) throw error;
 
       toast({
-        title: 'Password Updated Successfully!',
-        description: 'Please log in with your new password.',
+        title: "Password Updated Successfully!",
+        description: "You have been signed out. Please sign in with your new password.",
       });
-
-      // Force logout after password reset
+      // Sign the user out completely for security and redirect to home
       await supabase.auth.signOut();
-      navigate('/auth');
+      navigate('/');
     } catch (error: any) {
-      toast({
-        title: 'Error Updating Password',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: "Error Updating Password", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  // Show nothing or a loading state if recovery session is not ready
-  if (!recoverySession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading password recovery session...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <main className="flex items-center justify-center pt-20 pb-16">
-        <Card className="w-full max-w-md">
+      <main className="flex-grow flex items-center justify-center py-16">
+        <Card className="w-full max-w-md mx-4">
           <CardHeader>
             <CardTitle>Set Your New Password</CardTitle>
-            <CardDescription>
-              Please enter and confirm your new password below.
-            </CardDescription>
+            <CardDescription>Please enter and confirm your new password below.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdatePassword} className="space-y-6">
@@ -121,4 +74,26 @@ const UpdatePassword = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPa
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Updating..." : "Update Password & Sign In"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default UpdatePassword;
