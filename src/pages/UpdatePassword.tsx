@@ -16,26 +16,35 @@ const UpdatePassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check for password recovery session
   useEffect(() => {
-  const { data: authListener } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        // Stay on this page so the user can set a new password
-        console.log('Password recovery session started');
-      } else if (session && event !== 'PASSWORD_RECOVERY') {
-        // Only redirect if they are logged in normally
-        navigate('/dashboard');
+    const restoreSession = async () => {
+      // If coming from a Supabase recovery link, restore session
+      const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
+      if (error) {
+        console.error('Error restoring session:', error.message);
+      } else if (data.session) {
+        console.log('Recovery session restored');
       }
-    }
-  );
+    };
 
-  return () => {
-    authListener.subscription.unsubscribe();
-  };
-}, [navigate]);
+    restoreSession();
 
-  // ✅ async function for updating password
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          console.log('Password recovery session active');
+        } else if (session && event !== 'PASSWORD_RECOVERY') {
+          // Normal login, redirect to dashboard
+          navigate('/dashboard');
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -58,8 +67,11 @@ const UpdatePassword = () => {
 
       toast({
         title: 'Password Updated Successfully!',
-        description: 'You can now sign in with your new password.',
+        description: 'Please log in with your new password.',
       });
+
+      // Force logout so they must sign in with the new password
+      await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {
       toast({
@@ -69,27 +81,6 @@ const UpdatePassword = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // ✅ async function for triggering reset password email
-  const handleSendResetEmail = async (email: string) => {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
-      });
-      if (error) throw error;
-
-      toast({
-        title: 'Reset Email Sent',
-        description: 'Please check your inbox to reset your password.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error Sending Email',
-        description: error.message,
-        variant: 'destructive',
-      });
     }
   };
 
