@@ -35,11 +35,7 @@ const SuperAdminDashboard = () => {
 
   const isSuperAdmin = user?.email === 'johnleomedina@gmail.com' && isAdmin;
 
-  useEffect(() => {
-    if (!loading && isSuperAdmin) {
-      fetchAllData();
-    }
-  }, [isSuperAdmin, loading]);
+ 
 
   const fetchAllData = async () => {
     try {
