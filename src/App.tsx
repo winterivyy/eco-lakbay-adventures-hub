@@ -1,9 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { Routes, Route } from "react-router-dom";
 import Chatbot from "@/components/Chatbot";
 import Index from "./pages/Index";
 import Destinations from "./pages/Destinations";
@@ -21,38 +16,29 @@ import NotFound from "./pages/NotFound";
 import DestinationDashboard from "./pages/DestinationDashboard";
 import UpdatePassword from "./pages/UpdatePassword";
 
-const queryClient = new QueryClient();
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/destinations" element={<Destinations />} />
-            <Route path="/community" element={<Community />} />
-            <Route path="/calculator" element={<Calculator />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/super-admin" element={<SuperAdminDashboard />} />
-            <Route path="/account" element={<UserAccount />} />
-            <Route path="/register-destination" element={<DestinationRegistration />} />
-            <Route path="/help" element={<Help />} />
-            <Route path="/my-destinations" element={<DestinationDashboard />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Chatbot />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/destinations" element={<Destinations />} />
+      <Route path="/community" element={<Community />} />
+      <Route path="/calculator" element={<Calculator />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/super-admin" element={<SuperAdminDashboard />} />
+      <Route path="/account" element={<UserAccount />} />
+      <Route path="/register-destination" element={<DestinationRegistration />} />
+      <Route path="/help" element={<Help />} />
+      <Route path="/my-destinations" element={<DestinationDashboard />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/update-password" element={<UpdatePassword />} />
+      {/* The catch-all "*" route must always be last */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+    {/* The Chatbot can be here as it will appear on every page */}
+    <Chatbot />
+  </>
 );
 
 export default App;
