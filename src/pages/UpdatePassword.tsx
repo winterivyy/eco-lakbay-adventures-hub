@@ -13,61 +13,48 @@ const UpdatePassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [recoverySession, setRecoverySession] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Password strength
-  const getPasswordStrength = (pw: string) => {
-    if (pw.length >= 12 && /[A-Z]/.test(pw) && /\d/.test(pw) && /[\W_]/.test(pw)) return 'Strong';
-    if (pw.length >= 8) return 'Medium';
-    if (pw.length > 0) return 'Weak';
-    return '';
-  };
-
-  // Check session and fetch role
   useEffect(() => {
-    const init = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) console.error('Error getting session:', sessionError.message);
-
-      if (session?.user?.recoveryToken) setRecoverySession(true);
-
-      // Fetch user role safely
-      if (session?.user) {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching role:', error.message);
-          setRole(null);
-        } else {
-          setRole(data?.role ?? null);
-        }
+    const restoreSession = async () => {
+      // Get the session from the URL recovery link
+      const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: false });
+      if (error) {
+        console.error('Error restoring recovery session:', error.message);
+      } else if (data?.session) {
+        console.log('Recovery session restored');
+        setRecoverySession(true); // Mark recovery session active
       }
     };
 
-    init();
+    restoreSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') setRecoverySession(true);
-      else if (session && !session.user?.recoveryToken) navigate('/dashboard');
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery session active');
+        setRecoverySession(true); // Ensure we stay on the password form
+      } else if (session) {
+        // Only redirect for normal login sessions
+        navigate('/dashboard');
+      }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
       toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
+
     if (password.length < 6) {
       toast({
         title: 'Password too short',
@@ -87,19 +74,25 @@ const UpdatePassword = () => {
         description: 'Please log in with your new password.',
       });
 
+      // Force logout after password reset
       await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {
-      toast({ title: 'Error Updating Password', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error Updating Password',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  // Show nothing or a loading state if recovery session is not ready
   if (!recoverySession) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Invalid or expired password recovery link.</p>
+        <p>Loading password recovery session...</p>
       </div>
     );
   }
@@ -117,37 +110,21 @@ const UpdatePassword = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdatePassword} className="space-y-6">
-              <div className="space-y-2 relative">
+              <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
                 <Input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <button
-                  type="button"
-                  className="absolute right-2 top-9 text-sm text-gray-500"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-                {password && (
-                  <p className={`text-sm mt-1 ${
-                    getPasswordStrength(password) === 'Strong' ? 'text-green-600' :
-                    getPasswordStrength(password) === 'Medium' ? 'text-yellow-600' :
-                    'text-red-600'
-                  }`}>
-                    Strength: {getPasswordStrength(password)}
-                  </p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"
-                  type={showPassword ? 'text' : 'password'}
+                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -156,9 +133,6 @@ const UpdatePassword = () => {
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Updating...' : 'Update Password'}
               </Button>
-              {role === 'admin' && (
-                <p className="text-sm mt-2 text-blue-600">Admin privileges detected</p>
-              )}
             </form>
           </CardContent>
         </Card>
