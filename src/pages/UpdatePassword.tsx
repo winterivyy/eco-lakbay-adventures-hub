@@ -16,47 +16,73 @@ const UpdatePassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // This effect will run once when the page loads to check for a session.
-  // Supabase automatically handles the token from the URL when the user arrives.
+  // Check for password recovery session
   useEffect(() => {
     supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        // This event confirms the user came from a valid password reset link.
-        // The session is temporary and only allows for a password update.
+      if (event === 'PASSWORD_RECOVERY') {
+        // valid password reset link
       } else if (session) {
-        // If they are already fully logged in, send them to the dashboard.
+        // already logged in
         navigate('/dashboard');
       }
     });
-  }, []);
+  }, [navigate]);
 
+  // ✅ async function for updating password
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast({ title: "Passwords do not match", variant: "destructive" });
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
     if (password.length < 6) {
-      toast({ title: "Password too short", description: "Password should be at least 6 characters.", variant: "destructive" });
+      toast({
+        title: 'Password too short',
+        description: 'Password should be at least 6 characters.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setLoading(true);
     try {
-      // Use the updateUser method to set the new password
-      const { error } = await supabase.auth.updateUser({ password: password });
-      
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
       toast({
-        title: "Password Updated Successfully!",
-        description: "You can now sign in with your new password.",
+        title: 'Password Updated Successfully!',
+        description: 'You can now sign in with your new password.',
       });
-      navigate('/auth'); // Redirect to sign-in page after success
+      navigate('/auth');
     } catch (error: any) {
-      toast({ title: "Error Updating Password", description: error.message, variant: "destructive" });
+      toast({
+        title: 'Error Updating Password',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ async function for triggering reset password email
+  const handleSendResetEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+      if (error) throw error;
+
+      toast({
+        title: 'Reset Email Sent',
+        description: 'Please check your inbox to reset your password.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error Sending Email',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -67,7 +93,9 @@ const UpdatePassword = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Set Your New Password</CardTitle>
-            <CardDescription>Please enter and confirm your new password below.</CardDescription>
+            <CardDescription>
+              Please enter and confirm your new password below.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdatePassword} className="space-y-6">
@@ -92,7 +120,7 @@ const UpdatePassword = () => {
                 />
               </div>
               <Button type="submit" disabled={loading} className="w-full">
-                {loading ? "Updating..." : "Update Password"}
+                {loading ? 'Updating...' : 'Update Password'}
               </Button>
             </form>
           </CardContent>
