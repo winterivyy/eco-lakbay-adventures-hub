@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,58 +8,102 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import { Loader2 } from 'lucide-react';
 
 const UpdatePassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recoverySession, setRecoverySession] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // The onAuthStateChange listener in useAuth.tsx now handles everything.
-  // We no longer need a separate useEffect here, which simplifies the component.
+  useEffect(() => {
+    // Check if there is a recovery session
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error.message);
+      }
+
+      if (session?.user && session?.user.recoveryToken) {
+        // If the user arrived via password recovery link
+        setRecoverySession(true);
+      }
+    };
+
+    checkSession();
+
+    // Redirect if user is fully logged in and not recovering password
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoverySession(true);
+      } else if (session && !session.user?.recoveryToken) {
+        navigate('/dashboard');
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
-      toast({ title: "Passwords do not match", variant: "destructive" });
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
     if (password.length < 6) {
-      toast({ title: "Password too short", description: "Password should be at least 6 characters.", variant: "destructive" });
+      toast({
+        title: 'Password too short',
+        description: 'Password should be at least 6 characters.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setLoading(true);
     try {
-      // With a valid recovery session active, updateUser is all that's needed.
-      const { error } = await supabase.auth.updateUser({ password: password });
-      
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
       toast({
-        title: "Password Updated Successfully!",
-        description: "You have been signed out. Please sign in with your new password.",
+        title: 'Password Updated Successfully!',
+        description: 'Please log in with your new password.',
       });
-      // Sign the user out completely for security and redirect to home
+
       await supabase.auth.signOut();
-      navigate('/');
+      navigate('/auth');
     } catch (error: any) {
-      toast({ title: "Error Updating Password", description: error.message, variant: "destructive" });
+      toast({
+        title: 'Error Updating Password',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  if (!recoverySession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Invalid or expired password recovery link.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <Navigation />
-      <main className="flex-grow flex items-center justify-center py-16">
-        <Card className="w-full max-w-md mx-4">
+      <main className="flex items-center justify-center pt-20 pb-16">
+        <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Set Your New Password</CardTitle>
-            <CardDescription>Please enter and confirm your new password below.</CardDescription>
+            <CardDescription>
+              Please enter and confirm your new password below.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdatePassword} className="space-y-6">
@@ -84,8 +128,7 @@ const UpdatePassword = () => {
                 />
               </div>
               <Button type="submit" disabled={loading} className="w-full">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? "Updating..." : "Update Password & Sign In"}
+                {loading ? 'Updating...' : 'Update Password'}
               </Button>
             </form>
           </CardContent>
