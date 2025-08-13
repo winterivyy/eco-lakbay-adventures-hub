@@ -125,16 +125,7 @@ const Dashboard = () => {
   const [viewingDestinationPermits, setViewingDestinationPermits] = useState<any>(null);
   const [isPermitsModalOpen, setIsPermitsModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      toast({ title: "Authentication Required", description: "Please sign in to access your dashboard.", variant: "destructive" });
-      navigate("/");
-      return;
-    }
-    if (user) {
-      loadUserData();
-    }
-  }, [user, loading, navigate, isAdmin]);
+ 
 
   // --- REVISED `loadUserData` with proper error handling ---
   const loadUserData = async () => {
