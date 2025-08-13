@@ -125,7 +125,11 @@ const Dashboard = () => {
   const [viewingDestinationPermits, setViewingDestinationPermits] = useState<any>(null);
   const [isPermitsModalOpen, setIsPermitsModalOpen] = useState(false);
 
- 
+  useEffect(() => {
+    if (user && isAdmin) {
+      loadUserData();
+    }
+  }, [user, isAdmin]);
 
   // --- REVISED `loadUserData` with proper error handling ---
   const loadUserData = async () => {
