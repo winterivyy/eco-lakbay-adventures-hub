@@ -141,7 +141,6 @@ const Community = () => {
           <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Connect with fellow eco-travelers, local businesses, and conservation enthusiasts. Share experiences, join events, and build a sustainable tourism community.</p>
           <div className="flex gap-4 justify-center">
             <Button variant="gold" size="lg" onClick={handleCreatePost}><Plus className="w-4 h-4 mr-2" />Share Your Story</Button>
-            <Button variant="outline" size="lg" onClick={handleCreatePost}>Make a Post</Button>
           </div>
         </div>
       </div>
