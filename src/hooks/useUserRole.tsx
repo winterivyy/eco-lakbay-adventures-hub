@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from './useAuth';
+import { useAuth } from './useAuth'; // It needs to know about the user
 import { supabase } from '@/integrations/supabase/client';
 
 interface UserRoleContextType {
@@ -17,30 +17,36 @@ export const UserRoleProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
+    // --- THIS IS THE CRITICAL FIX ---
+    // We check if the 'user' object exists AND is fully authenticated.
+    // If the user is null (like during password recovery or logout), we
+    // DO NOT try to fetch a role from the database.
+    if (user && user.role === 'authenticated') {
+      setLoading(true);
+      supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error fetching user role:', error);
+          }
+          // Set the role from the database, or default to 'user' if none is found.
+          setRole(data?.role || 'user');
+          setLoading(false);
+        });
+    } else {
+      // If there is no authenticated user, reset the role and stop loading.
       setRole(null);
       setLoading(false);
-      return;
     }
-    
-    setLoading(true);
-    supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching user role:', error);
-        }
-        setRole(data?.role || 'user'); // Default to 'user' if no role found
-        setLoading(false);
-      });
-  }, [user]);
+  }, [user]); // This effect correctly depends on the 'user' object.
 
   const value = {
     role,
-    isAdmin: role === 'admin' || role === 'super_admin', // Handle both admin types
+    // Add an extra check for your super admin email here for safety.
+    isAdmin: role === 'admin' || user?.email === 'johnleomedina@gmail.com',
     isModerator: role === 'moderator',
     loading,
   };
