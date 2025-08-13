@@ -40,55 +40,49 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
     
     setIsLoading(false);
   };
-const handlePasswordReset = async (email: string) => {
-    if (!email) {
-        toast({ title: "Please enter your email address.", variant: "destructive" });
-        return;
-    }
-    setLoading(true);
-    try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            // This is the crucial part. It tells Supabase where to send the user
-            // AFTER they click the link in their email.
-            redirectTo: `${window.location.origin}/update-password`,
-        });
+   const handlePasswordReset = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email) {
+            toast({ title: "Please enter your email address.", variant: "destructive" });
+            return;
+        }
+        setLoading(true);
+        try {
+            // The `await` here requires the function to be `async`
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/update-password`,
+            });
 
-        if (error) throw error;
-        
-        toast({
-            title: "Password Reset Email Sent",
-            description: "Please check your inbox for a link to reset your password.",
-        });
-        // Close the modal or switch views
-        
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally {
-        setLoading(false);
+            if (error) throw error;
+            
+            toast({
+                title: "Password Reset Email Sent",
+                description: "Please check your inbox for a link to reset your password.",
+            });
+            setIsResettingPassword(false); // Switch back to login view after success
+            
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // Your JSX will likely have a button that switches to a password reset view
+    if (isResettingPassword) {
+        return (
+            // A form that calls handlePasswordReset
+            <form onSubmit={handlePasswordReset}>
+                {/* ... email input ... */}
+                <Button type="submit" disabled={loading}>
+                    {loading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+                <Button variant="link" onClick={() => setIsResettingPassword(false)}>
+                    Back to Sign In
+                </Button>
+            </form>
+        );
     }
-};
-    setIsResettingPassword(true);
-    
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/`,
-    });
-    
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      setResetEmailSent(true);
-      toast({
-        title: "Password Reset Email Sent",
-        description: "Check your email for password reset instructions.",
-      });
-    }
-    
-    setIsResettingPassword(false);
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,15 +134,10 @@ const handlePasswordReset = async (email: string) => {
           )}
           
           <div className="text-center space-y-2">
-            <button
-              type="button"
-              onClick={handlePasswordReset}
-              disabled={isResettingPassword}
-              className="text-sm text-forest hover:underline disabled:opacity-50"
-            >
-              {isResettingPassword ? "Sending..." : "Forgot Password?"}
-            </button>
-            
+           <Button variant="link" onClick={() => setIsResettingPassword(true)}>
+                Forgot Password?
+            </Button>
+
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
               <span className="text-forest cursor-pointer hover:underline">
