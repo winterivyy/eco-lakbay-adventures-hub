@@ -13,16 +13,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 // Create the query client instance
 const queryClient = new QueryClient();
 
-// This is now the single source of truth for your application's providers.
+// This is the correct, final structure for your application root.
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {/* The Router must wrap everything */}
     <BrowserRouter>
       {/* Data fetching provider */}
       <QueryClientProvider client={queryClient}>
-        {/* Authentication provider */}
+        {/* Authentication provider is at the top */}
         <AuthProvider>
-          {/* Role provider (needs to be inside AuthProvider) */}
+          {/* Role provider is INSIDE AuthProvider so it can access the user */}
           <UserRoleProvider>
             {/* Tooltip provider for UI elements */}
             <TooltipProvider>
