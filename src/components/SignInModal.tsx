@@ -1,46 +1,52 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 
 interface SignInModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
-  const { signIn } = useAuth();
-  const { toast } = useToast();
+const SignInModal: React.FC<SignInModalProps> = ({ open, onOpenChange }) => {
+    // --- THIS IS THE KEY CHANGE ---
+    // We use state to manage which view is shown: 'sign-in' or 'reset-password'
+    const [view, setView] = useState<'sign-in' | 'reset-password'>('sign-in');
+    
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      return;
-    }
+    // Reset view when modal is closed/opened
+    const handleOpenChange = (isOpen: boolean) => {
+        if (isOpen) {
+            setView('sign-in'); // Reset to sign-in view every time it opens
+        }
+        onOpenChange(isOpen);
+    };
 
-    setIsLoading(true);
+    const handleSignIn = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            toast({ title: "Signed in successfully!" });
+            onOpenChange(false);
+        } catch (error: any) {
+            toast({ title: "Sign In Failed", description: error.message, variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
     
-    const { error } = await signIn(email, password);
-    
-    if (!error) {
-      onOpenChange(false);
-      setEmail("");
-      setPassword("");
-      setResetEmailSent(false);
-    }
-    
-    setIsLoading(false);
-  };
-   const handlePasswordReset = async (e: React.FormEvent) => {
+    // --- The Correctly Defined `async` Password Reset Function ---
+    const handlePasswordReset = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email) {
             toast({ title: "Please enter your email address.", variant: "destructive" });
@@ -48,8 +54,8 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
         }
         setLoading(true);
         try {
-            // The `await` here requires the function to be `async`
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                // This correctly points to your new page
                 redirectTo: `${window.location.origin}/update-password`,
             });
 
@@ -59,7 +65,7 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
                 title: "Password Reset Email Sent",
                 description: "Please check your inbox for a link to reset your password.",
             });
-            setIsResettingPassword(false); // Switch back to login view after success
+            setView('sign-in'); // Switch back to the login view after success
             
         } catch (error: any) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -68,87 +74,64 @@ const SignInModal = ({ open, onOpenChange }: SignInModalProps) => {
         }
     };
     
-    // Your JSX will likely have a button that switches to a password reset view
-    if (isResettingPassword) {
-        return (
-            // A form that calls handlePasswordReset
-            <form onSubmit={handlePasswordReset}>
-                {/* ... email input ... */}
-                <Button type="submit" disabled={loading}>
-                    {loading ? 'Sending...' : 'Send Reset Link'}
-                </Button>
-                <Button variant="link" onClick={() => setIsResettingPassword(false)}>
-                    Back to Sign In
-                </Button>
-            </form>
-        );
-    }
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent>
+                {/* --- Conditionally render the correct view --- */}
+                {view === 'sign-in' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Sign In</DialogTitle>
+                            <DialogDescription>Access your account to continue your sustainable journey.</DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSignIn} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">Password</Label>
+                                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                            </div>
+                            <Button type="submit" disabled={loading} className="w-full">
+                                {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+                            </Button>
+                            <div className="text-center">
+                                {/* This button ONLY changes the view. It does not send an email. */}
+                                <Button type="button" variant="link" onClick={() => setView('reset-password')}>
+                                    Forgot Password?
+                                </Button>
+                            </div>
+                        </form>
+                    </>
+                )}
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-forest">Welcome Back</DialogTitle>
-          <DialogDescription>
-            Sign in to your EcoLakbay account to continue your sustainable journey.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex flex-col space-y-3 pt-4">
-            <Button type="submit" variant="eco" disabled={isLoading} className="w-full">
-              {isLoading ? "Signing In..." : "Sign In"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          </div>
-          
-          {resetEmailSent && (
-            <div className="text-sm text-center p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-green-700">
-                Password reset email sent! Check your inbox and follow the instructions to reset your password.
-              </p>
-            </div>
-          )}
-          
-          <div className="text-center space-y-2">
-           <Button variant="link" onClick={() => setIsResettingPassword(true)}>
-                Forgot Password?
-            </Button>
-
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <span className="text-forest cursor-pointer hover:underline">
-                Join us instead
-              </span>
-            </p>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+                {view === 'reset-password' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Reset Password</DialogTitle>
+                            <DialogDescription>Enter your email and we'll send you a link to reset your password.</DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handlePasswordReset} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="email-reset">Email</Label>
+                                <Input id="email-reset" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus/>
+                            </div>
+                            <Button type="submit" disabled={loading} className="w-full">
+                                {loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}
+                            </Button>
+                            <div className="text-center">
+                                {/* This button switches back to the sign-in view. */}
+                                <Button type="button" variant="link" onClick={() => setView('sign-in')}>
+                                    Back to Sign In
+                                </Button>
+                            </div>
+                        </form>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
 };
 
 export default SignInModal;
