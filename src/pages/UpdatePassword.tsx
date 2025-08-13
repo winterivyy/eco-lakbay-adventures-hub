@@ -18,15 +18,22 @@ const UpdatePassword = () => {
 
   // Check for password recovery session
   useEffect(() => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // valid password reset link
-      } else if (session) {
-        // already logged in
+        // Stay on this page so the user can set a new password
+        console.log('Password recovery session started');
+      } else if (session && event !== 'PASSWORD_RECOVERY') {
+        // Only redirect if they are logged in normally
         navigate('/dashboard');
       }
-    });
-  }, [navigate]);
+    }
+  );
+
+  return () => {
+    authListener.subscription.unsubscribe();
+  };
+}, [navigate]);
 
   // ✅ async function for updating password
   const handleUpdatePassword = async (e: React.FormEvent) => {
