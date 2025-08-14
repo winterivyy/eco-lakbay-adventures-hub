@@ -18,11 +18,10 @@ interface PermitFile {
   url?: string;
 }
 
-// --- FIX #1: THE PROPS INTERFACE IS NOW CORRECT ---
 interface PermitUploadProps {
   userId: string;
-  destinationId: string; // The component now expects this ID
-  onPermitsUploaded: () => void; // This is a simple signal for success
+  destinationId: string;
+  onPermitsUploaded: () => void;
 }
 
 const permitTypes = [
@@ -30,6 +29,7 @@ const permitTypes = [
   { value: 'tourism_permit', label: 'Tourism Permit', required: true },
   { value: 'environmental_clearance', label: 'Environmental Clearance', required: false },
   { value: 'fire_safety', label: 'Fire Safety Certificate', required: true },
+  { value: 'health_permit', label: 'Health Permit (for F&B)', required: false },
   { value: 'other', label: 'Other Permits', required: false }
 ];
 
@@ -40,13 +40,16 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
   const { toast } = useToast();
 
   const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
     else if (e.type === "dragleave") setDragActive(false);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setDragActive(false);
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
   }, []);
 
@@ -57,7 +60,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
   const handleFiles = (fileList: File[]) => {
     const validFiles = fileList.filter(file => {
       const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-      const maxSize = 10 * 1024 * 1024;
+      const maxSize = 10 * 1024 * 1024; // 10MB
       if (!validTypes.includes(file.type)) {
         toast({ title: "Invalid file type", variant: "destructive" });
         return false;
@@ -69,8 +72,8 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
       return true;
     });
     const newPermits: PermitFile[] = validFiles.map(file => ({
-      id: Math.random().toString(36).substring(2, 9),
-      file, permitType: '', status: 'pending'
+      id: Math.random().toString(36).substr(2, 9),
+      file, permitType: '', status: 'pending' as const
     }));
     setPermits(prev => [...prev, ...newPermits]);
   };
@@ -89,93 +92,97 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
       return;
     }
 
-    const requiredTypes = permitTypes.filter(t => t.required).map(t => t.value);
-    const uploadedPermitTypes = permits.map(p => p.permitType);
-    const missingRequired = requiredTypes.filter(type => !uploadedPermitTypes.includes(type));
+    const requiredTypes = permitTypes.filter(type => type.required).map(type => type.value);
+    const allStagedTypes = permits.map(p => p.permitType);
+    const missingRequired = requiredTypes.filter(type => !allStagedTypes.includes(type));
     if (missingRequired.length > 0) {
-      toast({ title: "Missing required permits", description: `Please upload all required documents to continue.`, variant: "destructive" });
+      const missingLabels = permitTypes.filter(type => missingRequired.includes(type.value)).map(type => type.label).join(', ');
+      toast({ title: "Missing required permits", description: `Please upload: ${missingLabels}`, variant: "destructive" });
       return;
     }
 
     setIsUploading(true);
-    let allSucceeded = true;
+    const successfulUploads: any[] = [];
+    const failedUploads: PermitFile[] = [];
 
     for (const permit of permitsToUpload) {
       try {
-        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'uploading' } : p));
+        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'uploading' as const } : p));
         const fileExt = permit.file.name.split('.').pop();
         const fileName = `${userId}/${destinationId}/${permit.permitType}_${Date.now()}.${fileExt}`;
-        
         const { error: uploadError } = await supabase.storage.from('permits').upload(fileName, permit.file);
         if (uploadError) throw uploadError;
-
         const { data: { publicUrl } } = supabase.storage.from('permits').getPublicUrl(fileName);
-        
-        // --- FIX #2: THE DATABASE INSERT IS NOW CORRECT ---
-        const { error: permitError } = await supabase.from('destination_permits').insert({
-          user_id: userId,
-          destination_id: destinationId, // The ID from the props is used here
-          permit_type: permit.permitType,
-          file_url: publicUrl,
-          file_name: permit.file.name,
-          verification_status: 'pending'
-        });
+        const { data: permitData, error: permitError } = await supabase.from('destination_permits').insert({ user_id: userId, destination_id: destinationId, permit_type: permit.permitType, file_url: publicUrl, file_name: permit.file.name, verification_status: 'pending' }).select().single();
         if (permitError) throw permitError;
-
-        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'success', url: publicUrl } : p));
+        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'success' as const, url: publicUrl } : p));
+        successfulUploads.push(permitData);
       } catch (error) {
-        console.error('Failed to upload permit:', permit.file.name, error);
-        allSucceeded = false;
-        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'error' } : p));
+        console.error('Failed to upload permit:', error);
+        failedUploads.push(permit);
+        setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'error' as const } : p));
       }
     }
 
     setIsUploading(false);
-
-    // --- FIX #3: THE SUCCESS LOGIC IS NOW ROBUST ---
-    if (allSucceeded) {
-      toast({ title: "All Permits Uploaded Successfully!" });
-      onPermitsUploaded(); // Signal to the parent that we are done
-    } else {
-      toast({ title: "Some Uploads Failed", description: "Please review the documents marked with an error and try submitting again.", variant: "destructive" });
+    if (failedUploads.length > 0) {
+      toast({ title: "Some Uploads Failed", description: `${failedUploads.length} document(s) failed. Please try again.`, variant: "destructive" });
+    } else if (successfulUploads.length > 0) {
+      toast({ title: "All Permits Uploaded!", description: `Your documents have been submitted for review.` });
+      onPermitsUploaded();
     }
   };
 
-  const getFileIcon = (fileType: string) => { /* Unchanged */ return '📄'; };
+  const getFileIcon = (fileType: string) => { if (fileType.includes('pdf')) return '📄'; if (fileType.includes('image')) return '🖼️'; return '📎'; };
+  const pendingOrFailedPermits = permits.filter(p => p.status === 'pending' || p.status === 'error');
 
   return (
-    <Card className="w-full">
+    <div> {/* The outer element is a div, not a Card */}
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Permit Verification Documents</CardTitle>
         <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Upload all required permits. Once all are uploaded, you can submit them to complete your registration.</AlertDescription>
+          <AlertCircle className="h-4 w-4" /><AlertDescription>Upload all required permits. Once all are uploaded, you can submit them to complete your registration.</AlertDescription>
         </Alert>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
           <h4 className="font-medium mb-3">Required Documents Checklist:</h4>
-          {/* ... Checklist JSX (Unchanged) ... */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {permitTypes.filter(t => t.required).map(type => (<div key={type.value} className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-muted-foreground" /><span>{type.label}</span></div>))}
+          </div>
         </div>
-        <div className={`border-2 ...`} onDragEnter={handleDrag} onDrop={handleDrop} onDragLeave={handleDrag} onDragOver={handleDrag}>
-          {/* ... Dropzone JSX (Unchanged) ... */}
+        <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}`}
+          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
+          <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h4 className="text-lg font-medium mb-2">Upload Permit Documents</h4>
+          <p className="text-muted-foreground mb-4">Drag & drop files here, or click to browse</p>
+          <Input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileInput} className="hidden" id="permit-upload" />
+          <Label htmlFor="permit-upload"><Button variant="outline" asChild><span>Choose Files</span></Button></Label>
         </div>
         {permits.length > 0 && (
           <div className="space-y-3">
             <h4 className="font-medium">Documents to be Uploaded:</h4>
             {permits.map(permit => (
               <div key={permit.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                {/* ... File List Item JSX (Unchanged) ... */}
+                <span className="text-2xl">{getFileIcon(permit.file.type)}</span>
+                <div className="flex-1 min-w-0"><p className="font-medium truncate">{permit.file.name}</p><p className="text-sm text-muted-foreground">{(permit.file.size / 1024 / 1024).toFixed(2)} MB</p></div>
+                <div className="flex items-center gap-2">
+                  <Select value={permit.permitType} onValueChange={(value) => updatePermitType(permit.id, value)} disabled={permit.status !== 'pending'}><SelectTrigger className="w-48"><SelectValue placeholder="Select permit type..." /></SelectTrigger><SelectContent>{permitTypes.map(type => (<SelectItem key={type.value} value={type.value}>{type.label} {type.required && '*'}</SelectItem>))}</SelectContent></Select>
+                  {permit.status === 'uploading' && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                  {permit.status === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
+                  {permit.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" title="Upload Failed" />}
+                  <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => removePermit(permit.id)} disabled={permit.status === 'success'}><X className="w-4 h-4" /></Button>
+                </div>
               </div>
             ))}
           </div>
         )}
         {permits.length > 0 && (
-          <Button onClick={uploadPermits} disabled={isUploading} className="w-full">
-            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : `Submit All Documents`}
+          <Button onClick={uploadPermits} disabled={isUploading || pendingOrFailedPermits.length === 0} className="w-full">
+            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>) : `Submit ${pendingOrFailedPermits.length} Document(s)`}
           </Button>
         )}
       </CardContent>
-    </Card>
+    </div>
   );
 };
