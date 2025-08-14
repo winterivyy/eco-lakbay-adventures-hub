@@ -12,9 +12,14 @@ export default function DestinationRegistration() {
   const navigate = useNavigate();
   const [destinationName, setDestinationName] = useState("");
   const [description, setDescription] = useState("");
-  const [permits, setPermits] = useState([]);
+  const [images, setImages] = useState([]); // For uploaded images
+  const [permits, setPermits] = useState([]); // For uploaded permits
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const userId = "CURRENT_USER_ID"; // Replace with your auth context
+  const userId = "CURRENT_USER_ID"; // Replace with actual auth context
+
+  const handleImagesUploaded = (uploadedImages) => {
+    setImages((prev) => [...prev, ...uploadedImages]);
+  };
 
   const handlePermitsUploaded = (uploadedPermits) => {
     setPermits((prev) => [...prev, ...uploadedPermits]);
@@ -24,12 +29,12 @@ export default function DestinationRegistration() {
     setIsSubmitting(true);
 
     try {
-      // 1. Insert destination
+      // 1. Create destination
       const { data: destinationData, error: destinationError } = await supabase
         .from("destinations")
         .insert({
           name: destinationName,
-          description: description,
+          description,
           user_id: userId,
         })
         .select()
@@ -37,15 +42,26 @@ export default function DestinationRegistration() {
 
       if (destinationError) throw destinationError;
 
-      // 2. Link permits to the created destination
+      // 2. Link uploaded images to this destination
+      if (images.length > 0) {
+        const imageIds = images.map((img) => img.id);
+        const { error: updateImagesError } = await supabase
+          .from("destination_images")
+          .update({ destination_id: destinationData.id })
+          .in("id", imageIds);
+
+        if (updateImagesError) throw updateImagesError;
+      }
+
+      // 3. Link uploaded permits to this destination
       if (permits.length > 0) {
-        const permitIds = permits.map((permit) => permit.id);
-        const { error: updateError } = await supabase
+        const permitIds = permits.map((p) => p.id);
+        const { error: updatePermitsError } = await supabase
           .from("destination_permits")
           .update({ destination_id: destinationData.id })
           .in("id", permitIds);
 
-        if (updateError) throw updateError;
+        if (updatePermitsError) throw updatePermitsError;
       }
 
       navigate("/success");
@@ -79,7 +95,10 @@ export default function DestinationRegistration() {
             />
           </div>
 
-          {/* Integrated PermitUpload */}
+          {/* Destination Images Upload */}
+          <ImageUpload userId={userId} onImagesUploaded={handleImagesUploaded} />
+
+          {/* Permits Upload */}
           <PermitUpload userId={userId} onPermitsUploaded={handlePermitsUploaded} />
 
           <Button onClick={handleSubmit} disabled={isSubmitting}>
@@ -89,6 +108,56 @@ export default function DestinationRegistration() {
       </div>
       <Footer />
     </>
+  );
+}
+
+function ImageUpload({ userId, onImagesUploaded }) {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+    const uploadedImages = [];
+
+    try {
+      for (const file of files) {
+        const filePath = `${userId}/${Date.now()}-${file.name}`;
+        const { error: storageError } = await supabase.storage
+          .from("destination-images")
+          .upload(filePath, file);
+
+        if (storageError) throw storageError;
+
+        const { data: insertedImage, error: insertError } = await supabase
+          .from("destination_images")
+          .insert({
+            user_id: userId,
+            file_path: filePath,
+            destination_id: null,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        uploadedImages.push(insertedImage);
+      }
+
+      onImagesUploaded(uploadedImages);
+    } catch (err) {
+      console.error("Image upload error:", err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Label>Upload Destination Images</Label>
+      <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+      {isUploading && <p className="text-sm text-gray-500">Uploading...</p>}
+    </div>
   );
 }
 
@@ -103,7 +172,6 @@ function PermitUpload({ userId, onPermitsUploaded }) {
     const permitType = file.name.split(".")[0].toLowerCase();
 
     try {
-      // 1. Upload to Supabase Storage
       const filePath = `${userId}/${Date.now()}-${file.name}`;
       const { error: storageError } = await supabase.storage
         .from("permits")
@@ -111,7 +179,6 @@ function PermitUpload({ userId, onPermitsUploaded }) {
 
       if (storageError) throw storageError;
 
-      // 2. Insert into DB with destination_id = null for now
       const { data: insertedPermit, error: insertError } = await supabase
         .from("destination_permits")
         .insert({
@@ -125,7 +192,6 @@ function PermitUpload({ userId, onPermitsUploaded }) {
 
       if (insertError) throw insertError;
 
-      // 3. Return inserted row with ID
       onPermitsUploaded([insertedPermit]);
     } catch (err) {
       console.error("Permit upload error:", err);
