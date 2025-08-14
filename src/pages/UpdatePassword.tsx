@@ -18,34 +18,32 @@ const UpdatePassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if there is a recovery session
-    const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error.message);
-      }
-
-      if (session?.user && session?.user.recoveryToken) {
-        // If the user arrived via password recovery link
-        setRecoverySession(true);
-      }
-    };
-
-    checkSession();
-
-    // Redirect if user is fully logged in and not recovering password
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    // Listen for PASSWORD_RECOVERY event directly from Supabase
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setRecoverySession(true);
-      } else if (session && !session.user?.recoveryToken) {
-        navigate('/dashboard');
       }
     });
 
-    return () => {
-      listener.subscription.unsubscribe();
+    // Also check if there's already an active session (fresh from recovery link)
+    const checkRecovery = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error.message);
+        return;
+      }
+      // If session exists, we consider it valid recovery session
+      if (data.session) {
+        setRecoverySession(true);
+      }
     };
-  }, [navigate]);
+
+    checkRecovery();
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +71,7 @@ const UpdatePassword = () => {
         description: 'Please log in with your new password.',
       });
 
+      // End current session after reset for security
       await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {
