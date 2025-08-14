@@ -78,7 +78,7 @@ const Community = () => {
     setCreatePostModalOpen(true);
   };
 
-  const handlePostCreated = () => { fetchPostsAndProfiles(); };
+  const refreshFeed = () => { fetchPostsAndProfiles(); };
 
   const handleLike = async (postId: string) => {
     if (!user) { toast({ title: "Authentication required", variant: "destructive" }); return; }
@@ -110,23 +110,41 @@ const Community = () => {
       const { error } = await supabase.from('comments').insert({ post_id: postId, author_id: user.id, content });
       if (error) throw error;
       fetchComments(postId); // Refresh with real data
-      fetchTopProfiles(); // Refresh leaderboard points
+      fetchPostsAndProfiles(); // Refresh posts and leaderboard points
     } catch (error) { console.error('Error adding comment:', error); toast({ title: "Error", description: "Failed to add comment.", variant: "destructive" }); fetchPostsAndProfiles(); }
   };
 
   const handleShare = async (post: any) => {
     const shareData = { title: `Check out: "${post.title}"`, text: `"${post.content.substring(0, 100)}..."\n\nShared from EcoLakbay`, url: window.location.href };
     try {
-      if (navigator.share) { await navigator.share(shareData); } 
+      if (navigator.share) { await navigator.share(shareData); }
       else { await navigator.clipboard.writeText(shareData.url); toast({ title: "Link Copied!", description: "Link to the community page has been copied." }); }
     } catch (error: any) { if (error.name !== 'AbortError') { console.error('Error sharing post:', error); } }
+  };
+
+  const handleEditPost = (post: any) => {
+    setEditingPost(post);
+    setEditPostModalOpen(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const originalPosts = [...posts];
+    setPosts(posts.filter(p => p.id !== postId));
+
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (error) throw error;
+      toast({ title: "Post deleted", description: "The post has been successfully removed." });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      setPosts(originalPosts);
+      toast({ title: "Error deleting post", description: "Could not delete the post. Please try again.", variant: "destructive" });
+    }
   };
 
   const toggleComments = (postId: string) => { const willBeOpen = !showComments[postId]; setShowComments(prev => ({ ...prev, [postId]: willBeOpen })); if (willBeOpen && !comments[postId]) { fetchComments(postId); } };
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const getInitials = (name: string | null) => { if (!name) return "U"; return name.split(' ').map(n => n[0]).join('').toUpperCase(); };
-  const handleEditPost = (post: any) => { setEditingPost(post); setEditPostModalOpen(true); };
-  const handleDeletePost = async (postId: string) => { /* ... Your existing function ... */ };
   const canEditPost = (post: any) => isAdmin || isModerator || (user && post.author_id === user.id);
   const canDeletePost = (post: any) => isAdmin || (user && post.author_id === user.id);
   const upcomingEvents = [ { title: "Mangrove Planting Day", date: "Dec 15, 2024", location: "Candaba Wetlands", participants: 45 }, { title: "Sustainable Tourism Workshop", date: "Dec 20, 2024", location: "Clark Green City", participants: 32 }, { title: "Cultural Heritage Walk", date: "Dec 22, 2024", location: "San Fernando", participants: 28 } ];
@@ -176,9 +194,54 @@ const Community = () => {
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-xs capitalize">{post.type}</Badge>
                             {post.profiles?.points != null && (<div className="flex items-center space-x-1 text-amber-600"><span className="text-xs">🌟</span><span className="text-xs font-medium">{post.profiles.points} pts</span></div>)}
+                            
+                            {/* --- Start of Changes --- */}
                             {(canEditPost(post) || canDeletePost(post)) && (
-                              <DropdownMenu>{/* Your existing Dropdown JSX for edit/delete */}</DropdownMenu>
+                                <AlertDialog>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreVertical className="h-4 w-4" />
+                                                <span className="sr-only">Post options</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            {canEditPost(post) && (
+                                                <DropdownMenuItem onSelect={() => handleEditPost(post)}>
+                                                    <Edit className="mr-2 h-4 w-4" />
+                                                    <span>Edit Post</span>
+                                                </DropdownMenuItem>
+                                            )}
+                                            {canDeletePost(post) && (
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem className="text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        <span>Delete Post</span>
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action cannot be undone. This will permanently delete the post and all its associated data.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => handleDeletePost(post.id)}
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                                Confirm Delete
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
+                            {/* --- End of Changes --- */}
                           </div>
                         </div>
                       </CardHeader>
@@ -242,8 +305,8 @@ const Community = () => {
         </div>
       </div>
       <Footer />
-      <CreatePostModal open={createPostModalOpen} onOpenChange={setCreatePostModalOpen} onPostCreated={handlePostCreated} />
-      <EditPostModal open={editPostModalOpen} onOpenChange={setEditPostModalOpen} onPostUpdated={handlePostCreated} post={editingPost} />
+      <CreatePostModal open={createPostModalOpen} onOpenChange={setCreatePostModalOpen} onPostCreated={refreshFeed} />
+      <EditPostModal open={editPostModalOpen} onOpenChange={setEditPostModalOpen} onPostUpdated={refreshFeed} post={editingPost} />
     </div>
   );
 };
