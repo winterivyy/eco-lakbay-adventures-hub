@@ -75,6 +75,22 @@ const Destinations = () => {
     setIsModalOpen(true); // Open the main modal first, or directly open the rating modal
     // setIsRatingModalOpen(true);
   };
+  const handleViewOnMap = (destination: DestinationPreview | null) => {
+    if (!destination) return;
+    let googleMapsUrl = '';
+    
+    // Prioritize precise coordinates if they exist
+    if (destination.latitude && destination.longitude) {
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`;
+    } else {
+      // Fallback to searching by address
+      const query = encodeURIComponent(`${destination.business_name}, ${destination.address}`);
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    }
+    
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+  };
+
 
   // --- RENDER LOGIC ---
   const renderContent = () => {
@@ -105,22 +121,7 @@ const Destinations = () => {
         )
     }
 
-     const handleViewOnMap = (destination: DestinationPreview | null) => {
-    if (!destination) return;
-    let googleMapsUrl = '';
     
-    // Prioritize precise coordinates if they exist
-    if (destination.latitude && destination.longitude) {
-      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`;
-    } else {
-      // Fallback to searching by address
-      const query = encodeURIComponent(`${destination.business_name}, ${destination.address}`);
-      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
-    }
-    
-    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
-  };
-
     // 3. JSX updated to use fields from your schema
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
