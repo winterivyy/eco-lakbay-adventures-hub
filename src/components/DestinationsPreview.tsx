@@ -93,6 +93,22 @@ const DestinationsPreview = () => {
   const handleViewAllDestinations = () => navigate("/destinations");
   const getInitials = (name: string | null) => { if (!name) return "U"; return name.split(' ').map(n => n[0]).join('').toUpperCase(); };
 
+   const handleViewOnMap = (destination: DestinationPreview | null) => {
+    if (!destination) return;
+    let googleMapsUrl = '';
+    
+    // Prioritize precise coordinates if they exist
+    if (destination.latitude && destination.longitude) {
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`;
+    } else {
+      // Fallback to searching by address
+      const query = encodeURIComponent(`${destination.business_name}, ${destination.address}`);
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    }
+    
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <>
       <section className="py-20 bg-background">
@@ -186,8 +202,18 @@ const DestinationsPreview = () => {
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button variant="eco" className="flex-1" onClick={() => navigate(`/destinations`)}>See All Destinations & Rate</Button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                  <Button variant="eco" className="flex-1" onClick={() => navigate(`/destinations`)}>
+                    Rate & See More
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1" 
+                    onClick={() => handleViewOnMap(selectedDestination)}
+                  >
+                    <MapPin className="mr-2 h-4 w-4" />
+                    View on Map
+                  </Button>
                 </div>
               </div>
             </>
