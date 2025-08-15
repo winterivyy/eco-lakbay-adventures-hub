@@ -27,6 +27,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     const [images, setImages] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isGeocoding, setIsGeocoding] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth(); // Get user to build file path
 
@@ -37,6 +38,34 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
 
     if (!destination || !formData) return null;
 
+     // --- NEW Geocoding Function using a free API ---
+    const handleGeocodeAddress = async () => {
+        const fullAddress = `${formData.address}, ${formData.city}, ${formData.province}, Philippines`;
+        if (!fullAddress.trim() || fullAddress.length < 15) {
+            toast({ title: "Address too short", description: "Please provide a more complete address to find it on the map.", variant: "destructive" });
+            return;
+        }
+
+        setIsGeocoding(true);
+        try {
+            // Using the free OpenStreetMap Nominatim API
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddress)}&format=json&limit=1`);
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                const { lat, lon } = data[0];
+                setFormData(prev => prev ? ({ ...prev, latitude: parseFloat(lat), longitude: parseFloat(lon) }) : null);
+                toast({ title: "Location Found!", description: `Coordinates updated: Lat: ${lat}, Lon: ${lon}` });
+            } else {
+                toast({ title: "Location Not Found", description: "Could not find coordinates for this address. Please try making it more specific.", variant: "destructive" });
+            }
+        } catch (error) {
+            toast({ title: "Geocoding Error", description: "Could not connect to the map service.", variant: "destructive" });
+        } finally {
+            setIsGeocoding(false);
+        }
+    };
+  
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
         setFormData(prev => prev ? ({ ...prev, [id]: value }) : null);
@@ -135,8 +164,25 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
                     <div>
                         <Label className="text-lg font-semibold">Business Details</Label>
                         <div className="grid gap-4 py-4 border-t mt-2">
+                            {/* --- We will now manually define fields for better control --- */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="address" className="text-right">Address</Label>
+                                <Input id="address" value={formData.address || ''} onChange={handleChange} className="col-span-2" />
+                                <Button type="button" size="sm" onClick={handleGeocodeAddress} disabled={isGeocoding} className="col-span-1">
+                                    {isGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-1" />} Find
+                                </Button>
+                            </div>
+
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Coordinates</Label>
+                                <div className="col-span-3 grid grid-cols-2 gap-2">
+                                    <div><Label htmlFor="latitude" className="text-xs text-muted-foreground">Latitude</Label><Input id="latitude" type="number" step="any" value={formData.latitude || ''} onChange={handleChange} /></div>
+                                    <div><Label htmlFor="longitude" className="text-xs text-muted-foreground">Longitude</Label><Input id="longitude" type="number" step="any" value={formData.longitude || ''} onChange={handleChange} /></div>
+                                </div>
+                            </div>
+
                              {Object.keys(formData).filter(key => 
-                                !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'images', 'destination_permits'].includes(key)
+                                !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'images', 'destination_permits', 'address', 'latitude', 'longitude'].includes(key)
                              ).map(key => (
                                 <div className="grid grid-cols-4 items-center gap-4" key={key}>
                                     <Label htmlFor={key} className="text-right capitalize">{key.replace(/_/g, ' ')}</Label>
