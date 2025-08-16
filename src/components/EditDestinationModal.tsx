@@ -93,9 +93,9 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}.${fileExt}`;
             const filePath = `public/destinations/${destination.id}/${fileName}`;
-            const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+            const { error: uploadError } = await supabase.storage.from('destination-photos').upload(filePath, file);
             if (uploadError) throw uploadError;
-            const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(filePath);
+            const { data: { publicUrl } } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
             return publicUrl;
         });
 
