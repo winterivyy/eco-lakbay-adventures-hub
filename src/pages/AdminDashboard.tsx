@@ -83,40 +83,74 @@ const AdminDashboard = () => {
     }
   }, [user]);
 
-  const loadAdminData = async () => {
-    setLoadingData(true);
-    try {
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
-      setProfile(profileData);
-
-      const { data: destData, error: destError } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
-      if (destError) throw destError;
-      setAllDestinations(destData || []);
-        
-      const { data: usersData, error: usersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-      if (usersError) throw usersError;
-      setAllUsers(usersData || []);
-
-      const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
-      if (ratingsError) throw ratingsError;
-      setAllRatings(ratingsData || []);
-        
-      const { data: postsData } = await supabase.from('posts').select('id', { count: 'exact' });
-      const { data: calculatorData } = await supabase.from('calculator_entries').select('carbon_footprint');
-      setStats({
-          totalPosts: postsData?.length || 0,
-          totalCalculations: calculatorData?.length || 0,
-          totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0 * 100) / 100
-      });
-
-    } catch (error: any) {
-        toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
-    } finally {
-      setLoadingData(false);
-    }
-  };
+      const loadAdminData = async () => {
+        setLoadingData(true);
+        try {
+          const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
+          setProfile(profileData);
+    
+          const { data: destData, error: destError } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
+          if (destError) throw destError;
+          setAllDestinations(destData || []);
+            
+          const { data: usersData, error: usersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+          if (usersError) throw usersError;
+          setAllUsers(usersData || []);
+    
+          const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
+          if (ratingsError) throw ratingsError;
+          setAllRatings(ratingsData || []);
+            
+          const { data: postsData } = await supabase.from('posts').select('id', { count: 'exact' });
+          const { data: calculatorData } = await supabase.from('calculator_entries').select('carbon_footprint');
+          setStats({
+              totalPosts: postsData?.length || 0,
+              totalCalculations: calculatorData?.length || 0,
+              totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0 * 100) / 100
+          });
+    
+        } catch (error: any) {
+            toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
+        } finally {
+          setLoadingData(false);
+        }
+      };
   
-  const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived') => { /* ... unchanged ... */ };
+      const handleStatusUpdate = async (
+      destinationId: string,
+      status: 'approved' | 'rejected' | 'archived'
+    ) => {
+      try {
+        const { error } = await supabase
+          .from('destinations')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', destinationId);
+    
+        if (error) {
+          toast({
+            title: "Update Failed",
+            description: `Could not update status: ${error.message}`,
+            variant: "destructive",
+          });
+          return;
+        }
+    
+        toast({
+          title: "Success",
+          description: `Destination has been ${status}.`,
+        });
+    
+        // Refresh the list
+        loadAdminData();
+      } catch (err: any) {
+        toast({
+          title: "Unexpected Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    };
+
   const handleUpdateUser = async (userId: string, updates: any) => { /* ... unchanged ... */ };
   const handleOpenEditModal = (dest: any) => { setEditingDestination(dest); setIsEditModalOpen(true); };
   const handleCloseEditModal = () => { setEditingDestination(null); setIsEditModalOpen(false); };
