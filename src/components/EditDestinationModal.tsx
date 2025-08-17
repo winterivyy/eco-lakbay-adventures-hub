@@ -35,7 +35,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     useEffect(() => {
         // Reset state every time a new destination is passed in
         setFormData(destination);
-        setExistingImageUrls(destination?.images || []);
+        setExistingImageUrls(destination?.photos || []);
         setStagedFiles([]);
         setUrlsToDelete([]);
     }, [destination]);
