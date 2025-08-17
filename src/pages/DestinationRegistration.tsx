@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PermitUpload } from "@/components/PermitUpload";
-import { ImageUploader } from "@/components/ImageUploader";
+import { ImageUploader, ImageUploaderRef } from "@/components/ImageUploader";
 import { Loader2, CheckCircle, Building, MapPin, Phone, Mail, Globe, Star, FileCheck, Camera } from "lucide-react";
 
 const DestinationRegistration = () => {
@@ -24,6 +24,7 @@ const DestinationRegistration = () => {
   const [step, setStep] = useState<'info' | 'photos' | 'permits' | 'complete'>('info');
   const [createdDestinationId, setCreatedDestinationId] = useState<string | null>(null);
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
+  const imageUploaderRef = useRef<ImageUploaderRef>(null);
 
   const [formData, setFormData] = useState({
     businessName: "", businessType: "", description: "", address: "",
@@ -71,24 +72,29 @@ const DestinationRegistration = () => {
     }
   };
 
-  const handlePhotosSubmitted = async (imageUrls: string[]) => {
-    if (!createdDestinationId) return;
-    setUploadedImageUrls(imageUrls);
-    
-    // Link the uploaded image URLs to the destination record
-    const { error } = await supabase
-      .from('destinations')
-      .update({ images: imageUrls })
-      .eq('id', createdDestinationId);
-    
-    if (error) {
-      toast({ title: "Error Saving Photos", description: error.message, variant: "destructive" });
-    } else {
-      setStep('permits'); // Proceed to the permits step
-      toast({ title: "Step 2 Complete", description: "Photos saved successfully." });
-    }
-  };
+   const handlePhotosSubmitted = async () => {
+    if (!imageUploaderRef.current || !createdDestinationId) return;
 
+    setIsSubmitting(true);
+    // Call the child component's upload function and wait for the URLs
+    const publicUrls = await imageUploaderRef.current.triggerUpload();
+    
+    // `triggerUpload` will return null if it fails or has no files
+    if (publicUrls) {
+      // If upload was successful, update the destination in the database with the image URLs
+      const { error } = await supabase
+        .from('destinations')
+        .update({ images: publicUrls })
+        .eq('id', createdDestinationId);
+
+      if (error) {
+        toast({ title: "Error Saving Photos", description: error.message, variant: "destructive" });
+      } else {
+        setStep('permits'); // Only proceed to permits on success
+      }
+    }
+    setIsSubmitting(false);
+  };
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -142,12 +148,17 @@ const DestinationRegistration = () => {
                   </div>
                 </div>
               )}
-              {step === 'photos' && createdDestinationId && (
+               {step === 'photos' && createdDestinationId && (
                 <div className="space-y-6">
-                  <ImageUploader destinationId={createdDestinationId} onUploadComplete={setUploadedImageUrls} />
+                  <h3 className="text-lg font-semibold text-forest flex items-center gap-2"><Camera className="w-5 h-5" /> Upload Photos</h3>
+                  {/* Pass the ref to the ImageUploader component */}
+                  <ImageUploader ref={imageUploaderRef} destinationId={createdDestinationId} />
                   <div className="flex justify-between pt-6 border-t">
                     <Button type="button" variant="outline" onClick={() => setStep('info')}>Back to Business Info</Button>
-                    <Button type="button" onClick={() => handlePhotosSubmitted(uploadedImageUrls)} disabled={uploadedImageUrls.length === 0}>Save Photos & Continue to Permits</Button>
+                    <Button type="button" onClick={handlePhotosSubmitted} disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Photos & Continue
+                    </Button>
                   </div>
                 </div>
               )}
