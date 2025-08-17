@@ -72,9 +72,9 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
                 stagedFiles.map(async file => {
                     const fileName = `${Date.now()}-${file.name}`;
                     const filePath = `public/destinations/${destination.id}/${fileName}`;
-                    const { error } = await supabase.storage.from('destination-uploads').upload(filePath, file);
+                    const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
                     if (error) throw error;
-                    const { data } = supabase.storage.from('destination-uploads').getPublicUrl(filePath);
+                    const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
                     return data.publicUrl;
                 })
             );
@@ -85,7 +85,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
                     const urlParts = new URL(url);
                     return `public/destinations${urlParts.pathname.split('/public/destinations')[1]}`;
                 });
-                await supabase.storage.from('destination-uploads').remove(filePathsToDelete);
+                await supabase.storage.from('destination-photos').remove(filePathsToDelete);
             }
             
             // --- Stage 3: Update the database with all changes ---
