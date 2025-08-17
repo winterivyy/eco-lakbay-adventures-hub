@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PermitUpload } from "@/components/PermitUpload";
-import { Loader2, CheckCircle, Building, MapPin, Phone, Mail, Globe, Star, FileCheck } from "lucide-react";
+import { ImageUploader } from "@/components/ImageUploader";
+import { Loader2, CheckCircle, Building, MapPin, Phone, Mail, Globe, Star, FileCheck, Camera } from "lucide-react";
 
 const DestinationRegistration = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,9 +21,9 @@ const DestinationRegistration = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // State to manage the multi-step workflow
-  const [step, setStep] = useState<'info' | 'permits' | 'complete'>('info');
+  const [step, setStep] = useState<'info' | 'photos' | 'permits' | 'complete'>('info');
   const [createdDestinationId, setCreatedDestinationId] = useState<string | null>(null);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     businessName: "", businessType: "", description: "", address: "",
@@ -34,7 +35,6 @@ const DestinationRegistration = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Step 1 Handler: Saves business info and proceeds to permit upload.
   const handleSaveAndContinue = async () => {
     if (!user) {
       toast({ title: "Authentication Required", variant: "destructive" });
@@ -50,35 +50,42 @@ const DestinationRegistration = () => {
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('destinations')
-        .insert({
-          owner_id: user.id,
-          business_name: formData.businessName,
-          business_type: formData.businessType,
-          description: formData.description,
-          address: formData.address,
-          city: formData.city,
-          province: formData.province,
-          phone: formData.phone || null,
-          email: formData.email,
-          website: formData.website || null,
-          sustainability_practices: formData.sustainabilityPractices || null,
-        })
-        .select('id')
-        .single();
+      const { data, error } = await supabase.from('destinations').insert({
+        owner_id: user.id, business_name: formData.businessName, business_type: formData.businessType,
+        description: formData.description, address: formData.address, city: formData.city,
+        province: formData.province, phone: formData.phone || null, email: formData.email,
+        website: formData.website || null, sustainability_practices: formData.sustainabilityPractices || null,
+      }).select('id').single();
       
       if (error) throw error;
       
       if (data) {
         setCreatedDestinationId(data.id);
-        setStep('permits');
-        toast({ title: "Step 1 Complete", description: "Business information saved. Please upload your verification documents." });
+        setStep('photos'); // Move to the NEW photos step
+        toast({ title: "Step 1 Complete", description: "Business information saved." });
       }
     } catch (error: any) {
       toast({ title: "Error Saving", description: error.message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePhotosSubmitted = async (imageUrls: string[]) => {
+    if (!createdDestinationId) return;
+    setUploadedImageUrls(imageUrls);
+    
+    // Link the uploaded image URLs to the destination record
+    const { error } = await supabase
+      .from('destinations')
+      .update({ images: imageUrls })
+      .eq('id', createdDestinationId);
+    
+    if (error) {
+      toast({ title: "Error Saving Photos", description: error.message, variant: "destructive" });
+    } else {
+      setStep('permits'); // Proceed to the permits step
+      toast({ title: "Step 2 Complete", description: "Photos saved successfully." });
     }
   };
 
@@ -96,15 +103,15 @@ const DestinationRegistration = () => {
             <CardHeader>
               <CardTitle className="text-2xl text-forest">Registration Application</CardTitle>
               <CardDescription>
-                {step === 'info' && "Step 1 of 2: Provide your business information."}
-                {step === 'permits' && "Step 2 of 2: Upload required verification documents."}
+                {step === 'info' && "Step 1 of 3: Provide your business information."}
+                {step === 'photos' && "Step 2 of 3: Upload photos of your destination."}
+                {step === 'permits' && "Step 3 of 3: Upload required verification documents."}
                 {step === 'complete' && "Application Submitted!"}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {step === 'info' && (
                 <div className="space-y-6">
-                  {/* --- Business Information Form --- */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-forest">Business Information</h3>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -113,8 +120,6 @@ const DestinationRegistration = () => {
                     </div>
                     <div className="space-y-2"><Label htmlFor="description">Business Description *</Label><Textarea id="description" placeholder="Describe your business, services, and what makes it special..." className="min-h-[120px]" value={formData.description} onChange={(e) => handleInputChange("description", e.target.value)} required /></div>
                   </div>
-
-                  {/* --- Location Form --- */}
                   <div className="space-y-4"><h3 className="text-lg font-semibold text-forest flex items-center gap-2"><MapPin className="w-5 h-5" />Location Information</h3>
                     <div className="space-y-2"><Label htmlFor="address">Street Address *</Label><Input id="address" placeholder="Enter complete street address" value={formData.address} onChange={(e) => handleInputChange("address", e.target.value)} required /></div>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -122,8 +127,6 @@ const DestinationRegistration = () => {
                       <div className="space-y-2"><Label htmlFor="province">Province *</Label><Input id="province" placeholder="e.g., Pampanga" value={formData.province} onChange={(e) => handleInputChange("province", e.target.value)} required /></div>
                     </div>
                   </div>
-
-                  {/* --- Contact Form --- */}
                   <div className="space-y-4"><h3 className="text-lg font-semibold text-forest">Contact Information</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2"><Label htmlFor="phone" className="flex items-center gap-2"><Phone className="w-4 h-4" />Phone Number</Label><Input id="phone" type="tel" placeholder="+63 900 000 0000" value={formData.phone} onChange={(e) => handleInputChange("phone", e.target.value)} /></div>
@@ -131,42 +134,39 @@ const DestinationRegistration = () => {
                     </div>
                     <div className="space-y-2"><Label htmlFor="website" className="flex items-center gap-2"><Globe className="w-4 h-4" />Website (Optional)</Label><Input id="website" type="url" placeholder="https://yourwebsite.com" value={formData.website} onChange={(e) => handleInputChange("website", e.target.value)} /></div>
                   </div>
-                  
-                  {/* --- Sustainability Form --- */}
                   <div className="space-y-4"><h3 className="text-lg font-semibold text-forest">Sustainability Practices</h3>
                     <div className="space-y-2"><Label htmlFor="sustainabilityPractices">Tell us about your environmental initiatives</Label><Textarea id="sustainabilityPractices" placeholder="Describe your eco-friendly practices, waste reduction efforts, community involvement, etc." className="min-h-[120px]" value={formData.sustainabilityPractices} onChange={(e) => handleInputChange("sustainabilityPractices", e.target.value)} /></div>
                   </div>
-
                   <div className="flex justify-end pt-6 border-t">
-                    <Button type="button" size="lg" onClick={handleSaveAndContinue} disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save & Continue to Permits
-                    </Button>
+                    <Button type="button" size="lg" onClick={handleSaveAndContinue} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save & Continue to Photos</Button>
                   </div>
                 </div>
               )}
-
+              {step === 'photos' && createdDestinationId && (
+                <div className="space-y-6">
+                  <ImageUploader destinationId={createdDestinationId} onUploadComplete={setUploadedImageUrls} />
+                  <div className="flex justify-between pt-6 border-t">
+                    <Button type="button" variant="outline" onClick={() => setStep('info')}>Back to Business Info</Button>
+                    <Button type="button" onClick={() => handlePhotosSubmitted(uploadedImageUrls)} disabled={uploadedImageUrls.length === 0}>Save Photos & Continue to Permits</Button>
+                  </div>
+                </div>
+              )}
               {step === 'permits' && user && createdDestinationId && (
                 <div className="space-y-6">
                   <PermitUpload userId={user.id} destinationId={createdDestinationId} onPermitsUploaded={() => setStep('complete')} />
-                  <div className="flex justify-start pt-6">
-                    <Button type="button" variant="outline" onClick={() => setStep('info')}>
-                      Back to Business Info
-                    </Button>
+                  <div className="flex justify-between pt-6 border-t">
+                    <Button type="button" variant="outline" onClick={() => setStep('photos')}>Back to Photos</Button>
                   </div>
                 </div>
               )}
-
               {step === 'complete' && (
                 <div className="text-center py-12">
                   <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                   <h2 className="text-2xl font-semibold mb-2">Registration Submitted!</h2>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    Thank you! Your application and documents have been received. We will review them and notify you of your status within 5-7 business days.
+                    Thank you! Your application is complete and will be reviewed within 5-7 business days.
                   </p>
-                  <Button onClick={() => navigate('/my-destinations')}>
-                    Go to Your Destination Dashboard
-                  </Button>
+                  <Button onClick={() => navigate('/my-destinations')}>Go to Your Dashboard</Button>
                 </div>
               )}
             </CardContent>
