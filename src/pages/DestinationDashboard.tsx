@@ -215,13 +215,14 @@ const DestinationDashboard = () => {
         </main>
         <Footer />
       </div>
-
-      <EditDestinationModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        onSave={handleSaveEditModal}
-        destination={editingDestination}
-      />
+ {editingDestination && (
+        <EditDestinationModal
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveEditModal}
+          destination={editingDestination}
+        />
+      )}
     </>
   );
 };
