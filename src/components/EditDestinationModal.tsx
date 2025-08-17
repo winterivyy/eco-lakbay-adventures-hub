@@ -109,28 +109,36 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
         }
     };
     
+       // --- NEW Geocoding Function with the fix ---
     const handleGeocodeAddress = async () => {
+        // --- THIS IS THE FIX ---
+        // If formData doesn't exist for some reason, stop the function immediately.
+        if (!formData) {
+            toast({ title: "Cannot find destination data.", variant: "destructive" });
+            return;
+        }
+        // -----------------------
+
         const fullAddress = `${formData.address}, ${formData.city}, ${formData.province}, Philippines`;
-        if (!fullAddress.trim() || fullAddress.length < 15) {
-            toast({ title: "Address too short", description: "Please provide a more complete address to find it on the map.", variant: "destructive" });
+        if (fullAddress.length < 15) {
+            toast({ title: "Address is too short.", variant: "destructive" });
             return;
         }
 
         setIsGeocoding(true);
         try {
-            // Using the free OpenStreetMap Nominatim API
             const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddress)}&format=json&limit=1`);
             const data = await response.json();
 
             if (data && data.length > 0) {
                 const { lat, lon } = data[0];
                 setFormData(prev => prev ? ({ ...prev, latitude: parseFloat(lat), longitude: parseFloat(lon) }) : null);
-                toast({ title: "Location Found!", description: `Coordinates updated: Lat: ${lat}, Lon: ${lon}` });
+                toast({ title: "Location Found!", description: `Coordinates have been updated.` });
             } else {
-                toast({ title: "Location Not Found", description: "Could not find coordinates for this address. Please try making it more specific.", variant: "destructive" });
+                toast({ title: "Location Not Found", variant: "destructive" });
             }
         } catch (error) {
-            toast({ title: "Geocoding Error", description: "Could not connect to the map service.", variant: "destructive" });
+            toast({ title: "Geocoding Error", variant: "destructive" });
         } finally {
             setIsGeocoding(false);
         }
