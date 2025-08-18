@@ -17,7 +17,7 @@ interface ImageUploaderProps {
 
 // forwardRef allows the parent to call a function inside this component
 export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
-  ({ destinationId }, ref) => {
+  ({ destination.id }, ref) => {
     const [stagedFiles, setStagedFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const { toast } = useToast();
@@ -32,13 +32,13 @@ export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
         setIsUploading(true);
         try {
           const uploadPromises = stagedFiles.map(async file => {
-            const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-        const filePath = `public/destinations/${destination.id}/${fileName}`;
-            const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
-            if (error) throw error;
-            const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
-            return data.publicUrl;
-          });
+                    const fileName = `${Date.now()}-${file.name}`;
+                    const filePath = `public/destinations/${destination.id}/${fileName}`;
+                    const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
+                    if (error) throw error;
+                    const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
+                    return data.publicUrl;
+                })
           const publicUrls = await Promise.all(uploadPromises);
           toast({ title: "Upload Successful!", description: `${publicUrls.length} photos were saved.` });
           return publicUrls;
