@@ -32,12 +32,15 @@ export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
         setIsUploading(true);
         try {
           const uploadPromises = stagedFiles.map(async file => {
-                    const fileName = `${Date.now()}-${file.name}`;
-                    const filePath = `public/destinations/${09fa47e1-f171-4f3c-9c16-9d0f0528b532}/${fileName}`;
-                    const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
-                    if (error) throw error;
-                    const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
-                    return data.publicUrl;
+            const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+            // The file path remains the same
+            const filePath = `public/destinations/${destinationId}/${fileName}`;
+            
+            const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
+            if (error) throw error;
+
+            const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+            return data.publicUrl;
                 })
           const publicUrls = await Promise.all(uploadPromises);
           toast({ title: "Upload Successful!", description: `${publicUrls.length} photos were saved.` });
