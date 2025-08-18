@@ -17,7 +17,7 @@ interface ImageUploaderProps {
 
 // forwardRef allows the parent to call a function inside this component
 export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
-  ({ destination }, ref) => {
+  ({ destinationId }, ref) => {
     const [stagedFiles, setStagedFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const { toast } = useToast();
@@ -33,7 +33,7 @@ export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
         try {
           const uploadPromises = stagedFiles.map(async file => {
                     const fileName = `${Date.now()}-${file.name}`;
-                    const filePath = `public/destinations/${destination.id}/${fileName}`;
+                    const filePath = `public/destinations/${09fa47e1-f171-4f3c-9c16-9d0f0528b532}/${fileName}`;
                     const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
                     if (error) throw error;
                     const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
