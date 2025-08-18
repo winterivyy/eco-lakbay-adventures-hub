@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CardHeader, CardTitle, CardContent } from '@/components/ui/card'; // Note: Not using Card itself
+import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,20 +38,9 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
-    else if (e.type === "dragleave") setDragActive(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setDragActive(false);
-    if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
-  }, []);
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) handleFiles(Array.from(e.target.files));
-  };
+  const handleDrag = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setDragActive(true); else if (e.type === "dragleave") setDragActive(false); }, []);
+  const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files)); }, []);
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) handleFiles(Array.from(e.target.files)); };
 
   const handleFiles = (fileList: File[]) => {
     const validFiles = fileList.filter(file => {
@@ -74,13 +63,11 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
   const uploadPermits = async () => {
     const permitsToUpload = permits.filter(p => p.permitType && (p.status === 'pending' || p.status === 'error'));
     if (permitsToUpload.length === 0) { toast({ title: "No new permits to upload", variant: "destructive" }); return; }
-
     const requiredPermitTypes = permitTypes.filter(type => type.required).map(type => type.value);
     const uploadedPermitTypes = permits.filter(p => p.permitType).map(p => p.permitType);
     const missingRequired = requiredPermitTypes.filter(type => !uploadedPermitTypes.includes(type));
-
     if (missingRequired.length > 0) {
-      toast({ title: "Missing Required Permits", description: `Please upload: ${missingRequired.join(', ')}`, variant: "destructive" });
+      toast({ title: "Missing Required Permits", description: `Please select a type for all uploaded files and ensure all required permits are included.`, variant: "destructive" });
       return;
     }
 
@@ -93,7 +80,9 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
         setPermits(prev => prev.map(p => p.id === permit.id ? { ...p, status: 'uploading' } : p));
         const fileExt = permit.file.name.split('.').pop();
         const fileName = `${permit.permitType}-${Date.now()}.${fileExt}`;
-        const filePath = `public/${userId}/${destinationId}/${fileName}`;
+        
+        // --- THIS IS THE CORRECTED, SIMPLIFIED FILE PATH ---
+        const filePath = `${destinationId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage.from('permits').upload(filePath, permit.file);
         if (uploadError) throw uploadError;
@@ -127,7 +116,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
   const pendingOrFailedPermits = permits.filter(p => p.status === 'pending' || p.status === 'error');
 
   return (
-    <> {/* Use a fragment because CardHeader/CardContent are used directly by the parent */}
+    <>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Permit Verification Documents</CardTitle>
         <Alert>
@@ -136,7 +125,7 @@ export const PermitUpload: React.FC<PermitUploadProps> = ({ userId, destinationI
         </Alert>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive ? 'border-primary' : 'border-muted'}"
+        <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-muted'}`}
           onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
           <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <h4 className="text-lg font-medium">Upload Permit Documents</h4>
