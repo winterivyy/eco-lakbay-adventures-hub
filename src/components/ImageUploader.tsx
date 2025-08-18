@@ -15,6 +15,8 @@ interface ImageUploaderProps {
   destinationId: string;
 }
 
+const BUCKET_NAME = 'destination-photos';
+
 // forwardRef allows the parent to call a function inside this component
 export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
   ({ destinationId }, ref) => {
