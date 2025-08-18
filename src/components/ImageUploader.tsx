@@ -33,7 +33,7 @@ export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
         try {
           const uploadPromises = stagedFiles.map(async file => {
             const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-        const filePath = `public/destinations/${destinationId}/${fileName}`;
+        const filePath = `public/destinations/${destination.id}/${fileName}`;
             const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
             if (error) throw error;
             const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
