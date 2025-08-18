@@ -17,7 +17,7 @@ interface ImageUploaderProps {
 
 // forwardRef allows the parent to call a function inside this component
 export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(
-  ({ destination.id }, ref) => {
+  ({ destination }, ref) => {
     const [stagedFiles, setStagedFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const { toast } = useToast();
