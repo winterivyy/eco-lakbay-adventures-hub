@@ -60,7 +60,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
         if (!formData) return;
         setIsSaving(true);
         try {
-            // Step 1: Upload new files, if any
+            // Step 1: Upload new files and get their simple relative paths
             const newImagePaths = await Promise.all(
                 stagedFiles.map(async file => {
                     const fileExt = file.name.split('.').pop() || 'jpg';
@@ -72,7 +72,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
                 })
             );
 
-            // Step 2: Delete marked files from Storage, if any
+            // Step 2: Delete marked files from Storage
             if (pathsToDelete.length > 0) {
                 await supabase.storage.from(BUCKET_NAME).remove(pathsToDelete);
             }
@@ -80,11 +80,11 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
             // Step 3: Construct the final list of image paths for the database
             const finalImagePaths = [...existingImagePaths, ...newImagePaths];
             
-            // Step 4: Construct the final payload for the database update
-            const { id, created_at, owner_id, status, rating, review_count, destination_permits, ...otherFormData } = formData;
+            // Step 4: Construct the payload using the cleaned form data AND the final image paths
+            const { id, created_at, owner_id, status, rating, review_count, destination_permits, images, ...otherFormData } = formData;
             const updatePayload = {
                 ...otherFormData,
-                images: finalImagePaths, // Use the new, correct list of images
+                images: finalImagePaths, // USE THE CORRECT, FINAL LIST OF IMAGES
                 updated_at: new Date().toISOString(),
             };
             
@@ -135,16 +135,19 @@ const handleGeocodeAddress = async () => {
 };
     
     // Helper to get a full public URL from a simple path for display
-     const getPublicUrl = (path: string) => { const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path); return data.publicUrl; };
-    
+     const getPublicUrl = (path: string) => {
+        const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+        return data.publicUrl;
+    };
     return (
-       <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
+                            {/* Display existing images from their simple paths */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
                                     <img src={getPublicUrl(path)} alt="Existing destination" className="w-full h-full object-cover rounded-md" />
@@ -153,6 +156,7 @@ const handleGeocodeAddress = async () => {
                                     </div>
                                 </div>
                             ))}
+                            {/* Display staged files from local blob URLs */}
                             {stagedFiles.map((file, index) => (
                                 <div key={index} className="relative group aspect-square">
                                     <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover rounded-md" />
