@@ -108,10 +108,10 @@ const getPublicUrlFromPath = (path: string | null | undefined): string => {
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
                <img 
-                  // Use the new, correct helper function
                   src={getPublicUrlFromPath(destination.images?.[0])}
                   alt={destination.business_name}
                   className="w-full h-full object-cover"
+                  onError={e => { e.currentTarget.src = fallbackImage; }}
                 />    </div>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2"><CardTitle className="text-xl text-forest">{destination.business_name}</CardTitle><Badge variant="secondary">{destination.business_type}</Badge></div>
