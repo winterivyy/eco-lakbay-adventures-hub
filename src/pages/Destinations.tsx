@@ -9,6 +9,7 @@ import { Star, MapPin, AlertCircle, Loader2 } from "lucide-react";
 import { DestinationRatingModal } from "@/components/DestinationRatingModal";
 import { supabase } from "@/integrations/supabase/client";
 import fallbackImage from "@/assets/zambales-real-village.jpg";
+import { cn } from "@/lib/utils";
 
 // Interface for a single destination, matching your database schema
 interface Destination {
