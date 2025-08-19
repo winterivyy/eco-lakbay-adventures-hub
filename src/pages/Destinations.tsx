@@ -108,7 +108,7 @@ const getPublicUrlFromPath = (path: string | null | undefined): string => {
               <div className="w-full h-48 overflow-hidden">
                <img 
                   // Use the new, correct helper function
-                  src={getPublicUrlFromPath(destination.images?.[0])}
+                  src={selectedDestination.images?.[0]}
                   alt={destination.business_name}
                   className="w-full h-full object-cover"
                 />    </div>
