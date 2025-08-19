@@ -56,33 +56,35 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
         setPathsToDelete(prev => [...prev, path]);
     };
 
-    const handleSaveChanges = async () => {
+     const handleSaveChanges = async () => {
+        if (!formData) return;
         setIsSaving(true);
         try {
-            // --- Step 1: Upload new files and get their relative paths ---
+            // Step 1: Upload new files, if any
             const newImagePaths = await Promise.all(
                 stagedFiles.map(async file => {
-                    const fileExt = file.name.split('.').pop();
+                    const fileExt = file.name.split('.').pop() || 'jpg';
                     const fileName = `${Date.now()}.${fileExt}`;
-                    const filePath = `destinations/${destination.id}/${fileName}`; // The correct, simple path
+                    const filePath = `destinations/${destination.id}/${fileName}`;
                     const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
                     if (error) throw error;
                     return filePath;
                 })
             );
 
-            // --- Step 2: Delete marked files from Storage ---
+            // Step 2: Delete marked files from Storage, if any
             if (pathsToDelete.length > 0) {
-                // The paths in pathsToDelete are already simple, no need to parse URLs
                 await supabase.storage.from(BUCKET_NAME).remove(pathsToDelete);
             }
             
-            // --- Step 3: Update the database record with all changes in a single operation ---
+            // Step 3: Construct the final list of image paths for the database
             const finalImagePaths = [...existingImagePaths, ...newImagePaths];
-            const { id, created_at, owner_id, ...otherFormData } = formData;
+            
+            // Step 4: Construct the final payload for the database update
+            const { id, created_at, owner_id, status, rating, review_count, destination_permits, ...otherFormData } = formData;
             const updatePayload = {
                 ...otherFormData,
-                images: finalImagePaths, // Save the array of simple paths
+                images: finalImagePaths, // Use the new, correct list of images
                 updated_at: new Date().toISOString(),
             };
             
@@ -133,21 +135,16 @@ const handleGeocodeAddress = async () => {
 };
     
     // Helper to get a full public URL from a simple path for display
-    const getPublicUrl = (path: string) => {
-        if (!path) return '';
-        const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-        return data.publicUrl;
-    };
+     const getPublicUrl = (path: string) => { const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path); return data.publicUrl; };
     
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+       <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
-                            {/* Display Existing Images using getPublicUrl */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
                                     <img src={getPublicUrl(path)} alt="Existing destination" className="w-full h-full object-cover rounded-md" />
@@ -156,7 +153,6 @@ const handleGeocodeAddress = async () => {
                                     </div>
                                 </div>
                             ))}
-                            {/* Display Staged File Previews using createObjectURL */}
                             {stagedFiles.map((file, index) => (
                                 <div key={index} className="relative group aspect-square">
                                     <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover rounded-md" />
@@ -208,7 +204,7 @@ const handleGeocodeAddress = async () => {
                 </div>
             </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+                   <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
                     <Button onClick={handleSaveChanges} disabled={isSaving}>
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save All Changes
