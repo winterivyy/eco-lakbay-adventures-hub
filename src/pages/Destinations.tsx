@@ -26,7 +26,7 @@ interface Destination {
   longitude?: number;
   [key: string]: any;
 }
-
+const BUCKET_NAME = 'destination-photos';
 const Destinations = () => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,9 +63,9 @@ const Destinations = () => {
     fetchDestinations();
   }, []); // Empty array ensures this runs only once
 
- const getPublicUrlFromPath = (path: string | null | undefined): string => {
+const getPublicUrlFromPath = (path: string | null | undefined): string => {
       if (!path) return fallbackImage;
-      const { data } = supabase.storage.from(destination-photos).getPublicUrl(path);
+      const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
       return data.publicUrl;
   }
 
