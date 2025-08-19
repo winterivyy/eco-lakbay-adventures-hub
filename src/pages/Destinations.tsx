@@ -150,7 +150,9 @@ const Destinations = () => {
               <DialogHeader>
                 <div className="w-full h-64 mb-4 rounded-lg overflow-hidden">
                     <img 
+                      // Correctly use `selectedDestination` here
                       src={(selectedDestination.images && selectedDestination.images[0]) ? selectedDestination.images[0] : fallbackImage} 
+                      // And also here
                       alt={selectedDestination.business_name}
                       className="w-full h-full object-cover"
                     />
