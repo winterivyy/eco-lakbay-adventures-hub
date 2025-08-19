@@ -62,18 +62,11 @@ const Destinations = () => {
     fetchDestinations();
   }, []); // Empty array ensures this runs only once
 
-  const getCorrectImageUrl = (url: string | null | undefined): string => {
-    if (!url) return fallbackImage;
-    const CORRECT_BUCKET_NAME = 'destination-photos';
-    if (url.includes(`/${CORRECT_BUCKET_NAME}/`)) return url;
-    const pathParts = url.split('/public/');
-    if (pathParts.length > 1) {
-      const filePath = pathParts.slice(1).join('/public/');
-      const { data } = supabase.storage.from(CORRECT_BUCKET_NAME).getPublicUrl(filePath);
+ const getPublicUrlFromPath = (path: string | null | undefined): string => {
+      if (!path) return fallbackImage;
+      const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
       return data.publicUrl;
-    }
-    return fallbackImage;
-  };
+  }
 
   const handleDestinationClick = (destination: Destination) => {
     setSelectedDestination(destination);
@@ -110,8 +103,12 @@ const Destinations = () => {
           <Card key={destination.id} onClick={() => handleDestinationClick(destination)} className="group flex flex-col cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-lg">
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
-                <img src={getCorrectImageUrl(destination.images?.[0])} alt={destination.business_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              </div>
+               <img 
+                  // Use the new, correct helper function
+                  src={getPublicUrlFromPath(destination.images?.[0])}
+                  alt={destination.business_name}
+                  className="w-full h-full object-cover"
+                />    </div>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2"><CardTitle className="text-xl text-forest">{destination.business_name}</CardTitle><Badge variant="secondary">{destination.business_type}</Badge></div>
                 <p className="text-muted-foreground text-sm flex items-center gap-1"><MapPin className="h-3 w-3" /> {destination.city}, {destination.province}</p>
@@ -150,7 +147,12 @@ const Destinations = () => {
           {selectedDestination && (
             <>
               <DialogHeader>
-                <div className="w-full h-64 mb-4 rounded-lg overflow-hidden"><img src={getCorrectImageUrl(selectedDestination.images?.[0])} alt={selectedDestination.business_name} className="w-full h-full object-cover"/></div>
+                <div className="w-full h-64 mb-4 rounded-lg overflow-hidden">  <img 
+                    // Use the new helper function here as well
+                    src={getPublicUrlFromPath(selectedDestination.images?.[0])}
+                    alt={selectedDestination.business_name}
+                    className="w-full h-full object-cover"
+                  /></div>
                 <DialogTitle className="text-3xl text-forest mb-2">{selectedDestination.business_name}</DialogTitle>
                 <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-eco hover:underline">{selectedDestination.website}</a></div>
               </DialogHeader>
