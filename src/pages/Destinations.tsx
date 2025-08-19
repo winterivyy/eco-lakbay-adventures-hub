@@ -214,11 +214,12 @@ const Destinations = () => {
             <>
               <DialogHeader>
                 <div className="w-full h-64 mb-4 rounded-lg overflow-hidden">
-                    <img 
-                      src={(selectedDestination.images && selectedDestination.images[0]) || fallbackImage} 
-                      alt={selectedDestination.business_name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img
+                        src={destination.images?.[0] || fallbackImage}
+                        alt={destination.business_name}
+                        onError={e => { e.currentTarget.src = fallbackImage; }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                 </div>
                 <DialogTitle className="text-3xl text-forest mb-2">
                   {selectedDestination.business_name}
