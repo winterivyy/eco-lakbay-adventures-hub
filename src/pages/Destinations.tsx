@@ -152,12 +152,11 @@ const Destinations = () => {
             <>
               <DialogHeader>
                 <div className="w-full h-64 mb-4 rounded-lg overflow-hidden">
-                    <img 
-                      // This logic is also correct and relies on good data
-                      src={(selectedDestination.images && selectedDestination.images[0]) ? selectedDestination.images[0] : fallbackImage} 
-                      alt={selectedDestination.business_name}
-                      className="w-full h-full object-cover"
-                    />
+                   <img 
+                    src={getCorrectImageUrl(selectedDestination.images?.[0])} 
+                    alt={selectedDestination.business_name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <DialogTitle className="text-3xl text-forest mb-2">{selectedDestination.business_name}</DialogTitle>
                 <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground">
