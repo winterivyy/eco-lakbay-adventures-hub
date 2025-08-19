@@ -37,6 +37,30 @@ const Destinations = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
+  const getCorrectImageUrl = (url: string | null | undefined): string => {
+    if (!url) return fallbackImage;
+    
+    // Your correct bucket name
+    const CORRECT_BUCKET_NAME = 'destination-photos';
+
+    // Check if the URL already contains the correct bucket name.
+    if (url.includes(`/${CORRECT_BUCKET_NAME}/`)) {
+      return url; // The URL is already correct.
+    }
+    
+    // If not, it's likely an old, bad URL. We try to fix it.
+    // This finds the part of the path *after* the bucket name.
+    const pathParts = url.split('/public/');
+    if (pathParts.length > 1) {
+      const filePath = pathParts.slice(1).join('/public/');
+      const { data } = supabase.storage.from(CORRECT_BUCKET_NAME).getPublicUrl(filePath);
+      console.log(`Fixing URL: ${url} -> ${data.publicUrl}`);
+      return data.publicUrl;
+    }
+
+    return fallbackImage; // If we can't fix it, use the fallback.
+  };
+
   useEffect(() => {
     // Data fetching logic is unchanged and correct
     const fetchDestinations = async () => { /* ... */ };
@@ -73,11 +97,10 @@ const Destinations = () => {
           <Card key={destination.id} onClick={() => handleDestinationClick(destination)} className="group flex flex-col cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-hover">
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
-                <img 
-                  // This logic is already correct, it just relies on good data from the database
-                  src={(destination.images && destination.images[0]) ? destination.images[0] : fallbackImage}
+                 <img 
+                  src={getCorrectImageUrl(destination.images?.[0])}
                   alt={destination.business_name}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-full object-cover"
                 />
               </div>
               <div className="p-4">
