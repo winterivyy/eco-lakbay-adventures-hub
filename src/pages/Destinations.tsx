@@ -144,35 +144,30 @@ const Destinations = () => {
           {renderContent()}
         </div>
       </div>
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          {selectedDestination && (
+          {selectedDestination && ( // We use `selectedDestination` for the entire modal
             <>
-              <DialogHeader>
-                 <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden">
+              <DialogHeader className="space-y-4">
+                <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden">
                   <img
                     src={selectedDestination.images?.[currentImageIndex] || fallbackImage}
                     alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                 {(selectedDestination.images?.length ?? 0) > 1 && (
+                {(selectedDestination.images?.length ?? 0) > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {selectedDestination.images?.map((imgSrc: string, index: number) => (
                       <button
-                        key={imgSrc}
+                        key={index}
                         onClick={() => setCurrentImageIndex(index)}
-                        className={cn(
-                          "w-16 h-16 rounded-md overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-forest",
-                          index === currentImageIndex && "ring-2 ring-offset-2 ring-forest"
-                        )}
-                      >
+                        className={cn( "w-16 h-16 rounded-md overflow-hidden ...", index === currentImageIndex && "ring-2 ...")}>
                         <img src={imgSrc} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
                 )}
-                
                 <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
                 <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1">
                   <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p>
@@ -180,8 +175,8 @@ const Destinations = () => {
                 </div>
               </DialogHeader>
               <div className="space-y-6 py-4">
-                <div><h3 className="text-lg font-semibold text-forest mb-2">About this Destination</h3><p>{selectedDestination.description}</p></div>
-                {selectedDestination.sustainability_practices && (<div><h3 className="text-lg font-semibold text-forest mb-2">Our Sustainability Practices</h3><p>{selectedDestination.sustainability_practices}</p></div>)}
+                <div><h3 className="font-semibold ...">About this Destination</h3><p>{selectedDestination.description}</p></div>
+                {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold ...">Our Sustainability Practices</h3><p>{selectedDestination.sustainability_practices}</p></div>)}
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button variant="eco" className="flex-1" onClick={() => handleRateClick(selectedDestination)}>⭐ Leave a Review</Button>
                   <Button variant="outline" className="flex-1" onClick={() => handleViewOnMap(selectedDestination)}><MapPin className="mr-2 h-4 w-4" />View on Map</Button>
