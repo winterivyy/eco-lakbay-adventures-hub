@@ -35,6 +35,7 @@ const Destinations = () => {
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // This is the complete data fetching function
   useEffect(() => {
@@ -68,8 +69,9 @@ const Destinations = () => {
       return data.publicUrl;
   }
 
-  const handleDestinationClick = (destination: Destination) => {
+   const handleDestinationClick = (destination: Destination) => {
     setSelectedDestination(destination);
+    setCurrentImageIndex(0); // Reset to the first image
     setIsModalOpen(true);
   };
   
@@ -147,14 +149,35 @@ const Destinations = () => {
           {selectedDestination && (
             <>
               <DialogHeader>
-                <div className="w-full h-64 mb-4 rounded-lg overflow-hidden">  <img 
-                    // Use the new helper function here as well
-                    src={getPublicUrlFromPath(selectedDestination.images?.[0])}
-                    alt={selectedDestination.business_name}
+                 <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden">
+                  <img
+                    src={selectedDestination.images?.[currentImageIndex] || fallbackImage}
+                    alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover"
-                  /></div>
-                <DialogTitle className="text-3xl text-forest mb-2">{selectedDestination.business_name}</DialogTitle>
-                <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-eco hover:underline">{selectedDestination.website}</a></div>
+                  />
+                </div>
+                 {(selectedDestination.images?.length ?? 0) > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {selectedDestination.images?.map((imgSrc: string, index: number) => (
+                      <button
+                        key={imgSrc}
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={cn(
+                          "w-16 h-16 rounded-md overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-forest",
+                          index === currentImageIndex && "ring-2 ring-offset-2 ring-forest"
+                        )}
+                      >
+                        <img src={imgSrc} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
+                <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1">
+                  <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p>
+                  <a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer">{selectedDestination.website}</a>
+                </div>
               </DialogHeader>
               <div className="space-y-6 py-4">
                 <div><h3 className="text-lg font-semibold text-forest mb-2">About this Destination</h3><p>{selectedDestination.description}</p></div>
