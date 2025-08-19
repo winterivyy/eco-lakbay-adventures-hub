@@ -10,6 +10,7 @@ import { DestinationRatingModal } from "@/components/DestinationRatingModal";
 import { supabase } from "@/integrations/supabase/client";
 import fallbackImage from "@/assets/zambales-real-village.jpg";
 import { cn } from "@/lib/utils";
+import { getPublicUrlFromPath } from "@/utils/getPublicUrlFromPath";
 
 // Interface for a single destination, matching your database schema
 interface Destination {
