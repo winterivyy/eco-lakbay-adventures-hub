@@ -65,7 +65,7 @@ const Destinations = () => {
 
  const getPublicUrlFromPath = (path: string | null | undefined): string => {
       if (!path) return fallbackImage;
-      const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+      const { data } = supabase.storage.from(destination-photos).getPublicUrl(path);
       return data.publicUrl;
   }
 
