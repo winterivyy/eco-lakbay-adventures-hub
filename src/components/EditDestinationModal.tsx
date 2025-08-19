@@ -172,13 +172,41 @@ const handleGeocodeAddress = async () => {
                             <Input id="image-upload-edit" type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
                         </div>
                     </div>
-                    <div>
-                        <Label className="text-lg font-semibold">Business Details</Label>
-                        <div className="grid gap-4 py-4 border-t mt-2">
-                             {/* The rest of your form JSX is unchanged */}
+                   <div>
+                    <Label className="text-lg font-semibold">Business Details</Label>
+                    <div className="grid gap-4 py-4 border-t mt-2">
+                        {/* --- We will now manually define fields for better control --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="address" className="text-right">Address</Label>
+                            <Input id="address" value={formData.address || ''} onChange={handleChange} className="col-span-2" />
+                            <Button type="button" size="sm" onClick={handleGeocodeAddress} disabled={isGeocoding} className="col-span-1">
+                                {isGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-1" />} Find
+                            </Button>
                         </div>
+
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Coordinates</Label>
+                            <div className="col-span-3 grid grid-cols-2 gap-2">
+                                <div><Label htmlFor="latitude" className="text-xs text-muted-foreground">Latitude</Label><Input id="latitude" type="number" step="any" value={formData.latitude || ''} onChange={handleChange} /></div>
+                                <div><Label htmlFor="longitude" className="text-xs text-muted-foreground">Longitude</Label><Input id="longitude" type="number" step="any" value={formData.longitude || ''} onChange={handleChange} /></div>
+                            </div>
+                        </div>
+
+                         {Object.keys(formData).filter(key => 
+                            !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'images', 'destination_permits', 'address', 'latitude', 'longitude'].includes(key)
+                         ).map(key => (
+                            <div className="grid grid-cols-4 items-center gap-4" key={key}>
+                                <Label htmlFor={key} className="text-right capitalize">{key.replace(/_/g, ' ')}</Label>
+                                {key === 'description' || key === 'sustainability_practices' ? (
+                                    <Textarea id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
+                                ) : (
+                                    <Input id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
+                                )}
+                            </div>
+                         ))}
                     </div>
                 </div>
+            </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
                     <Button onClick={handleSaveChanges} disabled={isSaving}>
