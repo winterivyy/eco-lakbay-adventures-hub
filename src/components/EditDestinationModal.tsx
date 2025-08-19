@@ -20,6 +20,7 @@ interface EditDestinationModalProps {
     onSave: () => void;
     destination: Destination | null;
 }
+const BUCKET_NAME = 'destination-photos';
 
 export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOpen, onClose, onSave, destination }) => {
     const [formData, setFormData] = useState<Destination | null>(destination);
@@ -46,61 +47,43 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
         setFormData(prev => prev ? ({ ...prev, [e.target.id]: e.target.value }) : null);
     };
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (files) {
-            setStagedFiles(prev => [...prev, ...Array.from(files)]);
-        }
-    };
+  
     
-    const handleRemoveExistingImage = (imageUrl: string) => {
-        setExistingImageUrls(prev => prev.filter(url => url !== imageUrl));
-        setUrlsToDelete(prev => [...prev, imageUrl]);
-    };
-
-    const handleRemoveStagedFile = (indexToRemove: number) => {
-        setStagedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
-    };
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => { if (event.target.files) setStagedFiles(prev => [...prev, ...Array.from(event.target.files!)]); };
+    const handleRemoveExistingImage = (imageUrl: string) => { setExistingImageUrls(prev => prev.filter(url => url !== imageUrl)); setUrlsToDelete(prev => [...prev, imageUrl]); };
+    const handleRemoveStagedFile = (indexToRemove: number) => { setStagedFiles(prev => prev.filter((_, index) => index !== indexToRemove)); };
 
     const handleSaveChanges = async () => {
         if (!formData) return;
         setIsSaving(true);
-        
         try {
-            // --- Stage 1: Upload new files ---
             const newPublicUrls = await Promise.all(
                 stagedFiles.map(async file => {
-                    const fileName = `${Date.now()}-${file.name}`;
-                    const filePath = `public/destinations/${destination.id}/${fileName}`;
-                    const { error } = await supabase.storage.from('destination-photos').upload(filePath, file);
+                    const fileExt = file.name.split('.').pop();
+                    // --- THIS IS THE FIX: A simple, robust filename ---
+                    const fileName = `${Date.now()}.${fileExt}`;
+                    const filePath = `destinations/${destination.id}/${fileName}`;
+                    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
                     if (error) throw error;
-                    const { data } = supabase.storage.from('destination-photos').getPublicUrl(filePath);
+                    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
                     return data.publicUrl;
                 })
             );
-
-            // --- Stage 2: Delete marked files from Storage ---
             if (urlsToDelete.length > 0) {
                 const filePathsToDelete = urlsToDelete.map(url => {
-                    const urlParts = new URL(url);
-                    return `public/destinations${urlParts.pathname.split('/public/destinations')[1]}`;
+                    // This parsing is now much simpler and more reliable
+                    const path = new URL(url).pathname.split(`/${BUCKET_NAME}/`)[1];
+                    return path;
                 });
-                await supabase.storage.from('destination-photos').remove(filePathsToDelete);
+                await supabase.storage.from(BUCKET_NAME).remove(filePathsToDelete);
             }
             
-            // --- Stage 3: Update the database with all changes ---
             const finalImageUrls = [...existingImageUrls, ...newPublicUrls];
-            const { id, created_at, owner_id, ...otherFormData } = formData;
-            const updatePayload = {
-                ...otherFormData,
-                images: finalImageUrls,
-                updated_at: new Date().toISOString(),
-            };
+            const updatePayload = { ...formData, images: finalImageUrls, updated_at: new Date().toISOString() };
             
-            const { error: dbError } = await supabase.from('destinations').update(updatePayload).eq('id', id);
+            const { error: dbError } = await supabase.from('destinations').update(updatePayload).eq('id', formData.id);
             if (dbError) throw dbError;
-
-            toast({ title: "Success!", description: "Destination updated successfully." });
+            
             onSave();
         } catch (error: any) {
             toast({ title: "An Error Occurred", description: error.message, variant: "destructive" });
@@ -143,6 +126,7 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
             setIsGeocoding(false);
         }
     };
+  
     
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
