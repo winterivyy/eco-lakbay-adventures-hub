@@ -203,17 +203,16 @@ const Calculator = () => {
               </CardContent>
             </Card>
 
-            {/* --- Results and Tips sections remain the same --- */}
-
+            {/* Results Section */}
             {carbonFootprint > 0 && (
-          <div className="flex flex-col justify-center items-center bg-white rounded-lg shadow-eco p-8">
-            <h2 className="text-2xl font-bold text-forest mb-2">Your Estimated Carbon Footprint</h2>
-              <p className="text-4xl font-semibold text-amber-600 mb-4">
-                {carbonFootprint.toFixed(2)} kg CO₂e
-              </p>
-            <p className="text-muted-foreground">Based on your travel details above.</p>
-          </div>
-            
+              <div className="flex flex-col justify-center items-center bg-white rounded-lg shadow-eco p-8">
+                <h2 className="text-2xl font-bold text-forest mb-2">Your Estimated Carbon Footprint</h2>
+                <p className="text-4xl font-semibold text-amber-600 mb-4">
+                  {carbonFootprint.toFixed(2)} kg CO₂e
+                </p>
+                <p className="text-muted-foreground">Based on your travel details above.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
