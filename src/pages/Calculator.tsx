@@ -1,81 +1,77 @@
 import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Footer  from "@/components/Footer";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui /card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components /ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
-
-
+import { Select, Select Content, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from " react";
 
 const Calculator = () => {
-  const [transportation, setTransportation] = useState("");
-  const [distance, setDistance] = useState("");
-  const [accommodation, setAccommodation] = useState("");
-  const [activities, setActivities] = useState("");
-  const [carbonFootprint, setCarbonFootprint] = useState(0);
+  const [transportation, setTransportation] = useState("");
+  const  [distance, setDistance] = useState("");
+  const [accommodation, setAccommodation] = useState("");
+  const [numberOf Nights, setNumberOfNights] = useState("1"); // Added state for number of nights
+  const [ activities, setActivities] = useState("");
+  const [carbonFootprint, setCarbonFootprint] = useState(0 );
 
+  const calculateCarbon = () => {
+    let total = 0;
+    const dist = parseFloat (distance) || 0;
+    const nights = parseInt(numberOfNights) || 1;
 
+    // ---  ACCURATE TRANSPORTATION CALCULATION (in kg CO2e per km) ---
+    // Note: These  are estimates based on available data for the Philippines and regional averages.
+    // They generally account for typical passenger loads to  give a per-person estimate.
+    switch (transportation) {
+      case "car":
+        total += dist  * 0.17; // Average for a gasoline car.
+        break;
+      case "bus":
+         total += dist * 0.03; // More efficient per passenger due to high occupancy.
+        break;
+       case "motorcycle":
+        total += dist * 0.07; // Common mode of transport in the  Philippines.
+        break;
+      case "tricycle":
+        total += dist * 0.10; //  Less fuel-efficient and carries fewer passengers.
+        break;
+      case "jeepney":
+        total += dist  * 0.08; // A signature Filipino transport, emissions can be high.
+        break;
+       case "ferry":
+        total += dist * 0.15;
+        break;
+       case "bike":
+        total += 0;
+        break;
+      case "walking":
+        total +=  0;
+        break;
+      default:
+        total += dist * 0.1; //  A more conservative default
+    }
 
-  const calculateCarbon = () => {
+    // --- ACCURATE ACCOMMODATION CALCULATION (in kg CO2e per person per night) ---
+    switch (accommodation) {
+      case "hotel":
+        total += nights * 25; // Average estimate for Philippine hotels.
+        break;
+      case "eco-lodge":
+        total += nights * 10; //  Sustainable practices.
+        break;
+      case "homestay":
+        total += nights * 5; // Good for homestays in the area.
+        break;
+      case "camping":
+        total += nights * 2;
+        break;
+      default:
+        total += nights * 15;
+    }
 
-    let total = 0;
-    // Transportation calculation
-    const dist = parseFloat(distance) || 0;
-    switch (transportation) {
-      case "car":
-        total += dist * 0.2; // kg CO2 per km
-        break;
-      case "bus":
-        total += dist * 0.05;
-        break;
-      case "bike":
-        total += 0;
-        break;
-      case "walking":
-        total += 0;
-        break;
-      default:
-        total += dist * 0.15;
-    }
-
-
-
-    // Accommodation
-    switch (accommodation) {
-      case "eco-lodge":
-        total += 5; // per night
-        break;
-      case "hotel":
-        total += 15;
-        break;
-      case "camping":
-        total += 1;
-        break;
-      default:
-        total += 10;
-    }
-
-
-    // Activities
-    switch (activities) {
-      case "hiking":
-        total += 2;
-        break;
-      case "cultural":
-        total += 3;
-        break;
-      case "adventure":
-        total += 8;
-        break;
-      default:
-        total += 5;
-    }
-
-    setCarbonFootprint(total);
-  };
-
+setCarbonFootprint(total);
+  };
 
   return (
     <div className="min-h-screen bg-background">
