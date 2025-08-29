@@ -17,34 +17,22 @@ const Calculator = () => {
   const [transportation, setTransportation] = useState("");
   const [distance, setDistance] = useState("");
   const [accommodation, setAccommodation] = useState("");
-  const [numberOfNights, setNumberOfNights] = useState("1"); // State for number of nights
+  const [activities, setActivities] = useState("");
   const [carbonFootprint, setCarbonFootprint] = useState(0);
 
   const calculateCarbon = () => {
     let total = 0;
+    // Transportation calculation
     const dist = parseFloat(distance) || 0;
-    const nights = parseInt(numberOfNights) || 1;
-
-    // --- ACCURATE TRANSPORTATION CALCULATION (in kg CO2e per passenger-km) ---
-    // These values are estimates based on data for the Philippines and regional averages.
     switch (transportation) {
       case "car":
-        total += dist * 0.17; // Average for a gasoline car
+        total += dist * 0.2; // kg CO2 per km
         break;
       case "bus":
-        total += dist * 0.03; // Efficient due to high passenger occupancy
+        total += dist * 0.05;
         break;
       case "motorcycle":
-        total += dist * 0.07; // Very common transport mode
-        break;
-      case "tricycle":
-        total += dist * 0.1; // Less fuel-efficient than motorcycles
-        break;
-      case "jeepney":
-        total += dist * 0.08; // Iconic Filipino transport; emissions can be high but shared
-        break;
-      case "ferry":
-        total += dist * 0.15; // For inter-island travel
+        total += dist * 0.09;
         break;
       case "bike":
         total += 0;
@@ -53,25 +41,43 @@ const Calculator = () => {
         total += 0;
         break;
       default:
-        total += dist * 0.1; // A conservative default
+        total += dist * 0.15;
     }
 
-    // --- ACCURATE ACCOMMODATION CALCULATION (in kg CO2e per person per night) ---
+    // Accommodation
     switch (accommodation) {
-      case "hotel":
-        total += nights * 25; // Average estimate for a standard hotel in the Philippines
-        break;
       case "eco-lodge":
-        total += nights * 10; // Assumes use of renewable energy and sustainable practices
+        total += 5; // per night
         break;
-      case "homestay":
-        total += nights * 5; // Lower impact, closer to a local resident's footprint
+      case "hotel":
+        total += 15;
         break;
       case "camping":
-        total += nights * 2; // Minimal energy and resource use
+        total += 1;
+        break;
+      case "homestay":
+        total += 7;
         break;
       default:
-        total += nights * 15; // A general default
+        total += 10;
+    }
+
+    // Activities
+    switch (activities) {
+      case "hiking":
+        total += 2;
+        break;
+      case "cultural":
+        total += 3;
+        break;
+      case "adventure":
+        total += 8;
+        break;
+      case "relaxation":
+        total += 1;
+        break;
+      default:
+        total += 5;
     }
 
     setCarbonFootprint(total);
@@ -99,9 +105,7 @@ const Calculator = () => {
             {/* Calculator Form */}
             <Card className="shadow-eco">
               <CardHeader>
-                <CardTitle className="text-2xl text-forest">
-                  Trip Calculator
-                </CardTitle>
+                <CardTitle className="text-2xl text-forest">Trip Calculator</CardTitle>
                 <p className="text-muted-foreground">
                   Enter your travel details to calculate your carbon footprint
                 </p>
@@ -109,32 +113,22 @@ const Calculator = () => {
               <CardContent className="space-y-6">
                 {/* Transportation */}
                 <div>
-                  <Label
-                    htmlFor="transportation"
-                    className="text-forest font-medium"
-                  >
+                  <Label htmlFor="transportation" className="text-forest font-medium">
                     Transportation Method
                   </Label>
-                  <Select
-                    value={transportation}
-                    onValueChange={setTransportation}
-                  >
+                  <Select value={transportation} onValueChange={setTransportation}>
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select transportation" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="walking">Walking 🚶‍♂️</SelectItem>
                       <SelectItem value="bike">Bicycle 🚲</SelectItem>
-                      <SelectItem value="jeepney">Jeepney 🚌</SelectItem>
-                      <SelectItem value="tricycle">Tricycle 🛺</SelectItem>
-                      <SelectItem value="bus">Public Bus 🚍</SelectItem>
-                      <SelectItem value="motorcycle">Motorcycle 🏍️</SelectItem>
+                      <SelectItem value="bus">Public Bus 🚌</SelectItem>
                       <SelectItem value="car">Private Car 🚗</SelectItem>
-                      <SelectItem value="ferry">Ferry 🛳️</SelectItem>
+                      <SelectItem value="motorcycle">Motorcycle 🏍️</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
                 {/* Distance */}
                 <div>
                   <Label htmlFor="distance" className="text-forest font-medium">
@@ -149,49 +143,40 @@ const Calculator = () => {
                     className="mt-2"
                   />
                 </div>
-
                 {/* Accommodation */}
                 <div>
-                  <Label
-                    htmlFor="accommodation"
-                    className="text-forest font-medium"
-                  >
+                  <Label htmlFor="accommodation" className="text-forest font-medium">
                     Accommodation Type
                   </Label>
-                  <Select
-                    value={accommodation}
-                    onValueChange={setAccommodation}
-                  >
+                  <Select value={accommodation} onValueChange={setAccommodation}>
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select accommodation" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="camping">Camping ⛺</SelectItem>
-                      <SelectItem value="homestay">Homestay 🏠</SelectItem>
                       <SelectItem value="eco-lodge">Eco Lodge 🌿</SelectItem>
+                      <SelectItem value="homestay">Homestay 🏠</SelectItem>
                       <SelectItem value="hotel">Regular Hotel 🏨</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Number of Nights */}
+                {/* Activities */}
                 <div>
-                  <Label
-                    htmlFor="nights"
-                    className="text-forest font-medium"
-                  >
-                    Number of Nights
+                  <Label htmlFor="activities" className="text-forest font-medium">
+                    Main Activities
                   </Label>
-                  <Input
-                    id="nights"
-                    type="number"
-                    placeholder="e.g., 3"
-                    value={numberOfNights}
-                    onChange={(e) => setNumberOfNights(e.target.value)}
-                    className="mt-2"
-                  />
+                  <Select value={activities} onValueChange={setActivities}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select activities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hiking">Hiking & Nature 🥾</SelectItem>
+                      <SelectItem value="cultural">Cultural Tours 🏛️</SelectItem>
+                      <SelectItem value="adventure">Adventure Sports 🏄‍♂️</SelectItem>
+                      <SelectItem value="relaxation">Relaxation 🧘‍♀️</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-
                 <Button
                   onClick={calculateCarbon}
                   className="w-full"
@@ -203,16 +188,96 @@ const Calculator = () => {
               </CardContent>
             </Card>
 
-            {/* Results Section */}
-            {carbonFootprint > 0 && (
-              <div className="flex flex-col justify-center items-center bg-white rounded-lg shadow-eco p-8">
-                <h2 className="text-2xl font-bold text-forest mb-2">Your Estimated Carbon Footprint</h2>
-                <p className="text-4xl font-semibold text-amber-600 mb-4">
-                  {carbonFootprint.toFixed(2)} kg CO₂e
-                </p>
-                <p className="text-muted-foreground">Based on your travel details above.</p>
-              </div>
-            )}
+            {/* Results and Tips */}
+            <div className="space-y-6">
+              {/* Result Card */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-forest">Your Carbon Footprint</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-6xl mb-4">🌍</div>
+                    <div className="text-4xl font-bold text-forest mb-2">
+                      {carbonFootprint.toFixed(1)} kg
+                    </div>
+                    <div className="text-lg text-muted-foreground mb-6">
+                      CO₂ equivalent for this trip
+                    </div>
+                    {carbonFootprint > 0 && (
+                      <div className="space-y-4">
+                        <div className={`p-4 rounded-lg ${
+                          carbonFootprint < 10 ? 'bg-green-100 border border-green-200' :
+                          carbonFootprint < 25 ? 'bg-yellow-100 border border-yellow-200' :
+                          'bg-red-100 border border-red-200'
+                        }`}>
+                          <div className="font-semibold mb-2">
+                            {carbonFootprint < 10 ? '🌟 Excellent!' :
+                             carbonFootprint < 25 ? '⚠️ Good' :
+                             '🔴 High Impact'}
+                          </div>
+                          <div className="text-sm">
+                            {carbonFootprint < 10 ? 'Your trip has a low environmental impact!' :
+                             carbonFootprint < 25 ? 'Consider some eco-friendly alternatives.' :
+                             'Your trip has a high carbon footprint.'}
+                          </div>
+                        </div>
+                        <Button variant="gold" className="w-full">
+                          Get Green Points: +{Math.round(Math.max(50 - carbonFootprint, 10))}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tips Card */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-xl text-forest">Eco-Friendly Tips</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-green-500">🚲</span>
+                      <div>
+                        <div className="font-medium text-sm">Use Sustainable Transport</div>
+                        <div className="text-xs text-muted-foreground">
+                          Choose walking, cycling, or public transport when possible
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-green-500">🌿</span>
+                      <div>
+                        <div className="font-medium text-sm">Stay at Eco-Lodges</div>
+                        <div className="text-xs text-muted-foreground">
+                          Choose accommodations with green certifications
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-green-500">🏪</span>
+                      <div>
+                        <div className="font-medium text-sm">Support Local Businesses</div>
+                        <div className="text-xs text-muted-foreground">
+                          Buy from local vendors and eat at community restaurants
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-green-500">♻️</span>
+                      <div>
+                        <div className="font-medium text-sm">Minimize Waste</div>
+                        <div className="text-xs text-muted-foreground">
+                          Bring reusable items and follow Leave No Trace principles
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
