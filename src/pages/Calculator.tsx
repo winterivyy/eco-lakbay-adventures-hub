@@ -202,7 +202,7 @@ const Calculator = () => {
                 <Card className="shadow-eco">
                   <CardHeader>
                     <CardTitle className="text-2xl text-forest">
-                      Your Estimated Carbon Footprint
+                      Your Estimated Carbon Footprint is around...
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
