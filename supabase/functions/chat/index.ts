@@ -1,66 +1,91 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const groqApiKey = Deno.env.get('GROQ_API_KEY');
+// --- 1. GET THE NEW API KEY ---
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+// Interface for Gemini's API structure
+interface GeminiContent {
+  role: 'user' | 'model'; // Gemini uses 'model' for the assistant's role
+  parts: [{ text: string }];
 }
 
-interface ChatRequest {
+interface GeminiRequest {
   message: string;
-  history?: ChatMessage[];
+  history?: GeminiContent[]; // History should now follow Gemini's format
 }
+
+// Helper function to map your chat history to Gemini's required format
+const mapToGeminiFormat = (chatMessage: any): GeminiContent => {
+  return {
+    role: chatMessage.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: chatMessage.content }],
+  };
+};
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, history = [] }: ChatRequest = await req.json();
+    const { message, history = [] }: GeminiRequest = await req.json();
 
-    // Build conversation history
-    const messages = [
-      { 
-        role: 'system', 
-        content: 'You are a helpful assistant for EcoLakbay, a sustainable tourism platform focused on Pampanga, Philippines. Help users with eco-tourism questions, travel planning, sustainability tips, and information about the platform. Be friendly, informative, and promote sustainable travel practices.' 
-      },
+    // The system prompt is now part of the history, not a separate object
+    const systemPrompt = 'You are a helpful and friendly assistant for EcoLakbay, a sustainable tourism platform for Pampanga, Philippines. Your role is to answer questions about eco-tourism, suggest destinations from the platform, provide travel tips that promote sustainability, and explain how to use the EcoLakbay website. Keep your answers concise, positive, and focused on promoting responsible travel.';
+
+    const contents: GeminiContent[] = [
       ...history,
-      { role: 'user', content: message }
+      { role: 'user', parts: [{ text: message }] }
     ];
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages,
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
-    });
+    // --- 2. UPDATE THE API CALL ---
+    const response = await fetch(
+      // The model name is part of the URL for Gemini
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents, // The main conversation history
+          // Safety settings can be configured to reduce harmful responses
+          safetySettings: [
+            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE" },
+            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE" },
+            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE" },
+            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE" },
+          ],
+          // The system instruction is a separate part of the request body
+          systemInstruction: {
+            parts: { text: systemPrompt }
+          }
+        }),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
+      const errorBody = await response.json();
+      console.error('Gemini API Error:', errorBody);
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    const reply = data.choices[0].message.content;
+    
+    // --- 3. PARSE THE GEMINI RESPONSE ---
+    // Gemini's response structure is different from OpenAI's
+    const reply = data.candidates[0].content.parts[0].text;
 
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error) {
     console.error('Error in chat function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
