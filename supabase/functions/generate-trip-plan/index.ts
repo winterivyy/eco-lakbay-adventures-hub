@@ -117,7 +117,3 @@ Your response should focus on authentic Pampanga experiences that benefit local 
     });
   }
 });
-
-
-
-To use this code, you will need to deploy it as a serverless function (like a Supabase Edge Function) and ensure that the `GEMINI_API_KEY` environment variable is correctly set up in your deployment environment.
