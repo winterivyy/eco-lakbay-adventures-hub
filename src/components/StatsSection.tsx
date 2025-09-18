@@ -32,7 +32,7 @@ const StatsSection = () => {
             Making a Real Impact
           </h2>
           <p className="text-xl text-white/80 max-w-2xl mx-auto">
-            Together, we're building a more sustainable future for tourism in Pampanga and beyond.
+            Together, we're building a more sustainable future for tourism in the Philippines.
           </p>
         </div>
 
