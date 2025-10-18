@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 type Video = {
-  id: string; // unique id for internal use
+  id: string;
   title: string;
   youtubeId: string;
   description?: string;
@@ -11,7 +11,7 @@ const VIDEOS: Video[] = [
   {
     id: "v1",
     title: "Sustainable Travel Tips",
-    youtubeId: "2Xu6Wp1-jXmmQn6Y", // replace with real ids
+    youtubeId: "2Xu6Wp1-jXmmQn6Y",
     description: "Top ways to travel sustainably and reduce your footprint.",
   },
   {
@@ -30,6 +30,24 @@ const VIDEOS: Video[] = [
 
 export default function VideosSection() {
   const [active, setActive] = useState<Video | null>(null);
+
+  // helper to build a safer embed URL (privacy-enhanced)
+  const makeEmbedUrl = (youtubeId: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams({
+      autoplay: "1",
+      modestbranding: "1",
+      rel: "0",
+      playsinline: "1",
+      origin,
+    }).toString();
+
+    // privacy-enhanced domain
+    return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params}`;
+  };
+
+  // fallback direct YouTube watch url
+  const makeWatchUrl = (youtubeId: string) => `https://www.youtube.com/watch?v=${youtubeId}`;
 
   return (
     <section id="videos" className="max-w-6xl mx-auto py-12 px-4">
@@ -82,21 +100,35 @@ export default function VideosSection() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative w-full h-full">
+              {/* primary embed (privacy-enhanced domain) */}
               <iframe
                 title={active.title}
-                src={`https://www.youtube.com/embed/${active.youtubeId}?autoplay=1`}
+                src={makeEmbedUrl(active.youtubeId)}
                 className="w-full h-full"
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                // recommended allow string; autoplay may still be blocked by browser policy
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowFullScreen
               />
-              <button
-                onClick={() => setActive(null)}
-                className="absolute top-2 right-2 bg-white/90 rounded-full p-1"
-                aria-label="Close video"
-              >
-                ✕
-              </button>
+
+              {/* control row with fallback link */}
+              <div className="absolute top-2 right-2 flex gap-2">
+                <a
+                  href={makeWatchUrl(active.youtubeId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white/90 text-sm px-3 py-1 rounded"
+                >
+                  Open on YouTube
+                </a>
+                <button
+                  onClick={() => setActive(null)}
+                  className="bg-white/90 rounded-full p-1 text-sm"
+                  aria-label="Close video"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         </div>
