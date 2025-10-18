@@ -11,19 +11,19 @@ const VIDEOS: Video[] = [
   {
     id: "v1",
     title: "Sustainable Travel Tips",
-    youtubeId: "dQw4w9WgXcQ", // replace with real ids
+    youtubeId: "https://youtu.be/-3k-SC22zbA?si=2Xu6Wp1-jXmmQn6Y", // replace with real ids
     description: "Top ways to travel sustainably and reduce your footprint.",
   },
   {
     id: "v2",
     title: "Protecting Coastal Ecosystems",
-    youtubeId: "3JZ_D3ELwOQ",
+    youtubeId: "https://youtu.be/-3k-SC22zbA?si=2Xu6Wp1-jXmmQn6Y",
     description: "How communities protect shorelines and wildlife.",
   },
   {
     id: "v3",
     title: "Eco-Friendly Camping",
-    youtubeId: "Zi_XLOBDo_Y",
+    youtubeId: "https://youtu.be/-3k-SC22zbA?si=2Xu6Wp1-jXmmQn6Y",
     description: "Leave no trace principles and practical tips.",
   },
 ];
