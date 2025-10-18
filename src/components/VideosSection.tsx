@@ -17,13 +17,13 @@ const VIDEOS: Video[] = [
   {
     id: "v2",
     title: "Protecting Coastal Ecosystems",
-    youtubeId: "3JZ_D3ELwOQ",
+    youtubeId: "howgEFee5MU",
     description: "How communities protect shorelines and wildlife.",
   },
   {
     id: "v3",
     title: "Eco-Friendly Camping",
-    youtubeId: "Zi_XLOBDo_Y",
+    youtubeId: "avqseTGOCOA",
     description: "Leave no trace principles and practical tips.",
   },
 ];
