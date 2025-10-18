@@ -275,20 +275,28 @@ const UserAccount = () => {
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="nationality">Nationality</Label>
-                    <Input
-                      id="nationality"
-                      placeholder="Enter your nationality"
-                      value={profile.nationality}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          nationality: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                   <div className="space-y-2">
+    <Label htmlFor="nationality">Nationality</Label>
+    <select
+      id="nationality"
+      value={profile.nationality}
+      onChange={(e) => setProfile((prev) => ({ ...prev, nationality: e.target.value }))}
+      className="w-full border rounded-md p-2"
+    >
+      <option value="">Select nationality</option>
+      <option value="Filipino">Filipino</option>
+      <option value="American">American</option>
+      <option value="Chinese">Chinese</option>
+      <option value="Japanese">Japanese</option>
+      <option value="Korean">Korean</option>
+      <option value="Indonesian">Indonesian</option>
+      <option value="Vietnamese">Vietnamese</option>
+      <option value="Thai">Thai</option>
+      <option value="Singaporean">Singaporean</option>
+      <option value="Malaysian">Malaysian</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
                 </div>
 
                 {/* Location */}
