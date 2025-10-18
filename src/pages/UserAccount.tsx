@@ -18,11 +18,15 @@ const UserAccount = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // 🟢 Include gender & nationality in state
   const [profile, setProfile] = useState({
     full_name: "",
     bio: "",
     location: "",
-    avatar_url: ""
+    avatar_url: "",
+    gender: "",
+    nationality: "",
   });
 
   useEffect(() => {
@@ -35,111 +39,105 @@ const UserAccount = () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      
+      if (error && error.code !== "PGRST116") throw error;
+
       if (data) {
         setProfile({
           full_name: data.full_name || "",
           bio: data.bio || "",
           location: data.location || "",
-          avatar_url: data.avatar_url || ""
+          avatar_url: data.avatar_url || "",
+          gender: data.gender || "",
+          nationality: data.nationality || "",
         });
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error("Error fetching profile:", error);
       toast({
         title: "Error",
         description: "Failed to fetch profile",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
-  // Replace the existing updateProfile function in your UserAccount.tsx
-
-const updateProfile = async () => {
+  const updateProfile = async () => {
     if (!user) return;
-
     setLoading(true);
     try {
-      // Define the specific data payload to send.
-      // This prevents accidentally trying to update columns like user_id or created_at.
       const updatePayload = {
         full_name: profile.full_name,
         bio: profile.bio,
         location: profile.location,
         avatar_url: profile.avatar_url,
-        updated_at: new Date().toISOString()
+        gender: profile.gender,
+        nationality: profile.nationality,
+        updated_at: new Date().toISOString(),
       };
 
       const { error } = await supabase
-        .from('profiles')
-        .update(updatePayload) // Use .update() since we are only editing an existing profile
-        .eq('user_id', user.id); // Specify which row to update
+        .from("profiles")
+        .update(updatePayload)
+        .eq("user_id", user.id);
 
-      if (error) {
-        // This will now throw an error if RLS is blocking the update
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Profile updated successfully"
+        description: "Profile updated successfully",
       });
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error("Error updating profile:", error);
       toast({
         title: "Error updating profile",
-        description: (error as any).message || "Please check the console for details.",
-        variant: "destructive"
+        description:
+          (error as any).message || "Please check the console for details.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-      // Using 'upsert: true' is safer as it will overwrite an existing file if needed.
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from("avatars")
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
+      const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
 
-      setProfile(prev => ({ ...prev, avatar_url: data.publicUrl }));
-      
-      // Also update the database immediately after uploading a new avatar
+      setProfile((prev) => ({ ...prev, avatar_url: data.publicUrl }));
+
       await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ avatar_url: data.publicUrl })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       toast({
         title: "Success",
-        description: "Profile picture uploaded and saved."
+        description: "Profile picture uploaded and saved.",
       });
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      console.error("Error uploading avatar:", error);
       toast({
         title: "Error",
         description: "Failed to upload profile picture",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setUploading(false);
@@ -153,25 +151,29 @@ const updateProfile = async () => {
   const getInitials = (name: string) => {
     if (!name) return "";
     return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
       .toUpperCase();
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <main className="pt-20 pb-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-forest mb-2">Account Settings</h1>
-            <p className="text-muted-foreground">Manage your profile and account preferences</p>
+            <h1 className="text-4xl font-bold text-forest mb-2">
+              Account Settings
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your profile and account preferences
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Profile Picture Card */}
+            {/* Profile Picture */}
             <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -183,10 +185,11 @@ const updateProfile = async () => {
                 <Avatar className="w-32 h-32">
                   <AvatarImage src={profile.avatar_url} />
                   <AvatarFallback className="text-2xl">
-                    {getInitials(profile.full_name) || user.email?.charAt(0).toUpperCase()}
+                    {getInitials(profile.full_name) ||
+                      user.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="w-full">
                   <Label htmlFor="avatar-upload" className="cursor-pointer">
                     <Button asChild disabled={uploading} className="w-full">
@@ -207,7 +210,7 @@ const updateProfile = async () => {
               </CardContent>
             </Card>
 
-            {/* Profile Information Card */}
+            {/* Profile Info */}
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -217,6 +220,7 @@ const updateProfile = async () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Email */}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     <div className="flex items-center space-x-2">
@@ -230,17 +234,64 @@ const updateProfile = async () => {
                     </div>
                   </div>
 
+                  {/* Full Name */}
                   <div className="space-y-2">
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input
                       id="full_name"
                       placeholder="Enter your full name"
                       value={profile.full_name}
-                      onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                      onChange={(e) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          full_name: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
 
+                {/* 🟢 Gender & Nationality */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <select
+                      id="gender"
+                      value={profile.gender}
+                      onChange={(e) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          gender: e.target.value,
+                        }))
+                      }
+                      className="w-full border rounded-md p-2"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Prefer not to say">
+                        Prefer not to say
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="nationality">Nationality</Label>
+                    <Input
+                      id="nationality"
+                      placeholder="Enter your nationality"
+                      value={profile.nationality}
+                      onChange={(e) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          nationality: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Location */}
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
                   <div className="flex items-center space-x-2">
@@ -249,11 +300,17 @@ const updateProfile = async () => {
                       id="location"
                       placeholder="City, Country"
                       value={profile.location}
-                      onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                      onChange={(e) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          location: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
 
+                {/* Bio */}
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
                   <Textarea
@@ -261,12 +318,17 @@ const updateProfile = async () => {
                     placeholder="Tell us about yourself..."
                     className="min-h-[100px]"
                     value={profile.bio}
-                    onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        bio: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
-                <Button 
-                  onClick={updateProfile} 
+                <Button
+                  onClick={updateProfile}
                   disabled={loading}
                   className="w-full md:w-auto"
                 >

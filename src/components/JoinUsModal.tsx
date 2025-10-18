@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface JoinUsModalProps {
   open: boolean;
@@ -16,6 +23,8 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     email: "",
     password: "",
     confirmPassword: "",
+    gender: "",
+    nationality: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
@@ -26,28 +35,69 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+
+    // Basic validation
+    if (
+      !formData.name ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword ||
+      !formData.gender ||
+      !formData.nationality
+    ) {
+      alert("Please fill in all required fields.");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match.");
       return;
     }
 
     if (formData.password.length < 6) {
+      alert("Password must be at least 6 characters long.");
       return;
     }
 
     setIsLoading(true);
-    
-    const { error } = await signUp(formData.email, formData.password, formData.name);
-    
-    if (!error) {
-      onOpenChange(false);
-      setFormData({ name: "", email: "", password: "", confirmPassword: "" });
+
+    // Step 1: Create Supabase Auth user
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+    });
+
+    if (error) {
+      alert(error.message);
+      setIsLoading(false);
+      return;
     }
-    
+
+    // Step 2: Add profile data to `profiles` table
+    if (data?.user) {
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        name: formData.name,
+        gender: formData.gender,
+        nationality: formData.nationality,
+      });
+
+      if (profileError) {
+        alert("Error saving profile: " + profileError.message);
+      } else {
+        alert("Account created successfully!");
+        onOpenChange(false);
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          gender: "",
+          nationality: "",
+        });
+      }
+    }
+
     setIsLoading(false);
   };
 
@@ -55,12 +105,17 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-forest">Join EcoLakbay</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-forest">
+            Join EcoLakbay
+          </DialogTitle>
           <DialogDescription>
-            Create your account and start making a positive impact on the environment.
+            Create your account and start making a positive impact on the
+            environment.
           </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Full Name */}
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
@@ -72,6 +127,8 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               required
             />
           </div>
+
+          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -83,6 +140,38 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               required
             />
           </div>
+
+          {/* Gender */}
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender</Label>
+            <select
+              id="gender"
+              value={formData.gender}
+              onChange={(e) => handleChange("gender", e.target.value)}
+              className="w-full border rounded-md p-2"
+              required
+            >
+              <option value="">Select gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+          </div>
+
+          {/* Nationality */}
+          <div className="space-y-2">
+            <Label htmlFor="nationality">Nationality</Label>
+            <Input
+              id="nationality"
+              type="text"
+              placeholder="Enter your nationality"
+              value={formData.nationality}
+              onChange={(e) => handleChange("nationality", e.target.value)}
+              required
+            />
+          </div>
+
+          {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -94,6 +183,8 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               required
             />
           </div>
+
+          {/* Confirm Password */}
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
             <Input
@@ -101,18 +192,32 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               type="password"
               placeholder="Confirm your password"
               value={formData.confirmPassword}
-              onChange={(e) => handleChange("confirmPassword", e.target.value)}
+              onChange={(e) =>
+                handleChange("confirmPassword", e.target.value)
+              }
               required
             />
           </div>
+
+          {/* Buttons */}
           <div className="flex flex-col space-y-3 pt-4">
-            <Button type="submit" variant="eco" disabled={isLoading} className="w-full">
+            <Button
+              type="submit"
+              variant="eco"
+              disabled={isLoading}
+              className="w-full"
+            >
               {isLoading ? "Creating Account..." : "Join EcoLakbay"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
           </div>
+
           <p className="text-sm text-muted-foreground text-center">
             Already have an account?{" "}
             <span className="text-forest cursor-pointer hover:underline">
