@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
+import { useVideo } from "./VideoProvider"; // Make sure to import the hook
 
 type Video = {
   id: string;
@@ -29,42 +30,28 @@ const VIDEOS: Video[] = [
 ];
 
 export default function VideosSection() {
-  const [active, setActive] = useState<Video | null>(null);
-
-  // helper to build a safer embed URL (privacy-enhanced)
-  const makeEmbedUrl = (youtubeId: string) => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const params = new URLSearchParams({
-      autoplay: "1",
-      modestbranding: "1",
-      rel: "0",
-      playsinline: "1",
-      origin,
-    }).toString();
-
-    // privacy-enhanced domain
-    return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params}`;
-  };
-
-  // fallback direct YouTube watch url
-  const makeWatchUrl = (youtubeId: string) => `https://www.youtube.com/watch?v=${youtubeId}`;
+  const { setActiveVideo } = useVideo();
 
   return (
     <section id="videos" className="max-w-6xl mx-auto py-12 px-4">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold">Watch & Learn</h2>
         <p className="text-sm text-muted-foreground">
-          Curated videos about environmental protection, sustainable travel, and community projects.
+          Curated videos about environmental protection, sustainable travel, and
+          community projects.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {VIDEOS.map((v) => (
-          <div key={v.id} className="bg-white dark:bg-card rounded-lg shadow overflow-hidden">
+          <div
+            key={v.id}
+            className="bg-white dark:bg-card rounded-lg shadow overflow-hidden"
+          >
             <button
-              onClick={() => setActive(v)}
+              onClick={() => setActiveVideo(v)}
               className="w-full text-left"
-              aria-label={`Open video: ${v.title}`}
+              aria-label={`Play video: ${v.title}`}
             >
               <div className="relative">
                 <img
@@ -74,7 +61,11 @@ export default function VideosSection() {
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-black/50 rounded-full p-3">
-                    <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <svg
+                      className="w-8 h-8 text-white"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </div>
@@ -82,57 +73,84 @@ export default function VideosSection() {
               </div>
               <div className="p-4">
                 <h3 className="font-medium">{v.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{v.description}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {v.description}
+                </p>
               </div>
             </button>
           </div>
         ))}
       </div>
+    </section>
+  );
+}```
 
-      {/* Modal */}
-      {active && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setActive(null)}
-        >
-          <div
-            className="bg-black rounded-lg max-w-4xl w-full aspect-video overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative w-full h-full">
-              {/* primary embed (privacy-enhanced domain) */}
-              <iframe
-                title={active.title}
-                src={makeEmbedUrl(active.youtubeId)}
-                className="w-full h-full"
-                frameBorder="0"
-                // recommended allow string; autoplay may still be blocked by browser policy
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                allowFullScreen
-              />
+### 3. `FloatingVideoPlayer.tsx` - The New Player Component
 
-              {/* control row with fallback link */}
-              <div className="absolute top-2 right-2 flex gap-2">
-                <a
-                  href={makeWatchUrl(active.youtubeId)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/90 text-sm px-3 py-1 rounded"
-                >
-                  Open on YouTube
-                </a>
-                <button
-                  onClick={() => setActive(null)}
-                  className="bg-white/90 rounded-full p-1 text-sm"
-                  aria-label="Close video"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+Create this new component. It will be responsible for displaying the video in a fixed position at the corner of the screen whenever there's an active video in our `VideoContext`.
+
+```tsx
+import React from "react";
+import { useVideo } from "./VideoProvider";
+
+export default function FloatingVideoPlayer() {
+  const { activeVideo, setActiveVideo } = useVideo();
+
+  if (!activeVideo) {
+    return null;
+  }
+
+  const makeEmbedUrl = (youtubeId: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams({
+      autoplay: "1",
+      modestbranding: "1",
+      rel: "0",
+      playsinline: "1",
+      origin,
+    }).toString();
+    return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params}`;
+  };
+
+  const makeWatchUrl = (youtubeId: string) =>
+    `https://www.youtube.com/watch?v=${youtubeId}`;
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50">
+      <div className="bg-black rounded-lg shadow-lg max-w-sm w-full aspect-video overflow-hidden">
+        <div className="relative w-full h-full">
+          <iframe
+            title={activeVideo.title}
+            src={makeEmbedUrl(activeVideo.youtubeId)}
+            className="w-full h-full"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+          <div className="absolute top-1 right-1 flex gap-2">
+            <a
+              href={makeWatchUrl(activeVideo.youtubeId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white/90 text-xs px-2 py-1 rounded"
+            >
+              YouTube
+            </a>
+            <button
+              onClick={() => setActiveVideo(null)}
+              className="bg-white/90 rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
+              aria-label="Close video"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+            <h3 className="text-white text-sm font-semibold truncate">
+              {activeVideo.title}
+            </h3>
           </div>
         </div>
-      )}
-    </section>
+      </div>
+    </div>
   );
 }
