@@ -4,9 +4,11 @@ import StatsSection from "@/components/StatsSection";
 import DestinationsPreview from "@/components/DestinationsPreview";
 import Footer from "@/components/Footer";
 
-// --- NEW COMPONENTS TO CREATE (code will be provided below) ---
+// --- NEW COMPONENTS TO CREATE ---
 import HowItWorks from "@/components/HowItWorks";
 import CTASection from "@/components/CTASection";
+import QuizSection from "@/components/QuizSection";
+import VideosSection from "@/components/VideosSection";
 
 const Index = () => {
   return (
@@ -22,10 +24,16 @@ const Index = () => {
       {/* 3. Destinations: Your core product, the main event. */}
       <DestinationsPreview />
 
-      {/* 4. How It Works: A simple, clear guide for the user. */}
+      {/* 4. Quiz: short environment quiz awarding a green point on completion */}
+      <QuizSection />
+
+      {/* 5. Videos: educational / promotional YouTube videos */}
+      <VideosSection />
+
+      {/* 6. How It Works: A simple, clear guide for the user. */}
       <HowItWorks />
 
-      {/* 5. Final Call to Action: A clear final prompt before the footer. */}
+      {/* 7. Final Call to Action: A clear final prompt before the footer. */}
       <CTASection />
       
       <Footer />
