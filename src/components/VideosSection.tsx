@@ -11,7 +11,7 @@ const VIDEOS: Video[] = [
   {
     id: "v1",
     title: "Sustainable Travel Tips",
-    youtubeId: "k-s_j7-3_4A", // replace with real ids
+    youtubeId: "sHRhmb2WtmQP1U4u", // replace with real ids
     description: "Top ways to travel sustainably and reduce your footprint.",
   },
   {
