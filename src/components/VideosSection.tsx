@@ -13,7 +13,7 @@ const DEFAULT_VIDEOS: Video[] = [
   {
     id: "v1",
     title: "Sustainable Travel Tips",
-    youtubeId: "sHRhmb2WtmQ",
+    youtubeId: "vzlS4P-R-rk",
     description: "Top ways to travel sustainably and reduce your footprint.",
   },
   {
