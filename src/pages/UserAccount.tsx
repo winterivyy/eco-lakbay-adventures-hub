@@ -173,42 +173,50 @@ const UserAccount = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Profile Picture */}
-            <Card className="lg:col-span-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Camera className="h-5 w-5" />
-                  Profile Picture
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center space-y-4">
-                <Avatar className="w-32 h-32">
-                  <AvatarImage src={profile.avatar_url} />
-                  <AvatarFallback className="text-2xl">
+         {/* Profile Picture */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Profile Picture
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="flex flex-col items-center space-y-4">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-green-700">
+                <Avatar className="w-full h-full">
+                  <AvatarImage
+                    src={profile.avatar_url}
+                    className="object-cover w-full h-full"
+                  />
+                  <AvatarFallback className="text-2xl bg-muted flex items-center justify-center">
                     {getInitials(profile.full_name) ||
                       user.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
+              </div>
 
-                <div className="w-full">
-                  <Label htmlFor="avatar-upload" className="cursor-pointer">
-                    <Button asChild disabled={uploading} className="w-full">
-                      <span>
-                        <Camera className="h-4 w-4 mr-2" />
-                        {uploading ? "Uploading..." : "Change Picture"}
-                      </span>
-                    </Button>
-                  </Label>
-                  <Input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={uploadAvatar}
-                    className="hidden"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              <div className="w-full">
+                <Label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Button asChild disabled={uploading} className="w-full">
+                    <span>
+                      <Camera className="h-4 w-4 mr-2" />
+                      {uploading ? "Uploading..." : "Change Picture"}
+                    </span>
+                  </Button>
+                </Label>
+
+                <Input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadAvatar}
+                  className="hidden"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
 
             {/* Profile Info */}
             <Card className="lg:col-span-2">
