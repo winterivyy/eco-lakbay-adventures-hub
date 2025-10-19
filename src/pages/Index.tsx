@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 // --- NEW COMPONENTS TO CREATE ---
 import HowItWorks from "@/components/HowItWorks";
 import CTASection from "@/components/CTASection";
+import QuizSection from "@/components/QuizSection";
 import VideosSection from "@/components/VideosSection";
 
 const Index = () => {
@@ -23,6 +24,8 @@ const Index = () => {
       {/* 3. Destinations: Your core product, the main event. */}
       <DestinationsPreview />
 
+      {/* 4. Quiz: short environment quiz awarding a green point on completion */}
+      <QuizSection />
 
       {/* 5. Videos: educational / promotional YouTube videos */}
       <VideosSection />
