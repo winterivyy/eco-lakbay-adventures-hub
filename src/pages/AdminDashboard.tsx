@@ -14,6 +14,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Edit2, Users, TrendingUp, MapPin, Search, MoreHorizontal, Archive, FileText, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 // INLINE MODAL COMPONENT #1: View Permits (Unchanged)
 const ViewPermitsModal = ({ isOpen, onClose, destination }: { isOpen: boolean, onClose: () => void, destination: any }) => {
@@ -196,6 +208,83 @@ const AdminDashboard = () => {
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><div className="text-2xl mb-2">📊</div><div className="text-3xl font-bold text-purple-600 mb-2">{stats.totalCalculations || 0}</div><div className="text-sm text-muted-foreground">Calculations Made</div></CardContent></Card>
                 <Card className="shadow-eco"><CardContent className="p-6 text-center"><div className="text-2xl mb-2">🌱</div><div className="text-3xl font-bold text-nature mb-2">{stats.totalCarbonSaved || 0}kg</div><div className="text-sm text-muted-foreground">CO₂ Calculated</div></CardContent></Card>
               </div>
+              {/* DEMOGRAPHIC INFOGRAPHICS SECTION */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                {/* GENDER RATIO */}
+                <Card className="shadow-eco">
+                  <CardHeader><CardTitle className="text-xl text-forest">Gender Ratio</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          dataKey="value"
+                          data={[
+                            { name: "Male", value: allUsers.filter(u => u.gender === "Male").length },
+                            { name: "Female", value: allUsers.filter(u => u.gender === "Female").length },
+                            { name: "Other", value: allUsers.filter(u => u.gender && !["Male", "Female"].includes(u.gender)).length }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label
+                        >
+                          <Cell fill="#2563eb" />
+                          <Cell fill="#db2777" />
+                          <Cell fill="#10b981" />
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* NATIONALITY DISTRIBUTION */}
+                <Card className="shadow-eco">
+                  <CardHeader><CardTitle className="text-xl text-forest">Nationality Distribution</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart
+                        data={Object.entries(allUsers.reduce((acc, u) => {
+                          const nat = u.nationality || "Unknown";
+                          acc[nat] = (acc[nat] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)).map(([name, value]) => ({ name, value }))}
+                      >
+                        <XAxis dataKey="name" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#16a34a" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* LOCATION DEMOGRAPHICS */}
+                <Card className="shadow-eco">
+                  <CardHeader><CardTitle className="text-xl text-forest">Top Towns / Cities</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart
+                        data={Object.entries(allUsers.reduce((acc, u) => {
+                          const town = u.town || "Unknown";
+                          acc[town] = (acc[town] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>))
+                        .map(([name, value]) => ({ name, value }))
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 8)}
+                      >
+                        <XAxis dataKey="name" hide />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#f59e0b" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <Card className="shadow-eco xl:col-span-3">
                   <CardHeader><CardTitle className="text-xl text-forest">Manage All Destinations</CardTitle></CardHeader>
@@ -211,6 +300,7 @@ const AdminDashboard = () => {
                 </Card>
               </div>
             </div>
+
         </div>
         <Footer />
       </div>
