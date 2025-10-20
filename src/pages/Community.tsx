@@ -13,13 +13,32 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Heart, MessageSquare, Share2, Send } from "lucide-react";
+// --- MODIFIED ---: Added necessary icons
+import { Plus, Heart, MessageSquare, Share2, Send, MoreVertical, Edit, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+// --- NEW ---: Imports for the action menu and delete confirmation dialog
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // --- INTERFACES FOR TYPE SAFETY ---
 interface Post {
@@ -272,6 +291,25 @@ const Community = () => {
         setAllEventsParticipants(prev => ({...prev, [eventId]: (prev[eventId] || 1) - 1 }));
     }
   }
+   const handleOpenEditModal = (postToEdit: Post) => {
+    setEditingPost(postToEdit);
+    setEditPostModalOpen(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (error) throw error;
+      
+      toast({ title: "Post deleted", description: "The post has been permanently removed." });
+      
+      // Update the UI instantly by filtering out the deleted post
+      setPosts(currentPosts => currentPosts.filter(p => p.id !== postId));
+    } catch (error: any) {
+      toast({ title: "Error deleting post", description: error.message, variant: "destructive"});
+      console.error("Error deleting post:", error);
+    }
+  };
 
   // --- HELPER FUNCTIONS ---
   const formatDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -296,10 +334,51 @@ const Community = () => {
           : posts.length > 0 ? (
             posts.map((post) => (
               <Card key={post.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <Avatar><AvatarImage src={post.profiles?.avatar_url} /><AvatarFallback>{getInitials(post.profiles?.full_name)}</AvatarFallback></Avatar>
-                    <div><p className="font-semibold">{post.profiles?.full_name}</p><p className="text-xs text-muted-foreground">{formatDate(post.created_at)}</p></div>
+                 <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <Avatar><AvatarImage src={post.profiles?.avatar_url} /><AvatarFallback>{getInitials(post.profiles?.full_name)}</AvatarFallback></Avatar>
+                      <div><p className="font-semibold">{post.profiles?.full_name}</p><p className="text-xs text-muted-foreground">{formatDate(post.created_at)}</p></div>
+                    </div>
+                    
+                    {/* Permission check: Only show menu to author or admin */}
+                    {(isAdmin || user?.id === post.author_id) && (
+                      <AlertDialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreVertical className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => handleOpenEditModal(post)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit</span>
+                            </DropdownMenuItem>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete</span>
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* This is the content for the delete confirmation dialog */}
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete this post.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeletePost(post.id)} className="bg-destructive hover:bg-destructive/90">
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
