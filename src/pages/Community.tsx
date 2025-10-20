@@ -265,7 +265,6 @@ const Community = () => {
   const formatEventDate = (d: string) => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
   const getInitials = (n?: string) => n?.split(" ").map((i) => i[0]).join("").toUpperCase() || "U";
   const getRankIndicator = (i: number) => ["🏆", "🥈", "🥉"][i] || `${i + 1}.`;
-
  return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -277,36 +276,69 @@ const Community = () => {
         </Button>
       </div>
       <div className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* POSTS */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Post Rendering Logic - Keep as is */}
+          {loading ? (
+            <p className="text-center py-10 text-muted-foreground">Loading posts...</p>
+          ) : posts.length > 0 ? (
+            posts.map((post) => (
+              <Card key={post.id}>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarImage src={post.profiles?.avatar_url} />
+                      <AvatarFallback>{getInitials(post.profiles?.full_name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold">{post.profiles?.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(post.created_at)}</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                  <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{post.content}</p>
+                  <div className="flex items-center gap-4 text-muted-foreground">
+                    <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-red-500 transition-colors">
+                      <Heart className={`w-4 h-4 ${post.userLiked ? "fill-current text-red-500" : ""}`} />
+                      <span>{post.likes_count || 0}</span>
+                    </button>
+                    <button onClick={() => toggleComments(post.id)} className="flex items-center gap-1 hover:text-forest transition-colors">
+                      <MessageSquare className="w-4 h-4" /> <span>{post.comments_count || 0}</span>
+                    </button>
+                    <button onClick={() => handleShare(post)} className="flex items-center gap-1 hover:text-forest transition-colors">
+                      <Share2 className="w-4 h-4" /> Share
+                    </button>
+                  </div>
+                  {showComments[post.id] && (
+                    <div className="mt-4 space-y-3 border-t pt-3">
+                      {comments[post.id]?.map((c) => (
+                        <div key={c.id} className="flex gap-2">
+                          <Avatar className="w-8 h-8"><AvatarImage src={c.profiles?.avatar_url} /><AvatarFallback>{getInitials(c.profiles?.full_name)}</AvatarFallback></Avatar>
+                          <div><p className="font-medium text-sm">{c.profiles?.full_name}</p><p className="text-sm">{c.content}</p></div>
+                        </div>
+                      ))}
+                      {user && (
+                        <div className="flex gap-2 items-center mt-2">
+                          <Input placeholder="Write a comment..." value={newComment[post.id] || ""} onChange={(e) => setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))} />
+                          <Button size="icon" onClick={() => handleAddComment(post.id)} disabled={!newComment[post.id]?.trim()}><Send className="w-4 h-4" /></Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-10 text-muted-foreground">
+                <p>No posts yet. Be the first to share your story!</p>
+            </div>
+          )}
         </div>
-        <aside className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Upcoming Events</CardTitle></CardHeader>
-            <CardContent>
-              {upcomingEventsPreview.map((e, i) => (
-                <div key={i} className="border-l-2 border-forest pl-3 mb-3 last:mb-0">
-                  <p className="font-medium text-sm">{e.title}</p>
-                  <p className="text-xs text-muted-foreground">{e.date} • {e.location}</p>
-                  <p className="text-xs text-amber">{e.participants} joining</p>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full mt-4" onClick={() => setViewAllEventsOpen(true)}>View All Events</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Green Champions</CardTitle></CardHeader>
-            <CardContent>
-              {topProfiles.map((p, i) => (
-                <div key={p.user_id} className="flex justify-between items-center mb-2 last:mb-0">
-                  <div className="flex items-center gap-2"><span className="w-6 text-center">{getRankIndicator(i)}</span><span>{p.full_name}</span></div>
-                  <Badge variant="gold">{p.points || 0} pts</Badge>
-                </div>
-              ))}
-              <Button variant="eco" className="w-full mt-4" onClick={() => setViewLeaderboardOpen(true)}>View Leaderboard</Button>
-            </CardContent>
-          </Card>
-        </aside>
+
+
+  
       </div>
       <Footer />
       {/* --- MODALS --- */}
@@ -370,6 +402,7 @@ const Community = () => {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 };
