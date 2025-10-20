@@ -96,12 +96,15 @@ const Community = () => {
   const fetchPostsAndProfiles = async () => {
     setLoading(true);
     try {
+      // Step 1: Fetch all posts
       const { data: postsData, error: postsError } = await supabase
         .from("posts")
-        .select("*, profiles ( user_id, full_name, avatar_url )") // Join profiles directly
+        .select("*")
         .order("created_at", { ascending: false });
-      if (postsError) throw postsError;
 
+      if (postsError) throw postsError;
+      
+      // Fetch top profiles for the leaderboard sidebar
       const { data: topProfilesData, error: topProfilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name, points, avatar_url")
@@ -109,23 +112,48 @@ const Community = () => {
         .limit(5);
       if (topProfilesError) throw topProfilesError;
       setTopProfiles(topProfilesData || []);
-
-      let userLikes: string[] = [];
-      if (user && postsData) {
-        const { data: likesData } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
-        userLikes = likesData?.map((l) => l.post_id) || [];
-      }
       
-      const postsWithLikeStatus = postsData?.map((post) => ({
-        ...post,
-        userLiked: userLikes.includes(post.id),
-      })) || [];
+      if (postsData && postsData.length > 0) {
+        // Step 2: Get unique author IDs from the posts
+        const authorIds = [...new Set(postsData.map((post) => post.author_id))];
+        
+        // Step 3: Fetch the profiles for those authors
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url")
+          .in("user_id", authorIds);
+        if (profilesError) throw profilesError;
 
-      setPosts(postsWithLikeStatus as Post[]);
+        // Step 4: Check for the current user's likes
+        let userLikes: string[] = [];
+        if (user) {
+          const { data: likesData } = await supabase
+              .from("post_likes")
+              .select("post_id")
+              .eq("user_id", user.id);
+          userLikes = likesData?.map((l) => l.post_id) || [];
+        }
+        
+        // Step 5: Map profiles and like status back to their posts
+        const postsWithData = postsData.map((post) => ({
+          ...post,
+          // Find the matching profile from the profilesData array
+          profiles: profilesData?.find((p) => p.user_id === post.author_id) || null,
+          userLiked: userLikes.includes(post.id),
+        }));
+        
+        setPosts(postsWithData as Post[]);
 
+      } else {
+        setPosts([]);
+      }
     } catch (error) {
-      console.error(error);
-      toast({ title: "Error loading community feed", variant: "destructive" });
+      console.error("Error loading community feed:", error);
+      toast({
+        title: "Error loading community feed",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
