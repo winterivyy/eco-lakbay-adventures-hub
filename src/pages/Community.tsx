@@ -32,6 +32,7 @@ interface Post {
   comments_count?: number;
   profiles: Profile | null;
   userLiked: boolean;
+  image_url?: string; // Add this line
 }
 
 interface Profile {
@@ -303,6 +304,15 @@ const Community = () => {
                 </CardHeader>
                 <CardContent>
                   <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                  {post.image_url && (
+                      <div className="my-4">
+                          <img 
+                             src={post.image_url} 
+                              alt={post.title}
+                              className="w-full h-auto max-h-96 object-cover rounded-lg border" 
+                                />
+                       </div>
+                  )}
                   <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{post.content}</p>
                   <div className="flex items-center gap-4 text-muted-foreground">
                     <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-red-500 transition-colors"><Heart className={`w-4 h-4 ${post.userLiked ? "fill-current text-red-500" : ""}`} /><span>{post.likes_count || 0}</span></button>
