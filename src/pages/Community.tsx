@@ -117,11 +117,19 @@ const Community = () => {
           setProfile(currentUserProfile);
         }
 
-        const postsWithData = postsData.map((post) => ({
-          ...post,
-          profiles: profilesData?.find((p) => p.user_id === post.author_id) || null,
-          userLiked: userLikes.includes(post.id),
-        }));
+        const postsWithData = postsData.map((post: any) => {
+            const comments_count = Array.isArray(post.comments_count) ? post.comments_count[0]?.count || 0 : 0;
+            const likes_count = Array.isArray(post.likes_count) ? post.likes_count[0]?.count || 0 : 0;
+
+            return {
+              ...post,
+              profiles: profilesData?.find((p) => p.user_id === post.author_id) || null,
+              userLiked: userLikes.includes(post.id),
+              // We overwrite the original array-of-objects with the correct number
+              comments_count: comments_count,
+              likes_count: likes_count,
+            };
+        });
 
         setPosts(postsWithData as Post[]);
       } else {
