@@ -8,7 +8,7 @@ const MapSection = () => {
     if (!window.mapboxgl) return;
 
     window.mapboxgl.accessToken =
-      "YOUR_MAPBOX_ACCESS_TOKEN"; // 🔑 replace with your token
+      "pk.eyJ1Ijoic2Vhbm1nY2xzIiwiYSI6ImNtaDA3aXloeTB5ZHoyam9qMGQwcWMwODMifQ.HF3buxwFOgazG8Z2j61b7g"; // 🔑 replace with your token
 
     const map = new window.mapboxgl.Map({
       container: mapContainer.current,
