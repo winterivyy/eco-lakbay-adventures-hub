@@ -41,9 +41,11 @@ export default function QuizSection() {
     }
   }, [greenPoints]);
 
+  // --- MODIFIED ---: Added `isLoading` to the dependency array
+  // This makes the chat scroll down when the loading indicator appears
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -86,7 +88,9 @@ export default function QuizSection() {
         description: "Could not connect to the AI Quizmaster. Please try again.",
         variant: "destructive",
       });
+      // Restore user input on error
       setInputMessage(userMessage.content);
+      // Remove the user's optimistic message on error
       setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -147,7 +151,20 @@ export default function QuizSection() {
               </div>
             </div>
           ))}
-          {isLoading && ( /* Loading animation */ )}
+
+          {/* --- FIXED ---: Replaced the invalid comment with a real loading animation component */}
+          {isLoading && (
+            <div className="flex items-end gap-2 justify-start">
+              <div className="max-w-md p-3 rounded-lg bg-muted text-foreground">
+                <div className="flex items-center justify-center space-x-1">
+                  <span className="h-2 w-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="h-2 w-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"></span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -175,6 +192,7 @@ export default function QuizSection() {
             <p className="text-lg mt-2">Final Score: {score} / {questionCount}</p>
             <p className="mt-2 text-green-600 font-semibold">You earned <strong>{justAwarded}</strong> green point!</p>
             <p className="mt-1 text-sm text-muted-foreground">Your total green points: {greenPoints}</p>
+
             <button
               onClick={resetQuiz}
               className="mt-4 px-4 py-2 border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
