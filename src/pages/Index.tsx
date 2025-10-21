@@ -16,10 +16,7 @@ const Index = () => {
       <HeroSection />
       <StatsSection />
       <DestinationsPreview />
-
-      {/* 🌍 Add the Map Section here */}
       <MapSection />
-
       <QuizSection />
       <VideosSection />
       <HowItWorks />
