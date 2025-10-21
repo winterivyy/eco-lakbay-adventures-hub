@@ -4,33 +4,25 @@ const MapSection = () => {
   const mapContainer = useRef(null);
 
   useEffect(() => {
-    const initMap = () => {
-      if (!window.mapboxgl || !mapContainer.current) return;
+    const waitForMapbox = setInterval(() => {
+      if (window.mapboxgl && window.mapboxReady && mapContainer.current) {
+        clearInterval(waitForMapbox);
 
-      window.mapboxgl.accessToken =
-        "pk.eyJ1Ijoic2Vhbm1nY2xzIiwiYSI6ImNtaDA3aXloeTB5ZHoyam9qMGQwcWMwODMifQ.HF3buxwFOgazG8Z2j61b7g";
+        window.mapboxgl.accessToken =
+          "pk.eyJ1Ijoic2Vhbm1nY2xzIiwiYSI6ImNtaDA3aXloeTB5ZHoyam9qMGQwcWMwODMifQ.HF3buxwFOgazG8Z2j61b7g";
 
-      const map = new window.mapboxgl.Map({
-        container: mapContainer.current,
-        style: "mapbox://styles/mapbox/streets-v12",
-        center: [120.65, 15.08], // Pampanga region
-        zoom: 8,
-      });
+        const map = new window.mapboxgl.Map({
+          container: mapContainer.current,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [120.65, 15.08], // Pampanga
+          zoom: 8,
+        });
 
-      map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
-    };
+        map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
+      }
+    }, 300);
 
-    // ✅ Retry if the Mapbox script isn’t ready yet
-    if (window.mapboxgl) {
-      initMap();
-    } else {
-      const wait = setInterval(() => {
-        if (window.mapboxgl) {
-          clearInterval(wait);
-          initMap();
-        }
-      }, 300);
-    }
+    return () => clearInterval(waitForMapbox);
   }, []);
 
   return (
