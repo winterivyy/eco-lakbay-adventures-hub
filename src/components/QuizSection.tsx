@@ -1,228 +1,142 @@
-import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client"; // Ensure you have this configured
-import { useToast } from "@/hooks/use-toast"; // Or your preferred notification system
-import { Send } from "lucide-react";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// The message structure for our conversational quiz
-interface ChatMessage {
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// --- DEFINE INTERFACES ---
+
+// Interface for a message coming from your frontend
+interface FrontendChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-// Defines the stages of the quiz
-type QuizStage = 'topic' | 'ongoing' | 'completed';
+// Interface for the request body from your frontend
+interface QuizRequest {
+  message: string;
+  history?: FrontendChatMessage[];
+  stage: 'topic' | 'ongoing' | 'completed';
+  score: number;
+  questionCount: number;
+}
 
-const GREEN_POINTS_KEY = "eco_green_points";
+// Gemini-specific interfaces for the API call
+interface GeminiPart { text: string; }
+interface GeminiContent {
+  role: 'user' | 'model'; // Gemini uses 'model' for the assistant
+  parts: GeminiPart[];
+}
 
-export default function QuizSection() {
-  // State for managing the conversation
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', content: "Welcome to the Eco Quiz! What topic would you like to be quizzed on today?" }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+// --- HELPER FUNCTION TO TRANSFORM DATA ---
+const toGeminiContent = (message: FrontendChatMessage): GeminiContent => ({
+  role: message.role === 'assistant' ? 'model' : 'user',
+  parts: [{ text: message.content }],
+});
 
-  // State for managing quiz logic
-  const [stage, setStage] = useState<QuizStage>('topic');
-  const [score, setScore] = useState(0);
-  const [questionCount, setQuestionCount] = useState(0);
-  const { toast } = useToast();
 
-  // State for Green Points (from your original code)
-  const [greenPoints, setGreenPoints] = useState<number>(() => {
-    const raw = localStorage.getItem(GREEN_POINTS_KEY);
-    return raw ? Number(raw) || 0 : 0;
-  });
-  const [justAwarded, setJustAwarded] = useState<number>(0);
-
-  // Ref for auto-scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Keep localStorage in sync for green points
-    localStorage.setItem(GREEN_POINTS_KEY, String(greenPoints));
-  }, [greenPoints]);
-
-  useEffect(() => {
-    // Auto-scroll to the latest message
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
-
-    const userMessage: ChatMessage = { role: 'user', content: inputMessage };
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-
-    try {
-      // Call the Supabase function for AI-powered quiz logic
-      const { data, error } = await supabase.functions.invoke('ai-quiz-handler', {
-        body: {
-          message: inputMessage,
-          history: messages.slice(-5), // Send recent context
-          stage: stage,
-          score: score,
-          questionCount: questionCount,
-        },
-      });
-
-      if (error) throw error;
-
-      const assistantMessage: ChatMessage = { role: 'assistant', content: data.reply };
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Update quiz state from backend response
-      if (data.newStage) {
-        setStage(data.newStage);
-      }
-      if (typeof data.newScore === 'number') {
-        setScore(data.newScore);
-      }
-      if (typeof data.newQuestionCount === 'number') {
-        setQuestionCount(data.newQuestionCount);
-      }
-      
-      // If quiz is completed, award points
-      if (data.newStage === 'completed') {
-        awardGreenPoints();
-      }
-
-    } catch (error) {
-      console.error('Quiz error:', error);
-      toast({
-        title: "Error",
-        description: "Could not connect to the AI Quizmaster. Please try again.",
-        variant: "destructive",
-      });
-      // Add back user message to input if send fails
-      setInputMessage(userMessage.content);
-      setMessages(prev => prev.slice(0, -1));
-
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-  
-  const awardGreenPoints = () => {
-      const pointsToAward = 1; // Or make it score-based: `score`
-      setGreenPoints(prev => prev + pointsToAward);
-      setJustAwarded(pointsToAward);
-  };
-
-  function resetQuiz() {
-    setMessages([
-      { role: 'assistant', content: "Let's try another topic! What would you like to be quizzed on?" }
-    ]);
-    setInputMessage('');
-    setStage('topic');
-    setScore(0);
-    setQuestionCount(0);
-    setJustAwarded(0);
-    setIsLoading(false);
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  return (
-    <section id="quiz" className="max-w-4xl mx-auto py-10 px-4">
-      <div className="bg-white dark:bg-card rounded-lg shadow p-6">
-        <div className="flex justify-between items-start">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">AI Eco Quiz</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                    Test your knowledge on any eco-topic and earn green points!
-                </p>
-            </div>
-            {stage === 'ongoing' && (
-                <div className="text-lg font-bold text-green-600">
-                    Score: {score}/{questionCount}
-                </div>
-            )}
-        </div>
+  try {
+    if (!geminiApiKey) {
+      throw new Error("Missing GEMINI_API_KEY. Please set it in your function's secrets.");
+    }
 
-        {/* Chat Area */}
-        <div className="h-80 bg-slate-50 dark:bg-slate-800 rounded-md p-4 overflow-y-auto flex flex-col space-y-4 mb-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-md p-3 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-muted text-foreground'
-                }`}
-              >
-                <p className="text-sm">{message.content}</p>
-              </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-muted p-3 rounded-lg">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+    const { message, history = [], stage, score, questionCount }: QuizRequest = await req.json();
 
-        {/* Input and Results Area */}
-        {stage !== 'completed' ? (
-          <div className="flex space-x-2">
-            <input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={
-                stage === 'topic' 
-                ? "e.g., 'Recycling' or 'Marine Biology'" 
-                : "Type your answer here..."
-              }
-              className="flex-1 px-3 py-2 border rounded-md dark:bg-input"
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading}
-              className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="text-center">
-            <h3 className="text-xl font-semibold">Quiz Completed!</h3>
-            <p className="text-lg mt-2">
-              Final Score: {score} / {questionCount}
-            </p>
-            <p className="mt-2 text-green-600 font-semibold">
-              You earned <strong>{justAwarded}</strong> green point!
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Your total green points: {greenPoints}
-            </p>
-            <button
-              onClick={resetQuiz}
-              className="mt-4 px-4 py-2 border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
-            >
-              Take Another Quiz
-            </button>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
+    // --- SYSTEM PROMPT LOGIC ---
+    let systemPromptText = '';
+    if (stage === 'topic') {
+      systemPromptText = `You are an AI Quizmaster. The user wants a quiz on the topic of "${message}". Your task is to generate the first multiple-choice question for a quiz of 3 questions. Ensure the question is clear and provide four options (A, B, C, D). Crucially, after the question and options, you MUST state the correct answer in the format: "ANSWER: A" on a new line. Do not add any other conversational text.`;
+    } else { // 'ongoing' or 'completed'
+      systemPromptText = `You are an AI Quizmaster continuing a quiz. The user's previous answer is "${message}". First, evaluate if this answer is correct by looking at the last question you asked in the history. Then, generate the next multiple-choice question (up to a total of 3). Provide four options (A, B, C, D). After the question and options, you MUST state the correct answer in the format: "ANSWER: B" on a new line. If this is the final question, say "QUIZ COMPLETE." at the very end.`;
+    }
+
+    // --- CORRECTLY FORMAT HISTORY FOR GEMINI ---
+    const contents: GeminiContent[] = history.map(toGeminiContent);
+    // Add the latest user message in the correct format
+    contents.push({ role: 'user', parts: [{ text: message }] });
+
+
+    // --- CALL GEMINI API ---
+    const response = await fetch(
+      `https://generativelan.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents, // Send the correctly formatted history
+          systemInstruction: { parts: [{ text: systemPromptText }] },
+          generationConfig: { temperature: 0.5, maxOutputTokens: 250 },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('Gemini API Error:', errorBody);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawReply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawReply) {
+      throw new Error("Gemini returned an empty or invalid response.");
+    }
+
+    // --- PARSE THE AI'S RESPONSE TO UPDATE QUIZ STATE ---
+    let replyText = rawReply;
+    let newScore = score;
+    let newQuestionCount = questionCount;
+    let newStage = stage;
+
+    // Logic to check correctness (this is a simplified example)
+    const lastAssistantMessage = history.find(h => h.role === 'assistant')?.content || "";
+    const correctAnswerMatch = lastAssistantMessage.match(/ANSWER: ([A-D])/);
+    if (correctAnswerMatch && stage === 'ongoing') {
+      const correctAnswer = correctAnswerMatch[1];
+      if (message.trim().toUpperCase().startsWith(correctAnswer)) {
+        newScore++;
+      }
+    }
+    
+    // Update stage and counts
+    if (stage === 'topic') {
+      newStage = 'ongoing';
+      newQuestionCount = 1;
+    } else if (stage === 'ongoing' && !rawReply.includes("QUIZ COMPLETE.")) {
+      newQuestionCount++;
+    } else if (rawReply.includes("QUIZ COMPLETE.")) {
+      newStage = 'completed';
+    }
+    
+    // Clean the reply to not show the answer to the user
+    replyText = rawReply.split("ANSWER:")[0].trim();
+
+
+    return new Response(JSON.stringify({
+        reply: replyText,
+        newStage,
+        newScore,
+        newQuestionCount
+      }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in quiz function:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
