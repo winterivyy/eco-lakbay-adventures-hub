@@ -1,27 +1,87 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 
 const StatsSection = () => {
-  const stats = [
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDestinations: 0,
+    totalPosts: 0,
+    totalCalculations: 0,
+    totalCarbonSaved: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // 🧭 Get destinations count
+        const { count: destCount } = await supabase
+          .from("destinations")
+          .select("*", { count: "exact", head: true });
+
+        // 👥 Get users count
+        const { count: usersCount } = await supabase
+          .from("profiles")
+          .select("*", { count: "exact", head: true });
+
+        // 🧾 Get posts count
+        const { count: postsCount } = await supabase
+          .from("posts")
+          .select("*", { count: "exact", head: true });
+
+        // 🌱 Get calculator entries (for CO₂ saved)
+        const { data: calculatorData } = await supabase
+          .from("calculator_entries")
+          .select("carbon_footprint");
+
+        const totalCalculations = calculatorData?.length || 0;
+        const totalCarbonSaved =
+          Math.round(
+            (calculatorData?.reduce(
+              (sum, entry) => sum + (entry.carbon_footprint || 0),
+              0
+            ) || 0) * 100
+          ) / 100;
+
+        setStats({
+          totalUsers: usersCount || 0,
+          totalDestinations: destCount || 0,
+          totalPosts: postsCount || 0,
+          totalCalculations,
+          totalCarbonSaved,
+        });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statItems = [
     {
-      number: "500+",
+      icon: "🌿",
+      number: stats.totalDestinations.toLocaleString(),
       label: "Eco-Certified Destinations",
-      icon: "🌿"
     },
     {
-      number: "2,500+",
+      icon: "👥",
+      number: stats.totalUsers.toLocaleString(),
       label: "Active Eco-Travelers",
-      icon: "👥"
     },
     {
-      number: "15,000",
-      label: "Tons CO² Saved",
-      icon: "🌍"
+      icon: "🌍",
+      number: `${stats.totalCarbonSaved.toLocaleString()} kg`,
+      label: "CO₂ Calculated",
     },
     {
-      number: "50+",
-      label: "Local Partners",
-      icon: "🤝"
-    }
+      icon: "💬",
+      number: stats.totalPosts.toLocaleString(),
+      label: "Community Posts",
+    },
   ];
 
   return (
@@ -36,21 +96,28 @@ const StatsSection = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <Card key={index} className="bg-white/10 backdrop-blur-sm border-white/20 text-center hover:bg-white/20 transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="text-4xl mb-4">{stat.icon}</div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {stat.number}
-                </div>
-                <div className="text-white/80 font-medium">
-                  {stat.label}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {statItems.map((stat, i) => (
+              <Card
+                key={i}
+                className="bg-white/10 backdrop-blur-sm border-white/20 text-center hover:bg-white/20 transition-all duration-300"
+              >
+                <CardContent className="p-6">
+                  <div className="text-4xl mb-4">{stat.icon}</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+                    {stat.number}
+                  </div>
+                  <div className="text-white/80 font-medium">{stat.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
