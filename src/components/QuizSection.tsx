@@ -104,7 +104,7 @@ export default function QuizSection() {
   }
 
   return (
-    <section id="quiz" className="max-w-4xl mx-auto py-12 px-4">
+    <section id="quiz" className="max-w-4xl mx-auto py-10 px-4">
       <div className="bg-white dark:bg-card rounded-lg shadow p-6">
         <h2 className="text-2xl font-semibold mb-2">Quick Eco Quiz</h2>
         <p className="text-sm text-muted-foreground mb-4">
