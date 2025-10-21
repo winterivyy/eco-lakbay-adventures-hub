@@ -1,130 +1,189 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Your React Component file: e.g., src/components/QuizSection.tsx
 
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+import React, { useEffect, useState, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client"; // Your configured Supabase client
+import { useToast } from "@/hooks/use-toast"; // Or your preferred notification system
+import { Send } from "lucide-react";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// --- INTERFACES (These are well-defined, no changes needed) ---
-interface FrontendChatMessage {
+// The message structure for our conversational quiz
+interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
-interface QuizRequest {
-  message: string;
-  history?: FrontendChatMessage[];
-  stage: 'topic' | 'ongoing' | 'completed';
-  score: number;
-  questionCount: number;
-}
-interface GeminiPart { text: string; }
-interface GeminiContent {
-  role: 'user' | 'model';
-  parts: GeminiPart[];
-}
 
-// --- HELPERS (This is great, no changes needed) ---
-const toGeminiContent = (message: FrontendChatMessage): GeminiContent => ({
-  role: message.role === 'assistant' ? 'model' : 'user',
-  parts: [{ text: message.content }],
-});
+// Defines the stages of the quiz
+type QuizStage = 'topic' | 'ongoing' | 'completed';
 
-serve(async (req) => {
-  // Correctly handles CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response("ok", { headers: corsHeaders });
+const GREEN_POINTS_KEY = "eco_green_points";
+
+export default function QuizSection() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: "Welcome to the Eco Quiz! What topic would you like to be quizzed on today?" }
+  ]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [stage, setStage] = useState<QuizStage>('topic');
+  const [score, setScore] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const { toast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Green Points state from your original component
+  const [greenPoints, setGreenPoints] = useState<number>(() => {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(GREEN_POINTS_KEY) : null;
+    return raw ? Number(raw) || 0 : 0;
+  });
+  const [justAwarded, setJustAwarded] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(GREEN_POINTS_KEY, String(greenPoints));
+    }
+  }, [greenPoints]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return;
+
+    const userMessage: ChatMessage = { role: 'user', content: inputMessage };
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-quiz-handler', {
+        body: {
+          message: inputMessage,
+          history: messages.slice(-5), // Send recent context
+          stage: stage,
+          score: score,
+          questionCount: questionCount,
+        },
+      });
+
+      if (error) throw error;
+
+      const assistantMessage: ChatMessage = { role: 'assistant', content: data.reply };
+      setMessages(prev => [...prev, assistantMessage]);
+
+      if (data.newStage) setStage(data.newStage);
+      if (typeof data.newScore === 'number') setScore(data.newScore);
+      if (typeof data.newQuestionCount === 'number') setQuestionCount(data.newQuestionCount);
+      
+      if (data.newStage === 'completed') {
+        const pointsToAward = 1;
+        setGreenPoints(prev => prev + pointsToAward);
+        setJustAwarded(pointsToAward);
+      }
+
+    } catch (error) {
+      console.error('Quiz error:', error);
+      toast({
+        title: "Error",
+        description: "Could not connect to the AI Quizmaster. Please try again.",
+        variant: "destructive",
+      });
+      setInputMessage(userMessage.content);
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+  
+  function resetQuiz() {
+    setMessages([
+      { role: 'assistant', content: "Let's try another topic! What would you like to be quizzed on?" }
+    ]);
+    setInputMessage('');
+    setStage('topic');
+    setScore(0);
+    setQuestionCount(0);
+    setJustAwarded(0);
+    setIsLoading(false);
   }
 
-  try {
-    if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
+  // --- JSX Rendering ---
+  return (
+    <section id="quiz" className="max-w-4xl mx-auto py-10 px-4">
+      <div className="bg-white dark:bg-card rounded-lg shadow p-6">
+        <div className="flex justify-between items-start">
+            <div>
+                <h2 className="text-2xl font-semibold mb-2">AI Eco Quiz</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Test your knowledge on any eco-topic and earn green points!
+                </p>
+            </div>
+            {stage === 'ongoing' && (
+                <div className="text-lg font-bold text-green-600">
+                    Score: {score}/{questionCount}
+                </div>
+            )}
+        </div>
 
-    const { message, history = [], stage, score, questionCount }: QuizRequest = await req.json();
+        <div className="h-80 bg-slate-50 dark:bg-slate-800 rounded-md p-4 overflow-y-auto flex flex-col space-y-4 mb-4">
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-md p-3 rounded-lg ${
+                  message.role === 'user'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-muted text-foreground'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              </div>
+            </div>
+          ))}
+          {isLoading && ( /* Loading animation */ )}
+          <div ref={messagesEndRef} />
+        </div>
 
-    // Prompts are well-written.
-    let systemPromptText = '';
-    if (stage === 'topic') {
-      systemPromptText = `You are an AI Quizmaster. The user wants a quiz on the topic of "${message}". 
-      Generate the first multiple-choice question for a quiz of 3 questions. Provide four options (A, B, C, D).
-      After the question and options, you MUST state the correct answer on a new line in the format: "ANSWER: A".`;
-    } else {
-      systemPromptText = `You are an AI Quizmaster continuing a quiz. The user's previous answer is "${message}".
-      First, evaluate if their answer was correct based on the last question in the history. Then, generate the next multiple-choice question (up to a total of 3).
-      Provide four options (A, B, C, D). After the options, you MUST state the correct answer on a new line in the format: "ANSWER: B". 
-      If it is the final question, you MUST end your entire response with the phrase "QUIZ COMPLETE."`;
-    }
-
-    const contents: GeminiContent[] = history.map(toGeminiContent);
-    contents.push({ role: 'user', parts: [{ text: message }] });
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          // THE CRITICAL FIX: Changed from system_instruction to systemInstruction
-          systemInstruction: { parts: [{ text: systemPromptText }] },
-          generationConfig: { temperature: 0.5, maxOutputTokens: 300 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('Gemini API Error:', errorBody);
-      throw new Error(`Gemini API returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rawReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawReply) throw new Error("Gemini returned an empty or invalid response.");
-
-    // --- STATE UPDATE LOGIC (This is well-structured) ---
-    let newScore = score;
-    let newStage = stage;
-    let newQuestionCount = questionCount;
-
-    // Find the real answer from the last thing the assistant said
-    const lastAssistantMessage = history.find(h => h.role === 'assistant')?.content || "";
-    const correctAnswerMatch = lastAssistantMessage.match(/ANSWER:\s*([A-D])/i);
-    
-    // If we are in a quiz and there was a correct answer to find...
-    if (stage === 'ongoing' && correctAnswerMatch) {
-      const correctAnswer = correctAnswerMatch[1];
-      // ...check if the user's message starts with that letter
-      if (message.trim().toUpperCase().startsWith(correctAnswer.toUpperCase())) {
-        newScore++;
-      }
-    }
-
-    // Update the stage of the quiz
-    if (stage === 'topic') {
-      newStage = 'ongoing';
-      newQuestionCount = 1;
-    } else if (stage === 'ongoing' && rawReply.includes("QUIZ COMPLETE.")) {
-      newStage = 'completed';
-      // We don't increment questionCount here because the quiz is over
-    } else if (stage === 'ongoing') {
-        newQuestionCount++;
-    }
-
-    // Clean the reply to hide the "ANSWER: X" part from the user
-    const replyText = rawReply.split(/ANSWER:\s*[A-D]/i)[0].trim();
-
-    return new Response(
-      JSON.stringify({ reply: replyText, newStage, newScore, newQuestionCount }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Error in quiz function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
+        {stage !== 'completed' ? (
+          <div className="flex space-x-2">
+            <input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={stage === 'topic' ? "e.g., 'Recycling'" : "Type your answer here..."}
+              className="flex-1 px-3 py-2 border rounded-md dark:bg-input"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!inputMessage.trim() || isLoading}
+              className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="text-center">
+            <h3 className="text-xl font-semibold">Quiz Completed!</h3>
+            <p className="text-lg mt-2">Final Score: {score} / {questionCount}</p>
+            <p className="mt-2 text-green-600 font-semibold">You earned <strong>{justAwarded}</strong> green point!</p>
+            <p className="mt-1 text-sm text-muted-foreground">Your total green points: {greenPoints}</p>
+            <button
+              onClick={resetQuiz}
+              className="mt-4 px-4 py-2 border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Take Another Quiz
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
