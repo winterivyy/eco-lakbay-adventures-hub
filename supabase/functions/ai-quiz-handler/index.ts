@@ -1,14 +1,21 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+// --- MODIFIED ---: Removed the unnecessary and problematic 'xhr' import
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Make sure your GEMINI_API_KEY is set in your project's secrets
+// You can set it with: supabase secrets set GEMINI_API_KEY=your_key_here
 const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// --- NEW ---: A more secure and robust way to handle CORS
+// List all the domains you want to allow to access this function.
+const allowedOrigins = [
+  'https://www.eco-lakbay.com',
+  'https://eco-lakbay.com',
+  // It's good practice to add your local development URLs too
+  'http://localhost:3000',
+  'http://localhost:5173', // Vite default port
+];
 
-// --- INTERFACES (Correct) ---
+// --- INTERFACES (From your original code, these are correct) ---
 interface FrontendChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -26,24 +33,34 @@ interface GeminiContent {
   parts: GeminiPart[];
 }
 
-// --- HELPERS (Correct) ---
+// --- HELPERS (From your original code, this is correct) ---
 const toGeminiContent = (message: FrontendChatMessage): GeminiContent => ({
   role: message.role === 'assistant' ? 'model' : 'user',
   parts: [{ text: message.content }],
 });
 
 serve(async (req) => {
-  // CORS Handling is correct
+  // --- MODIFIED ---: Dynamic CORS header generation
+  const origin = req.headers.get('Origin') || '';
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : allowedOrigins[0], // Dynamically set origin
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS', // Explicitly allow POST and OPTIONS
+  };
+
+  // This handles the preflight 'OPTIONS' request from the browser.
   if (req.method === 'OPTIONS') {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
+    if (!geminiApiKey) {
+      throw new Error("Server configuration error: Missing GEMINI_API_KEY.");
+    }
 
     const { message, history = [], stage, score, questionCount }: QuizRequest = await req.json();
 
-    // Prompts are correct
+    // Your prompt logic is correct and remains unchanged
     let systemPromptText = '';
     if (stage === 'topic') {
       systemPromptText = `You are an AI Quizmaster. The user wants a quiz on the topic of "${message}". Generate the first multiple-choice question for a quiz of 3 questions. Provide four options (A, B, C, D). After the question and options, you MUST state the correct answer on a new line in the format: "ANSWER: A".`;
@@ -51,11 +68,11 @@ serve(async (req) => {
       systemPromptText = `You are an AI Quizmaster continuing a quiz. The user's previous answer is "${message}". First, evaluate if their answer was correct based on the last question in the history. Then, generate the next multiple-choice question (up to a total of 3). Provide four options (A, B, C, D). After the options, you MUST state the correct answer on a new line in the format: "ANSWER: B". If it is the final question, you MUST end your entire response with the phrase "QUIZ COMPLETE."`;
     }
 
-    // API Data preparation is correct
+    // Your API data preparation is correct
     const contents: GeminiContent[] = history.map(toGeminiContent);
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    // API call is correct
+    // Your API call logic is correct
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
@@ -69,18 +86,21 @@ serve(async (req) => {
       }
     );
 
-    if (!response.ok) throw new Error(`Gemini API returned ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status} ${await response.text()}`);
+    }
 
     const data = await response.json();
     const rawReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawReply) throw new Error("Gemini returned an empty or invalid response.");
+    if (!rawReply) {
+      throw new Error("Gemini returned an empty or invalid response.");
+    }
 
-    // --- STATE UPDATE LOGIC ---
+    // Your state update logic is correct
     let newScore = score;
     let newStage = stage;
     let newQuestionCount = questionCount;
 
-    // THE FIX: Search the history array backwards to find the last assistant message.
     const lastAssistantMessage = [...history].reverse().find(h => h.role === 'assistant')?.content || "";
     const correctAnswerMatch = lastAssistantMessage.match(/ANSWER:\s*([A-D])/i);
     
@@ -91,7 +111,6 @@ serve(async (req) => {
       }
     }
 
-    // Stage update logic is correct
     if (stage === 'topic') {
       newStage = 'ongoing';
       newQuestionCount = 1;
@@ -101,10 +120,10 @@ serve(async (req) => {
       newQuestionCount++;
     }
 
-    // Reply cleaning is correct
+    // Your reply cleaning logic is correct
     const replyText = rawReply.split(/ANSWER:\s*[A-D]/i)[0].trim();
 
-    // Return statement is correct
+    // Your final successful response is correct
     return new Response(
       JSON.stringify({ reply: replyText, newStage, newScore, newQuestionCount }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
