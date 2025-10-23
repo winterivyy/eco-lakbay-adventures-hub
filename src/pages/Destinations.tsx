@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Star, MapPin, Loader2, Search } from "lucide-react";
+import { Star, MapPin, Loader2, Search, X } from "lucide-react";
 import { DestinationRatingModal } from "@/components/DestinationRatingModal";
 import { supabase } from "@/integrations/supabase/client";
 import fallbackImage from "@/assets/zambales-real-village.jpg";
@@ -35,23 +35,32 @@ interface Destination {
 const BUCKET_NAME = 'destination-photos';
 
 const Destinations = () => {
-  const [destinations, setDestinations] = useState<Destination[]>([]); // This holds the original, full list
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // State for search and filters
+  // State for search and ALL filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedType, setSelectedType] = useState('');
+  const [selectedRating, setSelectedRating] = useState(''); // New rating filter state
 
   // State to hold the dynamically generated filter options
   const [provinces, setProvinces] = useState<string[]>([]);
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
+
+  // Static options for the rating filter
+  const ratingOptions = [
+    { value: 'all', label: 'Any Rating' },
+    { value: '4', label: '4 Stars & Up' },
+    { value: '3', label: '3 Stars & Up' },
+    { value: '2', label: '2 Stars & Up' },
+  ];
 
   useEffect(() => {
     const fetchDestinations = async () => {
@@ -67,11 +76,11 @@ const Destinations = () => {
 
         if (data) {
           setDestinations(data);
-          
+
           // Dynamically generate filter options from the fetched data
           const uniqueProvinces = [...new Set(data.map(d => d.province).filter(Boolean))].sort();
           const uniqueTypes = [...new Set(data.map(d => d.business_type).filter(Boolean))].sort();
-          
+
           setProvinces(['All Provinces', ...uniqueProvinces]);
           setBusinessTypes(['All Types', ...uniqueTypes]);
         }
@@ -86,11 +95,13 @@ const Destinations = () => {
     fetchDestinations();
   }, []);
 
-  // Efficiently filter destinations whenever the source data or filter values change
+  // Updated filtering logic to include rating
   const filteredDestinations = useMemo(() => {
+    const minRating = selectedRating && selectedRating !== 'all' ? parseFloat(selectedRating) : 0;
+
     return destinations.filter(destination => {
       const searchTermLower = searchTerm.toLowerCase();
-      
+
       const matchesSearch = searchTerm ? (
         destination.business_name.toLowerCase().includes(searchTermLower) ||
         destination.city.toLowerCase().includes(searchTermLower) ||
@@ -106,22 +117,36 @@ const Destinations = () => {
         ? destination.business_type === selectedType
         : true;
 
-      return matchesSearch && matchesProvince && matchesType;
-    });
-  }, [destinations, searchTerm, selectedProvince, selectedType]);
+      const matchesRating = minRating > 0
+        ? (destination.rating || 0) >= minRating
+        : true;
 
-  const getPublicUrlFromPath = (path: string | null | undefined): string => {
-      if (!path) return fallbackImage;
-      const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-      return data.publicUrl;
+      return matchesSearch && matchesProvince && matchesType && matchesRating;
+    });
+  }, [destinations, searchTerm, selectedProvince, selectedType, selectedRating]);
+
+  // Function to clear all active filters
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedProvince('');
+    setSelectedType('');
+    setSelectedRating('');
   };
 
-   const handleDestinationClick = (destination: Destination) => {
+  const isFiltered = searchTerm || selectedProvince || selectedType || selectedRating;
+
+  const getPublicUrlFromPath = (path: string | null | undefined): string => {
+    if (!path) return fallbackImage;
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleDestinationClick = (destination: Destination) => {
     setSelectedDestination(destination);
     setCurrentImageIndex(0);
     setIsModalOpen(true);
   };
-  
+
   const handleRateClick = (destination: Destination | null) => {
     if (!destination) return;
     setSelectedDestination(destination);
@@ -140,11 +165,11 @@ const Destinations = () => {
     }
     window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
   };
-  
+
   const renderContent = () => {
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>;
     if (error) return <div className="text-center py-20 text-destructive">{error}</div>;
-    
+
     if (filteredDestinations.length === 0) return (
       <div className="text-center py-20">
         <h2 className="text-2xl font-semibold">No Destinations Found</h2>
@@ -158,12 +183,12 @@ const Destinations = () => {
           <Card key={destination.id} onClick={() => handleDestinationClick(destination)} className="group flex flex-col cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-lg">
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
-               <img 
+                <img
                   src={getPublicUrlFromPath(destination.images?.[0])}
                   alt={destination.business_name}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   onError={e => { e.currentTarget.src = fallbackImage; }}
-                />    
+                />
               </div>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2">
@@ -176,15 +201,15 @@ const Destinations = () => {
               </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
-                <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{destination.description}</p>
-                <div className="flex justify-between items-center mt-4">
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 text-amber fill-amber" />
-                      <span className="font-medium text-sm">{destination.rating?.toFixed(1) || 'New'}</span>
-                      <span className="text-muted-foreground text-xs ml-1">({destination.review_count || 0} reviews)</span>
-                    </div>
-                    <Button variant="outline" size="sm">View Details</Button>
+              <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{destination.description}</p>
+              <div className="flex justify-between items-center mt-4">
+                <div className="flex items-center space-x-1">
+                  <Star className="h-4 w-4 text-amber fill-amber" />
+                  <span className="font-medium text-sm">{destination.rating?.toFixed(1) || 'New'}</span>
+                  <span className="text-muted-foreground text-xs ml-1">({destination.review_count || 0} reviews)</span>
                 </div>
+                <Button variant="outline" size="sm">View Details</Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -203,11 +228,15 @@ const Destinations = () => {
       </div>
       <div className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="mb-12 p-4 bg-muted/50 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                <div className="relative">
+          <Card className="mb-12">
+            <CardHeader>
+              <CardTitle>Find Your Destination</CardTitle>
+              <CardDescription>Use the search and filters below to discover your next sustainable adventure.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row flex-wrap gap-4 items-center">
+                {/* Search Input */}
+                <div className="relative flex-grow w-full md:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
@@ -217,41 +246,56 @@ const Destinations = () => {
                     className="pl-10"
                   />
                 </div>
-              </div>
-              <div className="md:col-span-1">
-                 <Select value={selectedProvince} onValueChange={setSelectedProvince}>
-                  <SelectTrigger><SelectValue placeholder="Filter by province" /></SelectTrigger>
+                {/* Province Filter */}
+                <Select value={selectedProvince} onValueChange={setSelectedProvince}>
+                  <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Provinces" /></SelectTrigger>
                   <SelectContent>
-                    {provinces.map(province => (
-                      <SelectItem key={province} value={province}>{province}</SelectItem>
+                    {provinces.map(province => (<SelectItem key={province} value={province}>{province}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                {/* Type Filter */}
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+                  <SelectContent>
+                    {businessTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                {/* Rating Filter */}
+                <Select value={selectedRating} onValueChange={setSelectedRating}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Any Rating" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ratingOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-               <div className="md:col-span-1">
-                 <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger><SelectValue placeholder="Filter by type" /></SelectTrigger>
-                  <SelectContent>
-                    {businessTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          
+            </CardContent>
+            {isFiltered && (
+              <CardFooter>
+                <Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground">
+                  <X className="w-4 h-4 mr-2" /> Reset Filters
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold text-forest">
               {isLoading ? 'Loading...' : `${filteredDestinations.length} Eco-Certified Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}
             </h2>
           </div>
-          
+
           {renderContent()}
         </div>
       </div>
-      
-       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedDestination && (
             <>
@@ -295,9 +339,9 @@ const Destinations = () => {
           )}
         </DialogContent>
       </Dialog>
-      
+
       <DestinationRatingModal isOpen={isRatingModalOpen} onClose={() => setIsRatingModalOpen(false)} destination={selectedDestination} />
-      
+
       <Footer />
     </div>
   );
