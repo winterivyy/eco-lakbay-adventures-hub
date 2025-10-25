@@ -114,6 +114,15 @@ const AdminDashboard = () => {
       loadAdminData();
     }
   };
+  // 1. Create the new handler function
+const handleDestinationDeleted = () => {
+    setIsEditModalOpen(false);
+    setEditingDestination(null);
+    loadAdminData(); // This will refresh the destination list
+};
+
+// 2. Pass the handler to your EditDestinationModal instance
+
 
   const handleOpenEditModal = (dest: any) => { setEditingDestination(dest); setIsEditModalOpen(true); };
   const handleCloseEditModal = () => { setEditingDestination(null); setIsEditModalOpen(false); };
@@ -256,7 +265,7 @@ const AdminDashboard = () => {
         <Footer />
       </div>
       <ViewPermitsModal isOpen={isPermitsModalOpen} onClose={handleClosePermitsModal} destination={viewingDestinationPermits} />
-      <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />  </>
+      <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal}  onDelete={handleDestinationDeleted} destination={editingDestination} />  </>
   );
 };
 
