@@ -15,59 +15,14 @@ import { Edit2, Users, TrendingUp, MapPin, Search, MoreHorizontal, Archive, File
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis,
 } from "recharts";
 
-// INLINE MODAL COMPONENT #1: View Permits (Unchanged)
-const ViewPermitsModal = ({ isOpen, onClose, destination }: { isOpen: boolean, onClose: () => void, destination: any }) => {
-    if (!destination) return null;
-    const permits = destination.destination_permits || [];
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader><DialogTitle>Permits for: {destination.business_name}</DialogTitle></DialogHeader>
-                <div className="py-4 space-y-4">{permits.length > 0 ? (permits.map((permit: any) => (<div key={permit.id} className="flex items-center justify-between p-3 border rounded-lg"><div className="flex items-center gap-3"><FileText className="h-5 w-5 text-muted-foreground" /><div><p className="font-medium capitalize">{permit.permit_type.replace(/_/g, ' ')}</p><p className="text-xs text-muted-foreground">{permit.file_name}</p></div></div><Button asChild variant="outline" size="sm"><a href={permit.file_url} target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4 mr-2" /> View</a></Button></div>))) : <p className="text-center text-muted-foreground py-8">No permits uploaded.</p>}</div>
-            </DialogContent>
-        </Dialog>
-    );
-};
+// --- NEW ---: Import your external, corrected modal components
+import { ViewPermitsModal } from "@/components/ViewPermitsModal";
+import { EditDestinationModal } from "@/components/EditDestinationModal";
 
-// INLINE MODAL COMPONENT #2: Edit Destination
-const EditDestinationModal = ({ isOpen, onClose, onSave, destination }: { isOpen: boolean, onClose: () => void, onSave: () => void, destination: any }) => {
-    const [formData, setFormData] = useState(destination);
-    const [isSaving, setIsSaving] = useState(false);
-    useEffect(() => { setFormData(destination); }, [destination]);
-
-    // --- THIS IS THE DEFINITIVE FIX ---
-    // If there is no destination data, the component will render nothing and will not crash.
-    if (!destination || !formData) {
-        return null;
-    }
-    // ---------------------------------
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { setFormData((prev: any) => ({ ...prev, [e.target.id]: e.target.value })); };
-    const handleSaveChanges = async () => { setIsSaving(true); const { id, created_at, owner_id, status, destination_permits, images, rating, review_count, ...updateData } = formData; updateData.updated_at = new Date().toISOString(); const { error } = await supabase.from('destinations').update(updateData).eq('id', id); setIsSaving(false); if (!error) onSave(); };
-    
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">{Object.keys(formData).filter(key => !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'destination_permits', 'images'].includes(key)).map(key => (<div className="grid grid-cols-4 items-center gap-4" key={key}><Label htmlFor={key} className="text-right capitalize">{key.replace(/_/g, ' ')}</Label>{key === 'description' || key === 'sustainability_practices' ? (<Textarea id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />) : (<Input id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />)}</div>))}</div>
-                <DialogFooter><Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button><Button onClick={handleSaveChanges} disabled={isSaving}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
+// --- REMOVED ---: The old, inline modal components that were defined here are gone.
 
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   pending: 'secondary', approved: 'default', rejected: 'destructive', archived: 'outline',
@@ -95,75 +50,71 @@ const AdminDashboard = () => {
     }
   }, [user]);
 
-      const loadAdminData = async () => {
-        setLoadingData(true);
-        try {
-          const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
-          setProfile(profileData);
-    
-          const { data: destData, error: destError } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
-          if (destError) throw destError;
-          setAllDestinations(destData || []);
-            
-          const { data: usersData, error: usersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-          if (usersError) throw usersError;
-          setAllUsers(usersData || []);
-    
-          const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
-          if (ratingsError) throw ratingsError;
-          setAllRatings(ratingsData || []);
-            
-          const { data: postsData } = await supabase.from('posts').select('id', { count: 'exact' });
-          const { data: calculatorData } = await supabase.from('calculator_entries').select('carbon_footprint');
-          setStats({
-              totalPosts: postsData?.length || 0,
-              totalCalculations: calculatorData?.length || 0,
-              totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0 * 100) / 100
-          });
-    
-        } catch (error: any) {
-            toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
-        } finally {
-          setLoadingData(false);
-        }
-      };
-  
-      const handleStatusUpdate = async (
-      destinationId: string,
-      status: 'approved' | 'rejected' | 'archived'
-    ) => {
-      try {
-        const { error } = await supabase
-          .from('destinations')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', destinationId);
-    
-        if (error) {
-          toast({
-            title: "Update Failed",
-            description: `Could not update status: ${error.message}`,
-            variant: "destructive",
-          });
-          return;
-        }
-    
-        toast({
-          title: "Success",
-          description: `Destination has been ${status}.`,
-        });
-    
-        // Refresh the list
-        loadAdminData();
-      } catch (err: any) {
-        toast({
-          title: "Unexpected Error",
-          description: err.message,
-          variant: "destructive",
-        });
-      }
-    };
+  const loadAdminData = async () => {
+    setLoadingData(true);
+    try {
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
+      setProfile(profileData);
 
-  const handleUpdateUser = async (userId: string, updates: any) => { /* ... unchanged ... */ };
+      const { data: destData, error: destError } = await supabase.from('destinations').select('*, destination_permits(*)').order('created_at', { ascending: false });
+      if (destError) throw destError;
+      setAllDestinations(destData || []);
+        
+      const { data: usersData, error: usersError } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+      if (usersError) throw usersError;
+      setAllUsers(usersData || []);
+
+      const { data: ratingsData, error: ratingsError } = await supabase.from('destination_ratings').select(`*, destinations!inner(business_name), profiles!inner(full_name)`).order('created_at', { ascending: false });
+      if (ratingsError) throw ratingsError;
+      setAllRatings(ratingsData || []);
+        
+      const { count: postsCount } = await supabase.from('posts').select('id', { count: 'exact', head: true });
+      const { count: calculatorCount } = await supabase.from('calculator_entries').select('id', { count: 'exact', head: true });
+      const { data: calculatorData } = await supabase.from('calculator_entries').select('carbon_footprint');
+      
+      setStats({
+          totalPosts: postsCount || 0,
+          totalCalculations: calculatorCount || 0,
+          totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0)
+      });
+
+    } catch (error: any) {
+        toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+  
+  const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived') => {
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', destinationId);
+
+      if (error) {
+        toast({ title: "Update Failed", description: `Could not update status: ${error.message}`, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Success", description: `Destination has been ${status}.` });
+      loadAdminData(); // Refresh the list
+    } catch (err: any) {
+      toast({ title: "Unexpected Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, updates: any) => {
+    const { id, user_id, joined_at, email, ...updateData } = updates; // Prevent updating primary/immutable keys
+    const { error } = await supabase.from('profiles').update(updateData).eq('user_id', userId);
+    if (error) {
+      toast({ title: "User update failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "User updated successfully" });
+      setEditingUser(null);
+      loadAdminData();
+    }
+  };
+
   const handleOpenEditModal = (dest: any) => { setEditingDestination(dest); setIsEditModalOpen(true); };
   const handleCloseEditModal = () => { setEditingDestination(null); setIsEditModalOpen(false); };
   const handleSaveEditModal = () => { handleCloseEditModal(); toast({ title: "Success", description: "Destination details updated." }); loadAdminData(); };
@@ -174,7 +125,7 @@ const AdminDashboard = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
-        <div className="flex-grow flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forest"></div></div>
+        <div className="flex-grow flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-forest"/></div>
         <Footer />
       </div>
     );
@@ -305,8 +256,7 @@ const AdminDashboard = () => {
         <Footer />
       </div>
       <ViewPermitsModal isOpen={isPermitsModalOpen} onClose={handleClosePermitsModal} destination={viewingDestinationPermits} />
-      <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />
-    </>
+      <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal} destination={editingDestination} />  </>
   );
 };
 
