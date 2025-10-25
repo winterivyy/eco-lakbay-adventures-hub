@@ -51,49 +51,64 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
     const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
-    useEffect(() => {
-        // This function runs every time the modal opens with a new destination.
+     useEffect(() => {
         const initializeModal = async () => {
+            if (!destination) return;
+
             setFormData(destination);
-            const imagePaths = destination?.images || [];
-            setExistingImagePaths(imagePaths);
-            setStagedFiles([]);
-            setPathsToDelete([]);
-            
-            // If there are images, we MUST fetch their secure signed URLs.
-            if (imagePaths.length > 0) {
+            const imagePathsFromDb = destination.images || [];
+            setExistingImagePaths(imagePathsFromDb);
+            // Reset other states
+            // ...
+
+            if (imagePathsFromDb.length > 0) {
                 setIsLoadingUrls(true);
                 try {
-                    const signedUrlPromises = imagePaths.map(path => 
-                        supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 3600) // 1 hour expiry
-                    );
+                    const signedUrlPromises = imagePathsFromDb.map(pathOrUrl => {
+                        // --- THIS IS THE CRITICAL FIX ---
+                        // We will "sanitize" the path before calling createSignedUrl.
+                        let sanitizedPath = pathOrUrl;
+
+                        // If the entry is a full URL, extract the relative path.
+                        if (pathOrUrl.includes(BUCKET_NAME + '/')) {
+                            sanitizedPath = pathOrUrl.split(BUCKET_NAME + '/')[1];
+                        }
+                        
+                        console.log(`Requesting signed URL for sanitized path: "${sanitizedPath}"`); // For debugging
+
+                        return supabase.storage.from(BUCKET_NAME).createSignedUrl(sanitizedPath, 3600); // 1 hour expiry
+                    });
+
                     const settledPromises = await Promise.all(signedUrlPromises);
                     
                     const urls: Record<string, string> = {};
                     settledPromises.forEach((result, index) => {
+                        const originalPath = imagePathsFromDb[index];
                         if (result.error) {
-                            console.error(`Error generating signed URL for ${imagePaths[index]}:`, result.error);
+                            console.error(`Error generating signed URL for path: ${originalPath}`, result.error);
+                            // Even on error, add a placeholder so the UI knows we tried
+                            urls[originalPath] = 'error'; 
                         } else if (result.data) {
-                            urls[imagePaths[index]] = result.data.signedUrl;
+                            urls[originalPath] = result.data.signedUrl;
                         }
                     });
                     setSignedImageUrls(urls);
+
                 } catch (error) {
-                    console.error("Failed to generate signed URLs for images.", error);
+                    console.error("Failed to generate any signed URLs.", error);
                     toast({ title: "Could not load images", variant: "destructive" });
                 } finally {
                     setIsLoadingUrls(false);
                 }
             } else {
-                setSignedImageUrls({}); // Reset if there are no images
+                setSignedImageUrls({});
             }
         };
 
         if (isOpen && destination) {
             initializeModal();
         }
-    }, [isOpen, destination]);
-
+    }, [isOpen, destination, toast]);
     useEffect(() => {
         // Reset state every time a new destination is passed in
         setFormData(destination);
@@ -238,20 +253,23 @@ const handleGeocodeAddress = async () => {
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
-                            {/* --- THIS SECTION IS NOW FIXED --- */}
+                             {/* --- THIS JSX IS NOW MORE ROBUST --- */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
-                                    {/* Conditionally render based on whether the URL is ready */}
-                                    {(isLoadingUrls || !signedImageUrls[path]) ? (
+                                    {(isLoadingUrls) ? (
                                         <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
                                             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                                         </div>
-                                    ) : (
+                                    ) : (signedImageUrls[path] && signedImageUrls[path] !== 'error') ? (
                                         <img 
                                             src={signedImageUrls[path]} 
                                             alt="Existing destination" 
                                             className="w-full h-full object-cover rounded-md" 
                                         />
+                                    ) : (
+                                        <div className="w-full h-full bg-destructive/10 text-destructive rounded-md flex items-center justify-center text-center text-xs p-1">
+                                            Image not found
+                                        </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                         <Button size="icon" variant="destructive" onClick={() => handleRemoveExistingImage(path)}><Trash2 className="w-4 h-4" /></Button>
