@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { FileText, Download, Loader2 } from 'lucide-react';
 
 // The name of your Supabase Storage bucket for permits.
-const PERMITS_BUCKET = 'permit';
+const PERMITS_BUCKET = 'permits';
 
 // Interfaces for your data shapes
 interface Permit {
