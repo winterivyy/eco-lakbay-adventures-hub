@@ -46,7 +46,7 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
     // Extract relative path inside the bucket (no domain, no /object/public/)
     // Works whether the URL is public or private
     const relativePath = permit.file_url
-      .replace(/^https:\/\/[^/]+\/storage\/v1\/object\/(public|sign)\//, "")
+      .replace(/^https:\/\/[^/]+\/storage\/v1\/object\/(sign)\//, "")
       .replace(/^permits\//, ""); // in case bucket name is included twice
 
     // Now generate signed URL for private bucket
