@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client'; // Import the Supabas
 import { FileText, Download } from 'lucide-react';
 
 // --- MODIFIED ---: The name of your Supabase Storage bucket is now correct.
-const PERMITS_BUCKET = 'permit';
+const PERMITS_BUCKET = 'permits';
 
 // Define the shape of the permit object based on your schema
 interface Permit {
