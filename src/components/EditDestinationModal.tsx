@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
-    AlertTriangle,
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
