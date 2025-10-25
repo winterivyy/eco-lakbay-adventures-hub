@@ -12,8 +12,9 @@ import fallbackImage from "@/assets/zambales-real-village.jpg";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
-// Interface for a single destination, matching your database schema
+// --- Type Definitions (Merged for this component) ---
 interface Destination {
   id: string;
   business_name: string;
@@ -32,6 +33,17 @@ interface Destination {
   sustainability_practices?: string;
 }
 
+interface Review {
+  id: string;
+  overall_score: number;
+  comments: string;
+  created_at: string;
+  profiles: {
+    full_name: string;
+    avatar_url: string;
+  } | null;
+}
+
 const BUCKET_NAME = 'destination-photos';
 
 const Destinations = () => {
@@ -44,17 +56,17 @@ const Destinations = () => {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // State for search and ALL filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedType, setSelectedType] = useState('');
-  const [selectedRating, setSelectedRating] = useState(''); // New rating filter state
+  const [selectedRating, setSelectedRating] = useState('');
 
-  // State to hold the dynamically generated filter options
   const [provinces, setProvinces] = useState<string[]>([]);
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
+  
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // Static options for the rating filter
   const ratingOptions = [
     { value: 'all', label: 'Any Rating' },
     { value: '4', label: '4 Stars & Up' },
@@ -67,20 +79,12 @@ const Destinations = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const { data, error: dbError } = await supabase
-          .from('destinations')
-          .select('*')
-          .eq('status', 'approved');
-
+        const { data, error: dbError } = await supabase.from('destinations').select('*').eq('status', 'approved');
         if (dbError) throw dbError;
-
         if (data) {
           setDestinations(data);
-
-          // Dynamically generate filter options from the fetched data
           const uniqueProvinces = [...new Set(data.map(d => d.province).filter(Boolean))].sort();
           const uniqueTypes = [...new Set(data.map(d => d.business_type).filter(Boolean))].sort();
-
           setProvinces(['All Provinces', ...uniqueProvinces]);
           setBusinessTypes(['All Types', ...uniqueTypes]);
         }
@@ -91,41 +95,47 @@ const Destinations = () => {
         setIsLoading(false);
       }
     };
-
     fetchDestinations();
   }, []);
 
-  // Updated filtering logic to include rating
   const filteredDestinations = useMemo(() => {
     const minRating = selectedRating && selectedRating !== 'all' ? parseFloat(selectedRating) : 0;
-
     return destinations.filter(destination => {
       const searchTermLower = searchTerm.toLowerCase();
-
       const matchesSearch = searchTerm ? (
         destination.business_name.toLowerCase().includes(searchTermLower) ||
         destination.city.toLowerCase().includes(searchTermLower) ||
         destination.province.toLowerCase().includes(searchTermLower) ||
         destination.description.toLowerCase().includes(searchTermLower)
       ) : true;
-
-      const matchesProvince = selectedProvince && selectedProvince !== 'All Provinces'
-        ? destination.province === selectedProvince
-        : true;
-
-      const matchesType = selectedType && selectedType !== 'All Types'
-        ? destination.business_type === selectedType
-        : true;
-
-      const matchesRating = minRating > 0
-        ? (destination.rating || 0) >= minRating
-        : true;
-
+      const matchesProvince = selectedProvince && selectedProvince !== 'All Provinces' ? destination.province === selectedProvince : true;
+      const matchesType = selectedType && selectedType !== 'All Types' ? destination.business_type === selectedType : true;
+      const matchesRating = minRating > 0 ? (destination.rating || 0) >= minRating : true;
       return matchesSearch && matchesProvince && matchesType && matchesRating;
     });
   }, [destinations, searchTerm, selectedProvince, selectedType, selectedRating]);
 
-  // Function to clear all active filters
+  const fetchReviews = async (destinationId: string) => {
+    setReviewsLoading(true);
+    setReviews([]);
+    try {
+      const { data, error } = await supabase.from('destination_ratings').select(`*, profiles (full_name, avatar_url)`).eq('destination_id', destinationId).order('created_at', { ascending: false });
+      if (error) throw error;
+      setReviews(data as Review[]);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleDestinationClick = (destination: Destination) => {
+    setSelectedDestination(destination);
+    setCurrentImageIndex(0);
+    setIsModalOpen(true);
+    fetchReviews(destination.id);
+  };
+
   const handleResetFilters = () => {
     setSearchTerm('');
     setSelectedProvince('');
@@ -139,12 +149,6 @@ const Destinations = () => {
     if (!path) return fallbackImage;
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
     return data.publicUrl;
-  };
-
-  const handleDestinationClick = (destination: Destination) => {
-    setSelectedDestination(destination);
-    setCurrentImageIndex(0);
-    setIsModalOpen(true);
   };
 
   const handleRateClick = (destination: Destination | null) => {
@@ -166,6 +170,11 @@ const Destinations = () => {
     window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const getInitials = (name: string | null) => {
+    if (!name) return "U";
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   const renderContent = () => {
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>;
     if (error) return <div className="text-center py-20 text-destructive">{error}</div>;
@@ -183,31 +192,17 @@ const Destinations = () => {
           <Card key={destination.id} onClick={() => handleDestinationClick(destination)} className="group flex flex-col cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-lg">
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
-                <img
-                  src={getPublicUrlFromPath(destination.images?.[0])}
-                  alt={destination.business_name}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                  onError={e => { e.currentTarget.src = fallbackImage; }}
-                />
+                <img src={getPublicUrlFromPath(destination.images?.[0])} alt={destination.business_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" onError={e => { e.currentTarget.src = fallbackImage; }} />
               </div>
               <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <CardTitle className="text-xl text-forest">{destination.business_name}</CardTitle>
-                  <Badge variant="secondary">{destination.business_type}</Badge>
-                </div>
-                <p className="text-muted-foreground text-sm flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> {destination.city}, {destination.province}
-                </p>
+                <div className="flex justify-between items-start mb-2"><CardTitle className="text-xl text-forest">{destination.business_name}</CardTitle><Badge variant="secondary">{destination.business_type}</Badge></div>
+                <p className="text-muted-foreground text-sm flex items-center gap-1"><MapPin className="h-3 w-3" /> {destination.city}, {destination.province}</p>
               </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
               <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{destination.description}</p>
               <div className="flex justify-between items-center mt-4">
-                <div className="flex items-center space-x-1">
-                  <Star className="h-4 w-4 text-amber fill-amber" />
-                  <span className="font-medium text-sm">{destination.rating?.toFixed(1) || 'New'}</span>
-                  <span className="text-muted-foreground text-xs ml-1">({destination.review_count || 0} reviews)</span>
-                </div>
+                <div className="flex items-center space-x-1"><Star className="h-4 w-4 text-amber fill-amber" /><span className="font-medium text-sm">{destination.rating?.toFixed(1) || 'New'}</span><span className="text-muted-foreground text-xs ml-1">({destination.review_count || 0} reviews)</span></div>
                 <Button variant="outline" size="sm">View Details</Button>
               </div>
             </CardContent>
@@ -229,68 +224,22 @@ const Destinations = () => {
       <div className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Card className="mb-12">
-            <CardHeader>
-              <CardTitle>Find Your Destination</CardTitle>
-              <CardDescription>Use the search and filters below to discover your next sustainable adventure.</CardDescription>
-            </CardHeader>
+            <CardHeader><CardTitle>Find Your Destination</CardTitle><CardDescription>Use the search and filters below to discover your next sustainable adventure.</CardDescription></CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row flex-wrap gap-4 items-center">
-                {/* Search Input */}
-                <div className="relative flex-grow w-full md:w-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search destinations, city..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                {/* Province Filter */}
-                <Select value={selectedProvince} onValueChange={setSelectedProvince}>
-                  <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Provinces" /></SelectTrigger>
-                  <SelectContent>
-                    {provinces.map(province => (<SelectItem key={province} value={province}>{province}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                {/* Type Filter */}
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger>
-                  <SelectContent>
-                    {businessTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                {/* Rating Filter */}
+                <div className="relative flex-grow w-full md:w-auto"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="text" placeholder="Search destinations, city..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
+                <Select value={selectedProvince} onValueChange={setSelectedProvince}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Provinces" /></SelectTrigger><SelectContent>{provinces.map(province => (<SelectItem key={province} value={province}>{province}</SelectItem>))}</SelectContent></Select>
+                <Select value={selectedType} onValueChange={setSelectedType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger><SelectContent>{businessTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select>
                 <Select value={selectedRating} onValueChange={setSelectedRating}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4 text-muted-foreground" />
-                      <SelectValue placeholder="Any Rating" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ratingOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger className="w-full md:w-[180px]"><div className="flex items-center gap-2"><Star className="h-4 w-4 text-muted-foreground" /><SelectValue placeholder="Any Rating" /></div></SelectTrigger>
+                  <SelectContent>{ratingOptions.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
             </CardContent>
-            {isFiltered && (
-              <CardFooter>
-                <Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground">
-                  <X className="w-4 h-4 mr-2" /> Reset Filters
-                </Button>
-              </CardFooter>
-            )}
+            {isFiltered && (<CardFooter><Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground"><X className="w-4 h-4 mr-2" /> Reset Filters</Button></CardFooter>)}
           </Card>
 
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-forest">
-              {isLoading ? 'Loading...' : `${filteredDestinations.length} Eco-Certified Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}
-            </h2>
-          </div>
-
+          <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Eco-Certified Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
           {renderContent()}
         </div>
       </div>
@@ -300,35 +249,34 @@ const Destinations = () => {
           {selectedDestination && (
             <>
               <DialogHeader className="space-y-4">
-                <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden relative">
-                  <img
-                    src={getPublicUrlFromPath(selectedDestination.images?.[currentImageIndex])}
-                    alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={e => { e.currentTarget.src = fallbackImage; }}
-                  />
-                </div>
+                <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden relative"><img src={getPublicUrlFromPath(selectedDestination.images?.[currentImageIndex])} alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`} className="w-full h-full object-cover" onError={e => { e.currentTarget.src = fallbackImage; }} /></div>
                 {(selectedDestination.images?.length ?? 0) > 1 && (
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {selectedDestination.images?.map((imgPath: string, index: number) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImageIndex(index)}
-                        className={cn("w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0", index === currentImageIndex ? "border-forest" : "border-transparent")}>
-                        <img src={getPublicUrlFromPath(imgPath)} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2">{selectedDestination.images?.map((imgPath: string, index: number) => (<button key={index} onClick={() => setCurrentImageIndex(index)} className={cn("w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0", index === currentImageIndex ? "border-forest" : "border-transparent")}><img src={getPublicUrlFromPath(imgPath)} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" /></button>))}</div>
                 )}
                 <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
-                <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1">
-                  <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p>
-                  <a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-forest hover:underline">{selectedDestination.website}</a>
-                </div>
+                <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-forest hover:underline">{selectedDestination.website}</a></div>
               </DialogHeader>
+
               <div className="space-y-6 py-4">
                 <div><h3 className="font-semibold text-foreground mb-2">About this Destination</h3><p className="text-muted-foreground">{selectedDestination.description}</p></div>
-                {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground">{selectedDestination.sustainability_practices}</p></div>)}
+                {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground whitespace-pre-line">{selectedDestination.sustainability_practices}</p></div>)}
+                
+                <div>
+                  <h3 className="text-lg font-semibold text-forest mb-4">Reviews from our Community</h3>
+                  {reviewsLoading ? (<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>) 
+                  : reviews.length > 0 ? (
+                    <div className="space-y-4">{reviews.map((review) => (
+                        <div key={review.id} className="flex gap-4 p-4 border rounded-lg bg-muted/50">
+                          <Avatar><AvatarImage src={review.profiles?.avatar_url} /><AvatarFallback>{getInitials(review.profiles?.full_name)}</AvatarFallback></Avatar>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center mb-1"><p className="font-semibold">{review.profiles?.full_name || 'Anonymous'}</p><div className="flex items-center gap-1 text-sm"><Star className="h-4 w-4 text-amber fill-amber" />{review.overall_score.toFixed(1)}</div></div>
+                            <p className="text-muted-foreground text-sm italic">"{review.comments}"</p>
+                          </div>
+                        </div>))}
+                    </div>
+                  ) : (<p className="text-center text-muted-foreground py-8">No reviews yet. Be the first to leave one!</p>)}
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button variant="eco" className="flex-1" onClick={() => handleRateClick(selectedDestination)}>⭐ Leave a Review</Button>
                   <Button variant="outline" className="flex-1" onClick={() => handleViewOnMap(selectedDestination)}><MapPin className="mr-2 h-4 w-4" />View on Map</Button>
@@ -339,9 +287,9 @@ const Destinations = () => {
           )}
         </DialogContent>
       </Dialog>
-
+      
       <DestinationRatingModal isOpen={isRatingModalOpen} onClose={() => setIsRatingModalOpen(false)} destination={selectedDestination} />
-
+      
       <Footer />
     </div>
   );
