@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
+    AlertTriangle,
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -51,51 +52,72 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
     const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
-     useEffect(() => {
+// --- THIS IS THE FINAL, MOST ROBUST FIX ---
+    useEffect(() => {
         const initializeModal = async () => {
             if (!destination) return;
 
-            setFormData(destination);
-            const imagePathsFromDb = destination.images || [];
-            setExistingImagePaths(imagePathsFromDb);
+            setExistingImagePaths(destination.images || []);
             // Reset other states
-            // ...
+            setFormData(destination);
+            setStagedFiles([]);
+            setPathsToDelete([]);
+
+            const imagePathsFromDb = destination.images || [];
 
             if (imagePathsFromDb.length > 0) {
                 setIsLoadingUrls(true);
                 try {
                     const signedUrlPromises = imagePathsFromDb.map(pathOrUrl => {
-                        // --- THIS IS THE CRITICAL FIX ---
-                        // We will "sanitize" the path before calling createSignedUrl.
-                        let sanitizedPath = pathOrUrl;
+                        // **This is the new, super-robust sanitization function.**
+                        // It handles multiple types of bad data.
+                        const sanitizePath = (p: string): string | null => {
+                            if (!p) return null;
+                            try {
+                                // 1. If it's a full URL, parse it.
+                                if (p.startsWith('http')) {
+                                    const url = new URL(p);
+                                    // 2. Extract the path after the bucket name.
+                                    // Handles `/public/`, `/sign/`, etc.
+                                    const pathSegments = url.pathname.split(`/${BUCKET_NAME}/`);
+                                    if (pathSegments.length > 1) {
+                                        return pathSegments[1];
+                                    }
+                                }
+                                // 3. If it's not a URL, assume it's a clean path and return it.
+                                return p;
+                            } catch (e) {
+                                console.error("Could not parse path:", p, e);
+                                return null; // Return null if it's an invalid URL/path
+                            }
+                        };
 
-                        // If the entry is a full URL, extract the relative path.
-                        if (pathOrUrl.includes(BUCKET_NAME + '/')) {
-                            sanitizedPath = pathOrUrl.split(BUCKET_NAME + '/')[1];
+                        const cleanPath = sanitizePath(pathOrUrl);
+
+                        if (!cleanPath) {
+                            // Immediately resolve with an error for this invalid path
+                            return Promise.resolve({ error: { message: "Invalid path format" }, data: null });
                         }
                         
-                        console.log(`Requesting signed URL for sanitized path: "${sanitizedPath}"`); // For debugging
-
-                        return supabase.storage.from(BUCKET_NAME).createSignedUrl(sanitizedPath, 3600); // 1 hour expiry
+                        return supabase.storage.from(BUCKET_NAME).createSignedUrl(cleanPath, 3600); // 1 hour expiry
                     });
 
                     const settledPromises = await Promise.all(signedUrlPromises);
                     
                     const urls: Record<string, string> = {};
                     settledPromises.forEach((result, index) => {
-                        const originalPath = imagePathsFromDb[index];
+                        const originalIdentifier = imagePathsFromDb[index];
                         if (result.error) {
-                            console.error(`Error generating signed URL for path: ${originalPath}`, result.error);
-                            // Even on error, add a placeholder so the UI knows we tried
-                            urls[originalPath] = 'error'; 
+                            console.error(`Error generating signed URL for: ${originalIdentifier}`, result.error.message);
+                            urls[originalIdentifier] = 'error'; 
                         } else if (result.data) {
-                            urls[originalPath] = result.data.signedUrl;
+                            urls[originalIdentifier] = result.data.signedUrl;
                         }
                     });
                     setSignedImageUrls(urls);
 
                 } catch (error) {
-                    console.error("Failed to generate any signed URLs.", error);
+                    console.error("General failure during signed URL generation.", error);
                     toast({ title: "Could not load images", variant: "destructive" });
                 } finally {
                     setIsLoadingUrls(false);
@@ -248,12 +270,15 @@ const handleGeocodeAddress = async () => {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                {/* Add DialogDescription to fix accessibility warning */}
+                    <DialogTitle>Update Destination: {destination.business_name}</DialogTitle>
+                    <AlertDialogDescription as="p" className="sr-only">Modal for editing destination details and photos.</AlertDialogDescription>
+                </DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
-                             {/* --- THIS JSX IS NOW MORE ROBUST --- */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
                                     {(isLoadingUrls) ? (
@@ -261,22 +286,18 @@ const handleGeocodeAddress = async () => {
                                             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                                         </div>
                                     ) : (signedImageUrls[path] && signedImageUrls[path] !== 'error') ? (
-                                        <img 
-                                            src={signedImageUrls[path]} 
-                                            alt="Existing destination" 
-                                            className="w-full h-full object-cover rounded-md" 
-                                        />
+                                        <img src={signedImageUrls[path]} alt="Existing destination" className="w-full h-full object-cover rounded-md" />
                                     ) : (
-                                        <div className="w-full h-full bg-destructive/10 text-destructive rounded-md flex items-center justify-center text-center text-xs p-1">
-                                            Image not found
+                                        <div className="w-full h-full bg-destructive/10 text-destructive rounded-md flex flex-col items-center justify-center text-center text-xs p-1 font-semibold">
+                                            <AlertTriangle className="w-5 h-5 mb-1" />
+                                            Image Not Found
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                         <Button size="icon" variant="destructive" onClick={() => handleRemoveExistingImage(path)}><Trash2 className="w-4 h-4" /></Button>
                                     </div>
                                 </div>
-                            ))}
-                            
+                            ))}            
                             {stagedFiles.map((file, index) => (
                                 <div key={index} className="relative group aspect-square">
                                     <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover rounded-md" />
