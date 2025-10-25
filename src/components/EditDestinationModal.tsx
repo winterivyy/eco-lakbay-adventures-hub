@@ -55,50 +55,62 @@ useEffect(() => {
         const initializeModal = async () => {
             if (!destination) return;
 
-            // Standard state resets
             setFormData(destination);
             const imageIdentifiers = destination.images || [];
             setExistingImagePaths(imageIdentifiers);
             setStagedFiles([]);
             setPathsToDelete([]);
-            
+
             if (imageIdentifiers.length > 0) {
                 setIsLoadingUrls(true);
-                const urls: Record<string, string> = {};
-
-                // Separate identifiers into two groups: those that are already URLs and those that are just paths
-                const directUrls = imageIdentifiers.filter(id => id.startsWith('https'));
-                const pathsToSign = imageIdentifiers.filter(id => !id.startsWith('https'));
-
-                // Add direct URLs to our final list immediately
-                directUrls.forEach(url => {
-                    urls[url] = url;
-                });
-                
                 try {
-                    // Generate signed URLs ONLY for the simple paths
-                    if (pathsToSign.length > 0) {
-                        const signedUrlPromises = pathsToSign.map(path => 
-                            supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 3600) // 1 hour expiry
-                        );
-                        const settledPromises = await Promise.all(signedUrlPromises);
-                        
-                        settledPromises.forEach((result, index) => {
-                            const originalPath = pathsToSign[index];
-                            if (result.error) {
-                                console.error(`Error for path "${originalPath}":`, result.error.message);
-                                urls[originalPath] = 'error'; 
-                            } else if (result.data) {
-                                urls[originalPath] = result.data.signedUrl;
+                    const signedUrlPromises = imageIdentifiers.map(pathOrUrl => {
+                        // --- THIS IS THE BULLETPROOF SANITIZATION LOGIC ---
+                        const sanitizePath = (p: string): string | null => {
+                            if (!p) return null;
+                            try {
+                                // If it's a full URL, parse it to extract the path.
+                                if (p.startsWith('http')) {
+                                    const url = new URL(p);
+                                    const pathSegments = url.pathname.split(`/${BUCKET_NAME}/`);
+                                    if (pathSegments.length > 1) {
+                                        return decodeURIComponent(pathSegments[1]);
+                                    }
+                                }
+                                // If it's already a simple path, just return it.
+                                return p;
+                            } catch (e) {
+                                console.error("Could not parse or sanitize path:", p, e);
+                                return null;
                             }
-                        });
-                    }
+                        };
+
+                        const cleanPath = sanitizePath(pathOrUrl);
+
+                        if (!cleanPath) {
+                            return Promise.resolve({ error: new Error("Invalid path format"), data: null });
+                        }
+                        
+                        // Always generate a fresh signed URL from the clean path.
+                        return supabase.storage.from(BUCKET_NAME).createSignedUrl(cleanPath, 3600);
+                    });
+
+                    const settledPromises = await Promise.all(signedUrlPromises);
                     
+                    const urls: Record<string, string> = {};
+                    settledPromises.forEach((result, index) => {
+                        const originalIdentifier = imageIdentifiers[index];
+                        if (result.error) {
+                            console.error(`Error for identifier "${originalIdentifier}":`, result.error.message);
+                            urls[originalIdentifier] = 'error'; 
+                        } else if (result.data) {
+                            urls[originalIdentifier] = result.data.signedUrl;
+                        }
+                    });
                     setSignedImageUrls(urls);
 
                 } catch (error) {
-                    console.error("General failure during signed URL generation.", error);
-                    toast({ title: "Could not load some images", variant: "destructive" });
+                    toast({ title: "Could not load images", variant: "destructive" });
                 } finally {
                     setIsLoadingUrls(false);
                 }
