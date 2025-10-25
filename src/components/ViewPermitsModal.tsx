@@ -1,19 +1,19 @@
-import { useState } from 'react'; // --- NEW ---
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from "@/hooks/use-toast"; // --- NEW ---
-import { FileText, Download, Loader2 } from 'lucide-react'; // --- NEW ---
+import { useToast } from "@/hooks/use-toast";
+import { FileText, Download, Loader2 } from 'lucide-react';
 
-// --- MODIFIED ---: The name of your Supabase Storage bucket.
-const PERMITS_BUCKET = 'permits';
+// The name of your Supabase Storage bucket for permits.
+const PERMITS_BUCKET = 'permit';
 
-// Interfaces remain the same...
+// Interfaces for your data shapes
 interface Permit {
   id: string;
   permit_type: string;
   file_name: string;
-  file_url: string; // This is the file PATH
+  file_url: string; // This is the file PATH, not a full URL
   verification_status: string;
 }
 interface DestinationWithPermits {
@@ -27,31 +27,30 @@ interface ViewPermitsModalProps {
 }
 
 export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onClose, destination }) => {
-    // --- NEW ---: State to handle loading for individual buttons
     const [loadingPermitId, setLoadingPermitId] = useState<string | null>(null);
     const { toast } = useToast();
 
     if (!destination) return null;
     const permits = destination.destination_permits || [];
 
-    // --- MODIFIED ---: This function now generates a Signed URL on click
+    // This async function generates the Signed URL when the button is clicked.
     const handleViewPermit = async (permit: Permit) => {
         if (!permit.file_url) {
             toast({ title: "File path is missing.", variant: "destructive" });
             return;
         }
         
-        setLoadingPermitId(permit.id); // Show loader on the clicked button
+        setLoadingPermitId(permit.id);
         
         try {
-            // Generate a signed URL that expires in 5 minutes (300 seconds)
+            // THIS is the line that creates the correct URL with "/sign/" and a token:
             const { data, error } = await supabase.storage
                 .from(PERMITS_BUCKET)
-                .createSignedUrl(permit.file_url, 300);
+                .createSignedUrl(permit.file_url, 300); // 300 seconds = 5 minutes
 
             if (error) throw error;
             
-            // Open the secure, temporary URL in a new tab
+            // At this point, `data.signedUrl` is the complete, correct URL you described.
             window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
 
         } catch (error: any) {
@@ -62,7 +61,7 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
                 variant: "destructive",
             });
         } finally {
-            setLoadingPermitId(null); // Hide loader
+            setLoadingPermitId(null);
         }
     };
 
@@ -84,13 +83,12 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
                                     </div>
                                 </div>
                                 
-                                {/* --- MODIFIED ---: The Button now uses an onClick handler */}
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
                                     className="ml-4 flex-shrink-0"
                                     onClick={() => handleViewPermit(permit)}
-                                    disabled={loadingPermitId === permit.id} // Disable while loading this specific permit
+                                    disabled={loadingPermitId === permit.id}
                                 >
                                     {loadingPermitId === permit.id ? (
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
