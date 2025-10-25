@@ -53,39 +53,49 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
 
 // --- THIS IS THE FIX ---
     // We now have only ONE useEffect to manage the modal's initialization.
-    useEffect(() => {
+        useEffect(() => {
         const initializeModal = async () => {
             if (!destination) return;
-
-            // Step 1: Reset all component state. This is from your second useEffect.
             setFormData(destination);
             const imageIdentifiers = destination.images || [];
             setExistingImagePaths(imageIdentifiers);
             setStagedFiles([]);
             setPathsToDelete([]);
-            
-            // Step 2: Now, proceed with the URL fetching logic from your first useEffect.
+
             if (imageIdentifiers.length > 0) {
                 setIsLoadingUrls(true);
                 try {
                     const signedUrlPromises = imageIdentifiers.map(pathOrUrl => {
+                        // --- THIS IS THE FINAL, MOST AGGRESSIVE SANITIZATION LOGIC ---
                         const sanitizePath = (p: string): string | null => {
                             if (!p) return null;
                             try {
-                                if (p.startsWith('http')) {
-                                    const url = new URL(p);
-                                    const pathSegments = url.pathname.split(`/${BUCKET_NAME}/`);
-                                    return pathSegments.length > 1 ? decodeURIComponent(pathSegments[1]) : null;
+                                let path = p;
+                                // If it's a full URL, get just the pathname
+                                if (path.startsWith('http')) {
+                                    path = new URL(path).pathname;
                                 }
-                                return p;
+                                // Aggressively find the part of the path that matters.
+                                // This looks for '/destination-photos/' and takes everything AFTER it.
+                                const bucketIndex = path.indexOf(`/${BUCKET_NAME}/`);
+                                if (bucketIndex !== -1) {
+                                    path = path.substring(bucketIndex + `/${BUCKET_NAME}/`.length);
+                                }
+                                // FINAL CLEANUP: Remove any lingering 'public/' prefix, which is a common issue.
+                                if (path.startsWith('public/')) {
+                                    path = path.substring('public/'.length);
+                                }
+                                return decodeURIComponent(path);
                             } catch (e) {
+                                console.error("Could not parse or sanitize path:", p, e);
                                 return null;
                             }
                         };
+
                         const cleanPath = sanitizePath(pathOrUrl);
-                        if (!cleanPath) {
-                            return Promise.resolve({ error: new Error(`Invalid path: ${pathOrUrl}`), data: null });
-                        }
+                        if (!cleanPath) return Promise.resolve({ error: new Error(`Invalid path: ${pathOrUrl}`), data: null });
+                        
+                        // Always generate a fresh signed URL from the best possible clean path.
                         return supabase.storage.from(BUCKET_NAME).createSignedUrl(cleanPath, 3600);
                     });
 
@@ -115,7 +125,6 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
             initializeModal();
         }
     }, [isOpen, destination, toast]);
-
     if (!destination) return null;
     if (!formData) return null; // Guard against null formData
 
