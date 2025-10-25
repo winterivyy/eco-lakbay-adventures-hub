@@ -35,42 +35,41 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
 
     // This async function generates the Signed URL when the button is clicked.
     const handleViewPermit = async (permit: Permit) => {
-    if (!permit.file_url) {
-        toast({ title: "File path is missing.", variant: "destructive" });
-        return;
-    }
+  if (!permit.file_url) {
+    toast({ title: "File path is missing.", variant: "destructive" });
+    return;
+  }
 
-    setLoadingPermitId(permit.id);
+  setLoadingPermitId(permit.id);
 
-    try {
-        // Extract only the relative path inside the bucket
-        // e.g., from "https://.../object/public/permits/xxxx.jpg" → "xxxx.jpg"
-        const relativePath = permit.file_url.split('/permits/')[1];
+  try {
+    // Extract relative path inside the bucket (no domain, no /object/public/)
+    // Works whether the URL is public or private
+    const relativePath = permit.file_url
+      .replace(/^https:\/\/[^/]+\/storage\/v1\/object\/(public|sign)\//, "")
+      .replace(/^permits\//, ""); // in case bucket name is included twice
 
-        if (!relativePath) {
-            throw new Error("Invalid file path format");
-        }
+    // Now generate signed URL for private bucket
+    const { data, error } = await supabase.storage
+      .from(PERMITS_BUCKET)
+      .createSignedUrl(relativePath, 300); // 300 = 5 minutes
 
-        const { data, error } = await supabase.storage
-            .from(PERMITS_BUCKET)
-            .createSignedUrl(`permits/${relativePath}`, 300); // <-- use relative path here
+    if (error) throw error;
 
-        if (error) throw error;
+    // This URL now contains "/sign/" and "?token=..."
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  } catch (error: any) {
+    console.error("Error generating signed URL:", error);
+    toast({
+      title: "Could not generate file link.",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setLoadingPermitId(null);
+  }
+};
 
-        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-
-    } catch (error: any) {
-        console.error("Error generating signed URL:", error);
-        toast({
-            title: "Could not generate file link.",
-            description: error.message,
-            variant: "destructive",
-        });
-    } finally {
-        setLoadingPermitId(null);
-    }
-
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
