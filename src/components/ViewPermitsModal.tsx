@@ -7,24 +7,10 @@ import { FileText, Download, Loader2 } from 'lucide-react';
 
 // The name of your Supabase Storage bucket for permits.
 const PERMITS_BUCKET = 'permits';
-
-// Interfaces for your data shapes
-interface Permit {
-  id: string;
-  permit_type: string;
-  file_name: string;
-  file_url: string; // This is the file PATH, not a full URL
-  verification_status: string;
-}
-interface DestinationWithPermits {
-  business_name: string;
-  destination_permits: Permit[];
-}
-interface ViewPermitsModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    destination: DestinationWithPermits | null;
-}
+// Interfaces
+interface Permit { id: string; permit_type: string; file_name: string; file_url: string; verification_status: string; }
+interface DestinationWithPermits { business_name: string; destination_permits: Permit[]; }
+interface ViewPermitsModalProps { isOpen: boolean; onClose: () => void; destination: DestinationWithPermits | null; }
 
 export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onClose, destination }) => {
     const [loadingPermitId, setLoadingPermitId] = useState<string | null>(null);
@@ -33,43 +19,46 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
     if (!destination) return null;
     const permits = destination.destination_permits || [];
 
-    // This async function generates the Signed URL when the button is clicked.
     const handleViewPermit = async (permit: Permit) => {
-  if (!permit.file_url) {
-    toast({ title: "File path is missing.", variant: "destructive" });
-    return;
-  }
+      if (!permit.file_url) {
+        toast({ title: "File path is missing.", variant: "destructive" });
+        return;
+      }
+      setLoadingPermitId(permit.id);
+      
+      try {
+        let filePath = permit.file_url;
+        
+        // --- THIS IS THE CRITICAL FIX ---
+        // This code defensively checks if a full URL was stored in the database.
+        // If it was, it extracts just the path needed for createSignedUrl.
+        if (filePath.includes(PERMITS_BUCKET + '/')) {
+            // Split the URL string by the bucket name and take the second part.
+            // Example: "https://.../permit/folder/file.jpg" -> "folder/file.jpg"
+            filePath = filePath.split(PERMITS_BUCKET + '/')[1];
+        }
 
-  setLoadingPermitId(permit.id);
+        const { data, error } = await supabase.storage
+          .from(PERMITS_BUCKET)
+          .createSignedUrl(filePath, 300); // 300 seconds = 5 minutes expiration
 
-  try {
-    // Extract relative path inside the bucket (no domain, no /object/public/)
-    // Works whether the URL is public or private
-    const relativePath = permit.file_url
-      .replace(/^https:\/\/[^/]+\/storage\/v1\/object\/(sign)\//, "")
-      .replace(/^permits\//, ""); // in case bucket name is included twice
+        if (error) {
+          // If the error persists, it means the filePath is still wrong.
+          throw error;
+        }
 
-    // Now generate signed URL for private bucket
-    const { data, error } = await supabase.storage
-      .from(PERMITS_BUCKET)
-      .createSignedUrl(relativePath, 300); // 300 = 5 minutes
-
-    if (error) throw error;
-
-    // This URL now contains "/sign/" and "?token=..."
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-  } catch (error: any) {
-    console.error("Error generating signed URL:", error);
-    toast({
-      title: "Could not generate file link.",
-      description: error.message,
-      variant: "destructive",
-    });
-  } finally {
-    setLoadingPermitId(null);
-  }
-};
-
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      } catch (error: any) {
+        console.error("Error generating signed URL. Raw file_url was:", permit.file_url, "Processed path was:", permit.file_url.split(PERMITS_BUCKET + '/')[1]);
+        toast({
+          title: "Could not open file.",
+          description: error.message, // Will now show "Object not found" if path is still wrong
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingPermitId(null);
+      }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
