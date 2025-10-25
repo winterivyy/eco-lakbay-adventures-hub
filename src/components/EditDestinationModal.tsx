@@ -7,6 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Destination {
   id: string;
@@ -18,6 +29,7 @@ interface EditDestinationModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: () => void;
+    onDelete: () => void; // New prop to notify parent of deletion
     destination: Destination | null;
 }
 
@@ -30,7 +42,9 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     const [stagedFiles, setStagedFiles] = useState<File[]>([]);
     const [pathsToDelete, setPathsToDelete] = useState<string[]>([]);
     
+     // --- NEW ---: Add a separate loading state for deletion
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isGeocoding, setIsGeocoding] = useState(false);
     const { toast } = useToast();
 
@@ -139,6 +153,41 @@ const handleGeocodeAddress = async () => {
         const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
         return data.publicUrl;
     };
+     const handleDeleteDestination = async () => {
+        if (!destination) return;
+        setIsDeleting(true);
+
+        try {
+            // Step 1: Delete all associated images from Supabase Storage
+            if (destination.images && destination.images.length > 0) {
+                const { error: storageError } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .remove(destination.images);
+                
+                // Log storage error but proceed to delete the DB record anyway
+                if (storageError) {
+                    console.error("Failed to delete some images from storage:", storageError);
+                }
+            }
+
+            // Step 2: Delete the destination record from the database
+            const { error: dbError } = await supabase
+                .from('destinations')
+                .delete()
+                .eq('id', destination.id);
+
+            if (dbError) throw dbError;
+
+            // Step 3: Show success toast and call the parent component's callback
+            toast({ title: "Success!", description: "Destination has been permanently deleted." });
+            onDelete(); // This will close the modal and refresh the data list
+
+        } catch (error: any) {
+            toast({ title: "Deletion Failed", description: error.message, variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
@@ -207,12 +256,41 @@ const handleGeocodeAddress = async () => {
                     </div>
                 </div>
             </div>
-                <DialogFooter>
-                   <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save All Changes
-                    </Button>
+               {/* --- MODIFIED ---: The DialogFooter now includes the delete button and confirmation dialog */}
+                <DialogFooter className="justify-between items-center pt-4 border-t">
+                    {/* Delete Button and Confirmation Dialog */}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isSaving || isDeleting}>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Destination
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the <strong>{destination.business_name}</strong> destination, including all of its photos and associated data.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteDestination} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                                    {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    Yes, delete it
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Cancel and Save Buttons */}
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>Cancel</Button>
+                        <Button onClick={handleSaveChanges} disabled={isSaving || isDeleting}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save All Changes
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
