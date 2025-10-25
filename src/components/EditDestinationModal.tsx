@@ -48,44 +48,51 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     const [isGeocoding, setIsGeocoding] = useState(false);
     const { toast } = useToast();
 
-      const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
+  const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
+    const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
     useEffect(() => {
-        setFormData(destination);
-        const imagePaths = destination?.images || [];
-        setExistingImagePaths(imagePaths);
-        setStagedFiles([]);
-        setPathsToDelete([]);
-
-        // --- NEW ---: Generate signed URLs when the component opens
-        if (imagePaths.length > 0) {
-            generateSignedUrls(imagePaths);
-        } else {
-            setSignedImageUrls({});
-        }
-    }, [destination]);
-    
-    // --- NEW ---: Async function to fetch signed URLs for all existing images
-    const generateSignedUrls = async (paths: string[]) => {
-        try {
-            const signedUrlPromises = paths.map(path => 
-                supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 300) // 5-minute expiry
-            );
-            const settledPromises = await Promise.all(signedUrlPromises);
+        // This function runs every time the modal opens with a new destination.
+        const initializeModal = async () => {
+            setFormData(destination);
+            const imagePaths = destination?.images || [];
+            setExistingImagePaths(imagePaths);
+            setStagedFiles([]);
+            setPathsToDelete([]);
             
-            const urls: Record<string, string> = {};
-            settledPromises.forEach((result, index) => {
-                if (result.error) {
-                    console.error(`Error generating signed URL for ${paths[index]}:`, result.error);
-                } else {
-                    urls[paths[index]] = result.data.signedUrl;
+            // If there are images, we MUST fetch their secure signed URLs.
+            if (imagePaths.length > 0) {
+                setIsLoadingUrls(true);
+                try {
+                    const signedUrlPromises = imagePaths.map(path => 
+                        supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 3600) // 1 hour expiry
+                    );
+                    const settledPromises = await Promise.all(signedUrlPromises);
+                    
+                    const urls: Record<string, string> = {};
+                    settledPromises.forEach((result, index) => {
+                        if (result.error) {
+                            console.error(`Error generating signed URL for ${imagePaths[index]}:`, result.error);
+                        } else if (result.data) {
+                            urls[imagePaths[index]] = result.data.signedUrl;
+                        }
+                    });
+                    setSignedImageUrls(urls);
+                } catch (error) {
+                    console.error("Failed to generate signed URLs for images.", error);
+                    toast({ title: "Could not load images", variant: "destructive" });
+                } finally {
+                    setIsLoadingUrls(false);
                 }
-            });
-            setSignedImageUrls(urls);
-        } catch (error) {
-            console.error("Failed to generate signed URLs for images.", error);
+            } else {
+                setSignedImageUrls({}); // Reset if there are no images
+            }
+        };
+
+        if (isOpen && destination) {
+            initializeModal();
         }
-    };
+    }, [isOpen, destination]);
 
     useEffect(() => {
         // Reset state every time a new destination is passed in
@@ -231,27 +238,27 @@ const handleGeocodeAddress = async () => {
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
-                            {/* Display existing images from their simple paths */}
-                           {/* --- MODIFIED ---: This section now uses the `signedImageUrls` state */}
+                            {/* --- THIS SECTION IS NOW FIXED --- */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
-                                    {signedImageUrls[path] ? (
+                                    {/* Conditionally render based on whether the URL is ready */}
+                                    {(isLoadingUrls || !signedImageUrls[path]) ? (
+                                        <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : (
                                         <img 
                                             src={signedImageUrls[path]} 
                                             alt="Existing destination" 
                                             className="w-full h-full object-cover rounded-md" 
                                         />
-                                    ) : (
-                                        <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
-                                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                                        </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                         <Button size="icon" variant="destructive" onClick={() => handleRemoveExistingImage(path)}><Trash2 className="w-4 h-4" /></Button>
                                     </div>
                                 </div>
                             ))}
-                            {/* Display staged files from local blob URLs */}
+                            
                             {stagedFiles.map((file, index) => (
                                 <div key={index} className="relative group aspect-square">
                                     <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover rounded-md" />
@@ -260,6 +267,7 @@ const handleGeocodeAddress = async () => {
                                     </div>
                                 </div>
                             ))}
+                            
                             <Label htmlFor="image-upload-edit" className="aspect-square flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted">
                                 <Upload className="w-6 h-6 text-muted-foreground" />
                                 <span className="text-xs mt-2 text-center">Add Photos</span>
