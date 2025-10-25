@@ -51,73 +51,54 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
     const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
-// --- THIS IS THE FINAL, MOST ROBUST FIX ---
-    useEffect(() => {
+useEffect(() => {
         const initializeModal = async () => {
             if (!destination) return;
 
-            setExistingImagePaths(destination.images || []);
-            // Reset other states
+            // Standard state resets
             setFormData(destination);
+            const imageIdentifiers = destination.images || [];
+            setExistingImagePaths(imageIdentifiers);
             setStagedFiles([]);
             setPathsToDelete([]);
-
-            const imagePathsFromDb = destination.images || [];
-
-            if (imagePathsFromDb.length > 0) {
+            
+            if (imageIdentifiers.length > 0) {
                 setIsLoadingUrls(true);
+                const urls: Record<string, string> = {};
+
+                // Separate identifiers into two groups: those that are already URLs and those that are just paths
+                const directUrls = imageIdentifiers.filter(id => id.startsWith('https'));
+                const pathsToSign = imageIdentifiers.filter(id => !id.startsWith('https'));
+
+                // Add direct URLs to our final list immediately
+                directUrls.forEach(url => {
+                    urls[url] = url;
+                });
+                
                 try {
-                    const signedUrlPromises = imagePathsFromDb.map(pathOrUrl => {
-                        // **This is the new, super-robust sanitization function.**
-                        // It handles multiple types of bad data.
-                        const sanitizePath = (p: string): string | null => {
-                            if (!p) return null;
-                            try {
-                                // 1. If it's a full URL, parse it.
-                                if (p.startsWith('http')) {
-                                    const url = new URL(p);
-                                    // 2. Extract the path after the bucket name.
-                                    // Handles `/public/`, `/sign/`, etc.
-                                    const pathSegments = url.pathname.split(`/${BUCKET_NAME}/`);
-                                    if (pathSegments.length > 1) {
-                                        return pathSegments[1];
-                                    }
-                                }
-                                // 3. If it's not a URL, assume it's a clean path and return it.
-                                return p;
-                            } catch (e) {
-                                console.error("Could not parse path:", p, e);
-                                return null; // Return null if it's an invalid URL/path
-                            }
-                        };
-
-                        const cleanPath = sanitizePath(pathOrUrl);
-
-                        if (!cleanPath) {
-                            // Immediately resolve with an error for this invalid path
-                            return Promise.resolve({ error: { message: "Invalid path format" }, data: null });
-                        }
+                    // Generate signed URLs ONLY for the simple paths
+                    if (pathsToSign.length > 0) {
+                        const signedUrlPromises = pathsToSign.map(path => 
+                            supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 3600) // 1 hour expiry
+                        );
+                        const settledPromises = await Promise.all(signedUrlPromises);
                         
-                        return supabase.storage.from(BUCKET_NAME).createSignedUrl(cleanPath, 3600); // 1 hour expiry
-                    });
-
-                    const settledPromises = await Promise.all(signedUrlPromises);
+                        settledPromises.forEach((result, index) => {
+                            const originalPath = pathsToSign[index];
+                            if (result.error) {
+                                console.error(`Error for path "${originalPath}":`, result.error.message);
+                                urls[originalPath] = 'error'; 
+                            } else if (result.data) {
+                                urls[originalPath] = result.data.signedUrl;
+                            }
+                        });
+                    }
                     
-                    const urls: Record<string, string> = {};
-                    settledPromises.forEach((result, index) => {
-                        const originalIdentifier = imagePathsFromDb[index];
-                        if (result.error) {
-                            console.error(`Error generating signed URL for: ${originalIdentifier}`, result.error.message);
-                            urls[originalIdentifier] = 'error'; 
-                        } else if (result.data) {
-                            urls[originalIdentifier] = result.data.signedUrl;
-                        }
-                    });
                     setSignedImageUrls(urls);
 
                 } catch (error) {
                     console.error("General failure during signed URL generation.", error);
-                    toast({ title: "Could not load images", variant: "destructive" });
+                    toast({ title: "Could not load some images", variant: "destructive" });
                 } finally {
                     setIsLoadingUrls(false);
                 }
