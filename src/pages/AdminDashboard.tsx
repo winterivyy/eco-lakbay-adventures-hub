@@ -115,11 +115,12 @@ const AdminDashboard = () => {
     }
   };
   // 1. Create the new handler function
-const handleDestinationDeleted = () => {
-    setIsEditModalOpen(false);
-    setEditingDestination(null);
-    loadAdminData(); // This will refresh the destination list
-};
+  const handleDestinationDeleted = () => {
+    setIsEditModalOpen(false); // Close the modal
+    setEditingDestination(null); // Clear the selected destination
+    loadAdminData(); // Refresh the list of destinations
+    // The success toast is already handled inside the modal, so we don't need one here.
+  };
 
 // 2. Pass the handler to your EditDestinationModal instance
 

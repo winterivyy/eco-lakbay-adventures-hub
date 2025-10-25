@@ -35,7 +35,7 @@ interface EditDestinationModalProps {
 
 const BUCKET_NAME = 'destination-photos';
 
-export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOpen, onClose, onSave, destination }) => {
+export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOpen, onClose, onSave, onDelete, destination }) => {
     const [formData, setFormData] = useState<Destination | null>(destination);
     // State management for the "staging" workflow
     const [existingImagePaths, setExistingImagePaths] = useState<string[]>([]);
