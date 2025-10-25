@@ -48,6 +48,45 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     const [isGeocoding, setIsGeocoding] = useState(false);
     const { toast } = useToast();
 
+      const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        setFormData(destination);
+        const imagePaths = destination?.images || [];
+        setExistingImagePaths(imagePaths);
+        setStagedFiles([]);
+        setPathsToDelete([]);
+
+        // --- NEW ---: Generate signed URLs when the component opens
+        if (imagePaths.length > 0) {
+            generateSignedUrls(imagePaths);
+        } else {
+            setSignedImageUrls({});
+        }
+    }, [destination]);
+    
+    // --- NEW ---: Async function to fetch signed URLs for all existing images
+    const generateSignedUrls = async (paths: string[]) => {
+        try {
+            const signedUrlPromises = paths.map(path => 
+                supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 300) // 5-minute expiry
+            );
+            const settledPromises = await Promise.all(signedUrlPromises);
+            
+            const urls: Record<string, string> = {};
+            settledPromises.forEach((result, index) => {
+                if (result.error) {
+                    console.error(`Error generating signed URL for ${paths[index]}:`, result.error);
+                } else {
+                    urls[paths[index]] = result.data.signedUrl;
+                }
+            });
+            setSignedImageUrls(urls);
+        } catch (error) {
+            console.error("Failed to generate signed URLs for images.", error);
+        }
+    };
+
     useEffect(() => {
         // Reset state every time a new destination is passed in
         setFormData(destination);
@@ -148,11 +187,7 @@ const handleGeocodeAddress = async () => {
     }
 };
     
-    // Helper to get a full public URL from a simple path for display
-     const getPublicUrl = (path: string) => {
-        const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-        return data.publicUrl;
-    };
+    
      const handleDeleteDestination = async () => {
         if (!destination) return;
         setIsDeleting(true);
@@ -197,10 +232,21 @@ const handleGeocodeAddress = async () => {
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
                             {/* Display existing images from their simple paths */}
+                           {/* --- MODIFIED ---: This section now uses the `signedImageUrls` state */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
-                                    <img src={getPublicUrl(path)} alt="Existing destination" className="w-full h-full object-cover rounded-md" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                                    {signedImageUrls[path] ? (
+                                        <img 
+                                            src={signedImageUrls[path]} 
+                                            alt="Existing destination" 
+                                            className="w-full h-full object-cover rounded-md" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                         <Button size="icon" variant="destructive" onClick={() => handleRemoveExistingImage(path)}><Trash2 className="w-4 h-4" /></Button>
                                     </div>
                                 </div>
