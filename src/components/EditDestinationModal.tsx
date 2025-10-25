@@ -51,64 +51,56 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
     const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
-useEffect(() => {
+// --- THIS IS THE FIX ---
+    // We now have only ONE useEffect to manage the modal's initialization.
+    useEffect(() => {
         const initializeModal = async () => {
             if (!destination) return;
 
+            // Step 1: Reset all component state. This is from your second useEffect.
             setFormData(destination);
             const imageIdentifiers = destination.images || [];
             setExistingImagePaths(imageIdentifiers);
             setStagedFiles([]);
             setPathsToDelete([]);
-
+            
+            // Step 2: Now, proceed with the URL fetching logic from your first useEffect.
             if (imageIdentifiers.length > 0) {
                 setIsLoadingUrls(true);
                 try {
                     const signedUrlPromises = imageIdentifiers.map(pathOrUrl => {
-                        // --- THIS IS THE BULLETPROOF SANITIZATION LOGIC ---
                         const sanitizePath = (p: string): string | null => {
                             if (!p) return null;
                             try {
-                                // If it's a full URL, parse it to extract the path.
                                 if (p.startsWith('http')) {
                                     const url = new URL(p);
                                     const pathSegments = url.pathname.split(`/${BUCKET_NAME}/`);
-                                    if (pathSegments.length > 1) {
-                                        return decodeURIComponent(pathSegments[1]);
-                                    }
+                                    return pathSegments.length > 1 ? decodeURIComponent(pathSegments[1]) : null;
                                 }
-                                // If it's already a simple path, just return it.
                                 return p;
                             } catch (e) {
-                                console.error("Could not parse or sanitize path:", p, e);
                                 return null;
                             }
                         };
-
                         const cleanPath = sanitizePath(pathOrUrl);
-
                         if (!cleanPath) {
-                            return Promise.resolve({ error: new Error("Invalid path format"), data: null });
+                            return Promise.resolve({ error: new Error(`Invalid path: ${pathOrUrl}`), data: null });
                         }
-                        
-                        // Always generate a fresh signed URL from the clean path.
                         return supabase.storage.from(BUCKET_NAME).createSignedUrl(cleanPath, 3600);
                     });
 
                     const settledPromises = await Promise.all(signedUrlPromises);
-                    
                     const urls: Record<string, string> = {};
                     settledPromises.forEach((result, index) => {
                         const originalIdentifier = imageIdentifiers[index];
                         if (result.error) {
                             console.error(`Error for identifier "${originalIdentifier}":`, result.error.message);
-                            urls[originalIdentifier] = 'error'; 
+                            urls[originalIdentifier] = 'error';
                         } else if (result.data) {
                             urls[originalIdentifier] = result.data.signedUrl;
                         }
                     });
                     setSignedImageUrls(urls);
-
                 } catch (error) {
                     toast({ title: "Could not load images", variant: "destructive" });
                 } finally {
@@ -123,14 +115,6 @@ useEffect(() => {
             initializeModal();
         }
     }, [isOpen, destination, toast]);
-    useEffect(() => {
-        // Reset state every time a new destination is passed in
-        setFormData(destination);
-        // -- FIX: Use the correct field name `images` ---
-        setExistingImagePaths(destination?.images || []);
-        setStagedFiles([]);
-        setPathsToDelete([]);
-    }, [destination]);
 
     if (!destination) return null;
     if (!formData) return null; // Guard against null formData
