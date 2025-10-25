@@ -269,15 +269,12 @@ const handleGeocodeAddress = async () => {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                {/* Add DialogDescription to fix accessibility warning */}
-                    <DialogTitle>Update Destination: {destination.business_name}</DialogTitle>
-                    <AlertDialogDescription as="p" className="sr-only">Modal for editing destination details and photos.</AlertDialogDescription>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Update Destination: {destination.business_name}</DialogTitle></DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div>
                         <Label className="text-lg font-semibold">Destination Photos</Label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-2 p-4 border rounded-lg">
+                             {/* --- THIS JSX IS NOW MORE ROBUST --- */}
                             {existingImagePaths.map(path => (
                                 <div key={path} className="relative group aspect-square">
                                     {(isLoadingUrls) ? (
@@ -285,18 +282,22 @@ const handleGeocodeAddress = async () => {
                                             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                                         </div>
                                     ) : (signedImageUrls[path] && signedImageUrls[path] !== 'error') ? (
-                                        <img src={signedImageUrls[path]} alt="Existing destination" className="w-full h-full object-cover rounded-md" />
+                                        <img 
+                                            src={signedImageUrls[path]} 
+                                            alt="Existing destination" 
+                                            className="w-full h-full object-cover rounded-md" 
+                                        />
                                     ) : (
-                                        <div className="w-full h-full bg-destructive/10 text-destructive rounded-md flex flex-col items-center justify-center text-center text-xs p-1 font-semibold">
-                                            <AlertTriangle className="w-5 h-5 mb-1" />
-                                            Image Not Found
+                                        <div className="w-full h-full bg-destructive/10 text-destructive rounded-md flex items-center justify-center text-center text-xs p-1">
+                                            Image not found
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                         <Button size="icon" variant="destructive" onClick={() => handleRemoveExistingImage(path)}><Trash2 className="w-4 h-4" /></Button>
                                     </div>
                                 </div>
-                            ))}            
+                            ))}
+                            
                             {stagedFiles.map((file, index) => (
                                 <div key={index} className="relative group aspect-square">
                                     <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover rounded-md" />
