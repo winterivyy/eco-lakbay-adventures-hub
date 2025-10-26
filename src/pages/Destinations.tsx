@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
-// --- Type Definitions (Merged for this component) ---
+// --- Type Definitions ---
 interface Destination {
   id: string;
   business_name: string;
@@ -45,29 +46,37 @@ interface Review {
 }
 
 const BUCKET_NAME = 'destination-photos';
+
 interface DestinationsProps {
   isPreview?: boolean;
   limit?: number;
 }
 
-const Destinations = () => {
+const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit }) => {
+  const navigate = useNavigate();
+
+  // State for data and loading
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // State for modals and interaction
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // State for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [selectedRating, setSelectedRating] = useState('');
 
+  // State for filter dropdown options
   const [provinces, setProvinces] = useState<string[]>([]);
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   
+  // State for reviews inside the modal
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
@@ -83,14 +92,25 @@ const Destinations = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const { data, error: dbError } = await supabase.from('destinations').select('*').eq('status', 'approved');
+        let query = supabase.from('destinations').select('*').eq('status', 'approved');
+
+        // If a limit is provided (for preview mode), apply ordering and limit
+        if (limit) {
+          query = query.order('rating', { ascending: false, nullsFirst: false }).limit(limit);
+        }
+
+        const { data, error: dbError } = await query;
         if (dbError) throw dbError;
+
         if (data) {
           setDestinations(data);
-          const uniqueProvinces = [...new Set(data.map(d => d.province).filter(Boolean))].sort();
-          const uniqueTypes = [...new Set(data.map(d => d.business_type).filter(Boolean))].sort();
-          setProvinces(['All Provinces', ...uniqueProvinces]);
-          setBusinessTypes(['All Types', ...uniqueTypes]);
+          // Only populate filter options if we're on the full page (not a preview)
+          if (!isPreview) {
+            const uniqueProvinces = [...new Set(data.map(d => d.province).filter(Boolean))].sort();
+            const uniqueTypes = [...new Set(data.map(d => d.business_type).filter(Boolean))].sort();
+            setProvinces(['All Provinces', ...uniqueProvinces]);
+            setBusinessTypes(['All Types', ...uniqueTypes]);
+          }
         }
       } catch (err: any) {
         setError("Failed to load destinations. Please try again later.");
@@ -100,7 +120,7 @@ const Destinations = () => {
       }
     };
     fetchDestinations();
-  }, []);
+  }, [isPreview, limit]);
 
   const filteredDestinations = useMemo(() => {
     const minRating = selectedRating && selectedRating !== 'all' ? parseFloat(selectedRating) : 0;
@@ -179,44 +199,22 @@ const Destinations = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-   // If it's preview mode, we only render the content grid and a "View All" button
-  if (isPreview) {
-    return (
-      <>
-        {isLoading && <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>}
-        {error && <div className="text-center py-20 text-destructive">{error}</div>}
-        {filteredDestinations.length > 0 && (
-          <div className="text-center">
-            {renderContent()}
-            <Button 
-              variant="eco" 
-              size="lg" 
-              className="mt-12" 
-              onClick={() => navigate('/destinations')}
-            >
-              View All Destinations
-            </Button>
-          </div>
-        )}
-      </>
-    );
-  }
-
   const renderContent = () => {
+    const destinationsToRender = isPreview ? destinations : filteredDestinations;
+
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>;
     if (error) return <div className="text-center py-20 text-destructive">{error}</div>;
 
-    if (filteredDestinations.length === 0) return (
+    if (destinationsToRender.length === 0 && !isPreview) return (
       <div className="text-center py-20">
         <h2 className="text-2xl font-semibold">No Destinations Found</h2>
         <p className="text-muted-foreground">Try adjusting your search or filter criteria.</p>
       </div>
     );
   
-
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredDestinations.map((destination) => (
+        {destinationsToRender.map((destination) => (
           <Card key={destination.id} onClick={() => handleDestinationClick(destination)} className="group flex flex-col cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-lg">
             <CardHeader className="p-0">
               <div className="w-full h-48 overflow-hidden">
@@ -239,7 +237,24 @@ const Destinations = () => {
       </div>
     );
   };
+  
+  // Render a simplified layout for the homepage preview
+  if (isPreview) {
+    return (
+      <>
+        {renderContent()}
+        {destinations.length > 0 && (
+          <div className="text-center mt-12">
+            <Button variant="eco" size="lg" onClick={() => navigate('/destinations')}>
+              View All Destinations
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  }
 
+  // Render the full page layout for the main /destinations route
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -266,7 +281,6 @@ const Destinations = () => {
             </CardContent>
             {isFiltered && (<CardFooter><Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground"><X className="w-4 h-4 mr-2" /> Reset Filters</Button></CardFooter>)}
           </Card>
-
           <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Eco-Certified Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
           {renderContent()}
         </div>
