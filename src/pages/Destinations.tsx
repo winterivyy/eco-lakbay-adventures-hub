@@ -45,6 +45,10 @@ interface Review {
 }
 
 const BUCKET_NAME = 'destination-photos';
+interface DestinationsProps {
+  isPreview?: boolean;
+  limit?: number;
+}
 
 const Destinations = () => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -175,6 +179,29 @@ const Destinations = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+   // If it's preview mode, we only render the content grid and a "View All" button
+  if (isPreview) {
+    return (
+      <>
+        {isLoading && <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>}
+        {error && <div className="text-center py-20 text-destructive">{error}</div>}
+        {filteredDestinations.length > 0 && (
+          <div className="text-center">
+            {renderContent()}
+            <Button 
+              variant="eco" 
+              size="lg" 
+              className="mt-12" 
+              onClick={() => navigate('/destinations')}
+            >
+              View All Destinations
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  }
+
   const renderContent = () => {
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-forest" /></div>;
     if (error) return <div className="text-center py-20 text-destructive">{error}</div>;
@@ -185,6 +212,7 @@ const Destinations = () => {
         <p className="text-muted-foreground">Try adjusting your search or filter criteria.</p>
       </div>
     );
+  
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
