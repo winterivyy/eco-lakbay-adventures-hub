@@ -65,15 +65,17 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       password: formData.password,
     });
 
+    // This handles the "User already registered" message gracefully
     if (error && error.message !== 'User already registered') {
         alert(error.message);
         setIsLoading(false);
         return;
     }
 
+    // This ensures we always have the user object
     const user = data.user || (await supabase.auth.getUser()).data.user;
 
-    // Step 2: Add/Update profile data to `profiles` table
+    // Step 2: Add or Update the profile data using .upsert()
     if (user) {
       const { error: profileError } = await supabase.from("profiles").upsert({
         user_id: user.id,
@@ -84,6 +86,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       });
 
       if (profileError) {
+        // This should no longer show the "duplicate key" error
         alert("Error saving profile: " + profileError.message);
       } else {
         alert("Account created successfully! Please check your email for verification.");
