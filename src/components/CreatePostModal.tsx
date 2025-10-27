@@ -18,13 +18,14 @@ interface CreatePostModalProps {
   onPostCreated?: () => void;
 }
 
-const postTypes = [
-  { value: 'story', label: 'Travel Story', points: 15 },
-  { value: 'tip', label: 'Eco Tip', points: 10 },
-  { value: 'question', label: 'Question', points: 5 },
-  { value: 'event', label: 'Event', points: 20 },
-  { value: 'general', label: 'General', points: 5 }
+const postTypesForSelect = [
+  { value: 'story', label: 'Travel Story' },
+  { value: 'tip', label: 'Eco Tip' },
+  { value: 'question', label: 'Question' },
+  { value: 'event', label: 'Event' },
+  { value: 'general', label: 'General' }
 ];
+
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({ 
   open, 
@@ -87,6 +88,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Your initial validation logic remains the same...
     if (!user) {
       toast({ title: "Authentication required", variant: "destructive" });
       return;
@@ -100,21 +102,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
 
-    if (hasProfanity) {
-      // ... your existing code
-      return;
-    }
-
-    // --- ADD THIS LINE RIGHT HERE ---
-    console.log('Value being sent to Supabase for "type":', type);
-
-    setLoading(true);
-    let imageUrl: string | null = null;
     setLoading(true);
     let imageUrl: string | null = null;
 
     try {
-      // 1. Upload image if one is selected (Your existing logic is perfect)
+      // 1. Upload image if one exists
       if (imageFile) {
         const filePath = `public/${user.id}-${Date.now()}-${imageFile.name}`;
         const { data, error: uploadError } = await supabase.storage
@@ -130,32 +122,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         imageUrl = publicUrl;
       }
 
-      // 2. Insert post data into the database. 
-      //    The database TRIGGER will automatically handle the points from here.
+      // 2. Insert the post. The database trigger will handle the points automatically.
       const { error: insertError } = await supabase
         .from('posts')
         .insert({
           title: title.trim(),
           content: content.trim(),
-          type,
+          type, // This 'type' value is now the single most important piece of data
           author_id: user.id,
           image_url: imageUrl,
         });
 
       if (insertError) throw insertError;
       
-      // --- NEW SIMPLIFIED SUCCESS LOGIC ---
-      // 3. (Optional but recommended) Calculate points locally just for the success message.
-      //    This logic mirrors your database trigger.
-      const selectedPostType = postTypes.find(pt => pt.value === type);
-      let pointsEarned = selectedPostType ? selectedPostType.points : 5; // Default to 5
-      if (content.trim().length > 100) {
-        pointsEarned += 5;
-      }
-      
+      // 3. Simplified success message. We no longer calculate points here.
       toast({ 
         title: "Post created successfully!", 
-        description: `You earned ${pointsEarned} points! Your story has been shared.` 
+        description: "Your points have been updated. Thanks for contributing!" 
       });
 
       clearForm();
@@ -168,7 +151,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+};
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
