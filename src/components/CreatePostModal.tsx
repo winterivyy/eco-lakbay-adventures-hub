@@ -19,11 +19,11 @@ interface CreatePostModalProps {
 }
 
 const postTypes = [
-  { value: 'story', label: 'Travel Story' },
-  { value: 'tip', label: 'Eco Tip' },
-  { value: 'question', label: 'Question' },
-  { value: 'event', label: 'Event' },
-  { value: 'general', label: 'General' }
+  { value: 'story', label: 'Travel Story', points: 15 },
+  { value: 'tip', label: 'Eco Tip', points: 10 },
+  { value: 'question', label: 'Question', points: 5 },
+  { value: 'event', label: 'Event', points: 20 },
+  { value: 'general', label: 'General', points: 5 }
 ];
 
 
