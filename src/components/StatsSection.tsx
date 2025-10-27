@@ -7,8 +7,6 @@ const StatsSection = () => {
     totalUsers: 0,
     totalDestinations: 0,
     totalPosts: 0,
-    totalCalculations: 0,
-    totalCarbonSaved: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +32,6 @@ const StatsSection = () => {
           totalUsers: usersCount || 0,
           totalDestinations: destCount || 0,
           totalPosts: postsCount || 0,
-          totalCalculations,
-          totalCarbonSaved,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -63,6 +59,7 @@ const StatsSection = () => {
       number: stats.totalPosts.toLocaleString(),
       label: "Community Posts",
     },
+    // You can add more stat items here and they will remain centered
   ];
 
   return (
@@ -82,10 +79,13 @@ const StatsSection = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          // --- CHANGE IS HERE ---
+          <div className="flex flex-wrap justify-center gap-6">
             {statItems.map((stat, i) => (
               <Card
                 key={i}
+                // Optional: You can add widths here to control how many cards appear per row
+                // For example: className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 ..."
                 className="bg-white/10 backdrop-blur-sm border-white/20 text-center hover:bg-white/20 transition-all duration-300"
               >
                 <CardContent className="p-6">
