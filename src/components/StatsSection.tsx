@@ -30,20 +30,6 @@ const StatsSection = () => {
           .from("posts")
           .select("*", { count: "exact", head: true });
 
-        // 🌱 Get calculator entries (for CO₂ saved)
-        const { data: calculatorData } = await supabase
-          .from("calculator_entries")
-          .select("carbon_footprint");
-
-        const totalCalculations = calculatorData?.length || 0;
-        const totalCarbonSaved =
-          Math.round(
-            (calculatorData?.reduce(
-              (sum, entry) => sum + (entry.carbon_footprint || 0),
-              0
-            ) || 0) * 100
-          ) / 100;
-
         setStats({
           totalUsers: usersCount || 0,
           totalDestinations: destCount || 0,
@@ -71,11 +57,6 @@ const StatsSection = () => {
       icon: "👥",
       number: stats.totalUsers.toLocaleString(),
       label: "Active Eco-Travelers",
-    },
-    {
-      icon: "🌍",
-      number: `${stats.totalCarbonSaved.toLocaleString()} kg`,
-      label: "CO₂ Calculated",
     },
     {
       icon: "💬",
