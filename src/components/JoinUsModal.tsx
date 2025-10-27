@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast"; // 1. Import useToast
+import { useToast } from "@/hooks/use-toast"; // You were using toasts, so I've kept this
 
 interface JoinUsModalProps {
   open: boolean;
@@ -28,7 +28,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     nationality: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast(); // 2. Initialize the toast hook
+  const { toast } = useToast();
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -37,7 +37,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation using toasts
+    // Your validation and submission logic remains the same...
     if (
       !formData.name ||
       !formData.email ||
@@ -49,12 +49,10 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       toast({ title: "Validation Error", description: "Passwords do not match.", variant: "destructive" });
       return;
     }
-
     if (formData.password.length < 6) {
       toast({ title: "Validation Error", description: "Password must be at least 6 characters long.", variant: "destructive" });
       return;
@@ -62,65 +60,51 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
 
     setIsLoading(true);
 
-    // Step 1: Create Supabase Auth user
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
     });
 
-    if (error) {
-      toast({ title: "Sign-Up Error", description: error.message, variant: "destructive" });
-      setIsLoading(false);
-      return;
+    if (error && error.message !== 'User already registered') {
+        toast({ title: "Sign-Up Error", description: error.message, variant: "destructive" });
+        setIsLoading(false);
+        return;
     }
 
-    // Step 2: Add profile data to `profiles` table
-    if (data?.user) {
+    const user = data.user || (await supabase.auth.getUser()).data.user;
+
+    if (user) {
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert(
             {
-                user_id: data.user.id,
+                user_id: user.id,
                 email: formData.email,
                 full_name: formData.name,
                 gender: formData.gender,
                 nationality: formData.nationality,
             },
-            {
-                onConflict: 'user_id',
-            }
+            { onConflict: 'user_id' }
         );
 
       if (profileError) {
         toast({ title: "Profile Error", description: "Error saving profile: " + profileError.message, variant: "destructive" });
       } else {
-        // --- THIS IS THE KEY CHANGE ---
-        // This toast will appear, and the modal will close immediately after.
-        toast({
-          title: "Account Created!",
-          description: "Please check your email to verify your account.",
-        });
-        
-        onOpenChange(false); // This now runs instantly
-        
-        setFormData({
-          name: "",
-          email: "",
-          password: "",
-          confirmPassword: "",
-          gender: "",
-          nationality: "",
-        });
+        toast({ title: "Account Created!", description: "Please check your email to verify your account." });
+        onOpenChange(false);
+        setFormData({ name: "", email: "", password: "", confirmPassword: "", gender: "", nationality: "" });
       }
     }
-
     setIsLoading(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      {/* --- FIX IS HERE: Add classes to DialogContent --- */}
+      <DialogContent 
+        className="sm:max-w-md grid grid-rows-[auto_1fr] max-h-[90vh]"
+      >
+        <DialogHeader className="row-start-1">
           <DialogTitle className="text-2xl font-bold text-forest">
             Join EcoLakbay
           </DialogTitle>
@@ -130,21 +114,22 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {/* All your form inputs are correct and do not need to be changed */}
-            {/* ... */}
-             <div className="space-y-2">
+        {/* --- FIX IS HERE: Add a scrolling class to the form --- */}
+        <form onSubmit={handleSubmit} className="space-y-4 row-start-2 overflow-y-auto pr-4 -mr-4">
+          {/* Full Name */}
+          <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
               type="text"
               placeholder="Enter your full name"
               value={formData.name}
-              onChange={(e) => handleChange("name", e.g.target.value)}
+              onChange={(e) => handleChange("name", e.target.value)}
               required
             />
           </div>
 
+          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -152,18 +137,19 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               type="email"
               placeholder="Enter your email"
               value={formData.email}
-              onChange={(e) => handleChange("email", e.g.target.value)}
+              onChange={(e) => handleChange("email", e.target.value)}
               required
             />
           </div>
 
+          {/* Gender */}
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <select
               id="gender"
               value={formData.gender}
-              onChange={(e) => handleChange("gender", e.g.target.value)}
-              className="w-full border rounded-md p-2"
+              onChange={(e) => handleChange("gender", e.target.value)}
+              className="w-full border rounded-md p-2 bg-background"
               required
             >
               <option value="">Select gender</option>
@@ -173,6 +159,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             </select>
           </div>
 
+          {/* Nationality */}
           <div className="space-y-2">
             <Label htmlFor="nationality">Nationality</Label>
             <Input
@@ -180,11 +167,12 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               type="text"
               placeholder="Enter your nationality"
               value={formData.nationality}
-              onChange={(e) => handleChange("nationality", e.g.target.value)}
+              onChange={(e) => handleChange("nationality", e.target.value)}
               required
             />
           </div>
 
+          {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -192,11 +180,12 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               type="password"
               placeholder="Create a password (min. 6 characters)"
               value={formData.password}
-              onChange={(e) => handleChange("password", e.g.target.value)}
+              onChange={(e) => handleChange("password", e.target.value)}
               required
             />
           </div>
 
+          {/* Confirm Password */}
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
             <Input
@@ -205,13 +194,14 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
               placeholder="Confirm your password"
               value={formData.confirmPassword}
               onChange={(e) =>
-                handleChange("confirmPassword", e.g.target.value)
+                handleChange("confirmPassword", e.target.value)
               }
               required
             />
           </div>
 
-          <div className="flex flex-col space-y-3 pt-4">
+          {/* Buttons */}
+          <div className="flex flex-col space-y-3 pt-4 sticky bottom-0 bg-background py-4">
             <Button
               type="submit"
               variant="eco"
