@@ -36,7 +36,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
+    // Your validation logic is correct
     if (
       !formData.name ||
       !formData.email ||
@@ -48,12 +48,10 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       alert("Please fill in all required fields.");
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match.");
       return;
     }
-
     if (formData.password.length < 6) {
       alert("Password must be at least 6 characters long.");
       return;
@@ -67,18 +65,20 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       password: formData.password,
     });
 
-    if (error) {
-      alert(error.message);
-      setIsLoading(false);
-      return;
+    if (error && error.message !== 'User already registered') {
+        alert(error.message);
+        setIsLoading(false);
+        return;
     }
 
-    // Step 2: Add profile data to `profiles` table
-    if (data?.user) {
-      const { error: profileError } = await supabase.from("profiles").insert({
-        user_id: data.user.id,        // Corrected: Use user_id
-        email: formData.email,      // Added: Include email
-        full_name: formData.name,   // Corrected: Use full_name
+    const user = data.user || (await supabase.auth.getUser()).data.user;
+
+    // Step 2: Add/Update profile data to `profiles` table
+    if (user) {
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        user_id: user.id,
+        email: formData.email,
+        full_name: formData.name,
         gender: formData.gender,
         nationality: formData.nationality,
       });
@@ -116,8 +116,9 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
-          <div className="space-y-2">
+            {/* All your form inputs are correct */}
+            {/* ... form inputs ... */}
+             <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
@@ -129,7 +130,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             />
           </div>
 
-          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -142,7 +142,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             />
           </div>
 
-          {/* Gender */}
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <select
@@ -159,7 +158,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             </select>
           </div>
 
-          {/* Nationality */}
           <div className="space-y-2">
             <Label htmlFor="nationality">Nationality</Label>
             <Input
@@ -172,7 +170,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             />
           </div>
 
-          {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -185,7 +182,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             />
           </div>
 
-          {/* Confirm Password */}
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
             <Input
@@ -200,7 +196,6 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             />
           </div>
 
-          {/* Buttons */}
           <div className="flex flex-col space-y-3 pt-4">
             <Button
               type="submit"
