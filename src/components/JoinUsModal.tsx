@@ -76,8 +76,9 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     // Step 2: Add profile data to `profiles` table
     if (data?.user) {
       const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        name: formData.name,
+        user_id: data.user.id,        // Corrected: Use user_id
+        email: formData.email,      // Added: Include email
+        full_name: formData.name,   // Corrected: Use full_name
         gender: formData.gender,
         nationality: formData.nationality,
       });
@@ -85,7 +86,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
       if (profileError) {
         alert("Error saving profile: " + profileError.message);
       } else {
-        alert("Account created successfully!");
+        alert("Account created successfully! Please check your email for verification.");
         onOpenChange(false);
         setFormData({
           name: "",
