@@ -85,7 +85,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     resetFilter();
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       toast({ title: "Authentication required", variant: "destructive" });
@@ -100,22 +100,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
 
-     setLoading(true);
+    setLoading(true);
     let imageUrl: string | null = null;
 
     try {
-      // 1. Upload image if one is selected
+      // 1. Upload image if one is selected (Your existing logic is perfect)
       if (imageFile) {
         const filePath = `public/${user.id}-${Date.now()}-${imageFile.name}`;
         const { data, error: uploadError } = await supabase.storage
-          .from('post-images') // Your bucket name
+          .from('post-images')
           .upload(filePath, imageFile);
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
-        // 2. Get the public URL of the uploaded image
         const { data: { publicUrl } } = supabase.storage
           .from('post-images')
           .getPublicUrl(data.path);
@@ -123,7 +120,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         imageUrl = publicUrl;
       }
 
-      // 3. Insert post data (including the image URL) into the database
+      // 2. Insert post data into the database. 
+      //    The database TRIGGER will automatically handle the points from here.
       const { error: insertError } = await supabase
         .from('posts')
         .insert({
@@ -131,12 +129,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           content: content.trim(),
           type,
           author_id: user.id,
-          image_url: imageUrl, // Save the URL here
+          image_url: imageUrl,
         });
 
       if (insertError) throw insertError;
       
-      toast({ title: "Post created successfully!", description: "Your story has been shared." });
+      // --- NEW SIMPLIFIED SUCCESS LOGIC ---
+      // 3. (Optional but recommended) Calculate points locally just for the success message.
+      //    This logic mirrors your database trigger.
+      const selectedPostType = postTypes.find(pt => pt.value === type);
+      let pointsEarned = selectedPostType ? selectedPostType.points : 5; // Default to 5
+      if (content.trim().length > 100) {
+        pointsEarned += 5;
+      }
+      
+      toast({ 
+        title: "Post created successfully!", 
+        description: `You earned ${pointsEarned} points! Your story has been shared.` 
+      });
 
       clearForm();
       onOpenChange(false);
