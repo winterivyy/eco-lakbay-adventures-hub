@@ -100,6 +100,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
 
+    if (hasProfanity) {
+      // ... your existing code
+      return;
+    }
+
+    // --- ADD THIS LINE RIGHT HERE ---
+    console.log('Value being sent to Supabase for "type":', type);
+
+    setLoading(true);
+    let imageUrl: string | null = null;
     setLoading(true);
     let imageUrl: string | null = null;
 
@@ -169,17 +179,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           <div>
             <Label htmlFor="type">Post Type</Label>
             <Select value={type} onValueChange={setType} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select post type" />
-              </SelectTrigger>
-              <SelectContent>
-                {postTypes.map((postType) => (
-                  <SelectItem key={postType.value} value={postType.value}>
-                    {postType.label} (+{postType.points} points)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select post type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {postTypes.map((postType) => (
+                        <SelectItem key={postType.value} value={postType.value}>
+                          {postType.label} (+{postType.points} points)
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
           </div>
           <div>
             <Label htmlFor="title">Title</Label>
