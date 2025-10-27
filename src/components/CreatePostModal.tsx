@@ -18,7 +18,7 @@ interface CreatePostModalProps {
   onPostCreated?: () => void;
 }
 
-const postTypesForSelect = [
+const postTypes = [
   { value: 'story', label: 'Travel Story' },
   { value: 'tip', label: 'Eco Tip' },
   { value: 'question', label: 'Question' },
