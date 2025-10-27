@@ -18,9 +18,7 @@ const Footer = () => {
       title: "For Businesses",
       links: [
         { label: "Register Business", path: "/register-destination" },
-        { label: "Eco Certification", path: "/certification" },
-        { label: "Partner Program", path: "/partners" },
-        { label: "Resources", path: "/business-resources" }
+        
       ]
     },
     {
