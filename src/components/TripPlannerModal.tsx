@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download } from "lucide-react"; // Import Loader2 for the loading state
 // --- NEW ---: Import the PDF libraries
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 interface TripPlannerModalProps {
   open: boolean;
@@ -104,78 +103,51 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
   };
 
   
-   const handleDownloadPdf = async () => {
-    const contentToCapture = tripPlanRef.current;
-    if (!contentToCapture) {
-      toast({ title: "Error", description: "Could not find trip plan content.", variant: "destructive" });
+     const handleDownloadPdf = () => {
+    if (!tripPlan) {
+      toast({ title: "Error", description: "No trip plan content to download.", variant: "destructive" });
       return;
     }
     
     setIsDownloading(true);
 
-     try {
-      // Step 1: Capture the entire element as one tall canvas
-      const canvas = await html2canvas(contentToCapture, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
+    try {
+      // Step 1: Create a new jsPDF document
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-      // Step 2: Set up PDF dimensions
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      // Calculate the width/height ratio of the captured image
-      const ratio = canvasWidth / canvasHeight;
-
-      // Calculate the image height in the PDF to maintain aspect ratio
-      const imgWidth = pdfWidth; // Use full width for simplicity
-      const imgHeight = imgWidth / ratio;
-      
-      // Step 3: The Multi-Page Slicing Logic
-      let yPositionOfContent = 0; // This will track how far down the image we've rendered
-      let pageNumber = 1;
-
-      // Add a header to the first page
-      pdf.setFontSize(20);
+      // Step 2: Set styles and add a header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(22);
       pdf.text("Your EcoLakbay Trip Plan", 15, 20);
 
-      // Loop as long as there is content left to render
-      while (yPositionOfContent < imgHeight) {
-        // If it's not the first page, add a new one
-        if (pageNumber > 1) {
-          pdf.addPage();
-        }
-        
-        let pageContentY = 0; // This is the y position on the CURRENT PDF page
-        if (pageNumber === 1) {
-            pageContentY = 30; // Leave space for the title on the first page
-        } else {
-            pageContentY = 15; // Start near the top on subsequent pages
-        }
+      // Step 3: Switch to normal font for the body content
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
 
-        // --- THIS IS THE CRITICAL FIX ---
-        // addImage(imageData, format, x, y, width, height)
-        // Here, x and y are the coordinates on the PDF page.
-        // We are telling jspdf to take the entire tall image, place its top-left corner
-        // at (0, pageContentY - yPositionOfContent), effectively "scrolling" the image up
-        // on each new page.
-        pdf.addImage(imgData, 'PNG', 0, pageContentY - yPositionOfContent, imgWidth, imgHeight);
-        
-        // Add a page number footer to each page
-        pdf.setFontSize(10);
-        pdf.text(`Page ${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-
-        // Move our "camera" down for the next slice
-        yPositionOfContent += (pdfHeight - pageContentY - 15); // page height minus top and bottom margins
-        pageNumber++;
-      }
+      // --- The Magic of `splitTextToSize` and `text` ---
+      // This is the core logic for handling text wrapping and page breaks.
+      const margin = 15;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const maxWidth = pageWidth - (margin * 2); // Max width of a line of text
       
+      // The `text` function from jsPDF handles automatic page breaks.
+      // We pass it the raw text, coordinates, and options.
+      pdf.text(tripPlan, margin, 35, {
+        maxWidth: maxWidth,
+        align: 'left',
+      });
+
+      // Step 4: Save the PDF
       pdf.save(`ecolakbay-trip-plan.pdf`);
 
     } catch (error) {
-        console.error("Error creating PDF:", error);
-        toast({ title: "PDF Creation Failed", variant: "destructive" });
+        console.error("Error creating text-based PDF:", error);
+        toast({ title: "PDF Creation Failed", variant: "destructive"});
     } finally {
         setIsDownloading(false);
     }
