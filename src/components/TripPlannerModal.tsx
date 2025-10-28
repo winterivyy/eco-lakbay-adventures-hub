@@ -8,6 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react"; // Import Loader2 for the loading state
+// --- NEW ---: Import the PDF libraries
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface TripPlannerModalProps {
   open: boolean;
@@ -19,6 +22,12 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
   const [tripPlan, setTripPlan] = useState<string>("");
   const [showPlan, setShowPlan] = useState(false);
   const { toast } = useToast();
+    // --- NEW ---: A ref to target the HTML element we want to convert to PDF
+  const tripPlanRef = useRef<HTMLDivElement>(null);
+  
+  // --- NEW ---: State to handle the PDF download process
+  const [isDownloading, setIsDownloading] = useState(false);
+
 
   const [formData, setFormData] = useState({
     // --- ADDED `startingPoint` ---
@@ -94,6 +103,61 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
       }
   };
 
+  
+  // --- NEW ---: This function handles the PDF generation and download
+  const handleDownloadPdf = async () => {
+    if (!tripPlanRef.current) {
+      toast({ title: "Error", description: "Could not find the trip plan content.", variant: "destructive" });
+      return;
+    }
+    
+    setIsDownloading(true);
+
+    try {
+      // Use html2canvas to take a "screenshot" of the trip plan div
+      const canvas = await html2canvas(tripPlanRef.current, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // Important if your content includes external images
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+
+      // Create a new jsPDF instance
+      const pdf = new jsPDF({
+        orientation: 'p', // portrait
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      // Get dimensions of the PDF page and the captured image
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasHeight / canvasWidth;
+
+      // Calculate the image height to fit the PDF width
+      const imgWidth = pdfWidth - 20; // A4 width with 10mm margins
+      const imgHeight = imgWidth * ratio;
+
+      // Add a header
+      pdf.setFontSize(18);
+      pdf.text("Your EcoLakbay Trip Plan", 10, 15);
+      
+      // Add the captured image to the PDF
+      pdf.addImage(imgData, 'PNG', 10, 25, imgWidth, imgHeight);
+
+      // Save the PDF
+      pdf.save(`ecolakbay-trip-plan.pdf`);
+
+    } catch (error) {
+        console.error("Error creating PDF:", error);
+        toast({ title: "PDF Creation Failed", variant: "destructive"});
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -104,15 +168,26 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
         </DialogHeader>
 
         {showPlan ? (
-          <div className="space-y-4">
-            <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                 <div className="space-y-4">
+            {/* --- MODIFIED ---: We add the ref to this div */}
+            <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
               {tripPlan}
             </div>
-            <div className="flex gap-4">
-              <Button onClick={() => { setShowPlan(false); setTripPlan(""); }} variant="outline" className="flex-1">
+            
+            {/* --- MODIFIED ---: The button layout is updated */}
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => { setShowPlan(false); setTripPlan(""); }} variant="outline" className="flex-grow">
                 Modify Plan
               </Button>
-              <Button onClick={handleClose} variant="eco" className="flex-1">
+              <Button onClick={handleDownloadPdf} disabled={isDownloading} className="flex-grow">
+                {isDownloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isDownloading ? "Generating..." : "Download as PDF"}
+              </Button>
+              <Button onClick={handleClose} variant="eco" className="flex-grow">
                 Close
               </Button>
             </div>
