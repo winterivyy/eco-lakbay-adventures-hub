@@ -130,7 +130,7 @@ const Calculator = () => {
                 <Card className="shadow-eco">
                   <CardHeader>
                     <CardTitle className="text-2xl text-forest">
-                      Your Trip’s Total Carbon Emissions
+                      Your Trip’s Total Estimated Carbon Emissions for a Single Person
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
