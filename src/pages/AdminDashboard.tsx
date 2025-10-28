@@ -105,9 +105,11 @@ const AdminDashboard = () => {
           totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0)
       });
       
-      const { data: logData, error: logError } = await supabase.from('audit_log').select(`*, profiles(full_name)`).order('created_at', { ascending: false }).limit(15);
-      if (logError) throw logError;
-      setActivityLog(logData || []);
+     const { data: logData, error: logError } = await supabase
+        .from('audit_log')
+        .select(`*, profiles:user_id(full_name)`) // Corrected join syntax
+        .order('created_at', { ascending: false })
+        .limit(15);
 
     } catch (error: any) {
         toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
