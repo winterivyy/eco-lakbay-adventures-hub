@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react"; // Import Loader2 for the loading state
+import { Loader2, Download } from "lucide-react"; // Import Loader2 for the loading state
 // --- NEW ---: Import the PDF libraries
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
