@@ -111,6 +111,9 @@ const AdminDashboard = () => {
         .order('created_at', { ascending: false })
         .limit(15);
 
+      if (logError) throw logError;
+      setActivityLog(logData || []);
+
     } catch (error: any) {
         toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
     } finally {
