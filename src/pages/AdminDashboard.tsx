@@ -105,16 +105,19 @@ const AdminDashboard = () => {
           totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0)
       });
       
-     const { data: logData, error: logError } = await supabase
+     // because we created the direct relationship in the database.
+      const { data: logData, error: logError } = await supabase
         .from('audit_log')
-        .select(`*, profiles:user_id(full_name)`) // Corrected join syntax
+        .select(`*, profiles(full_name)`) // This simple join now works!
         .order('created_at', { ascending: false })
         .limit(15);
-
+        
       if (logError) throw logError;
       setActivityLog(logData || []);
 
     } catch (error: any) {
+        // The error will no longer be "Could not find a relationship..."
+        // but it will catch other real errors.
         toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
     } finally {
       setLoadingData(false);
