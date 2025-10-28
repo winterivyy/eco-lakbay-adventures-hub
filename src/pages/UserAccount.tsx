@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Camera, Save, Mail, MapPin } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePhilippineLocations } from "@/hooks/usePhilippineLocations"; // The new hook
 
 const UserAccount = () => {
   const { user } = useAuth();
@@ -19,11 +21,14 @@ const UserAccount = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // 🟢 Include gender & nationality in state
+  const { provinces, municipalities, loading: locationsLoading } = usePhilippineLocations();
+
+  // --- MODIFIED ---: Profile state now includes province and town
   const [profile, setProfile] = useState({
     full_name: "",
     bio: "",
-    location: "",
+    province: "",
+    town: "",
     avatar_url: "",
     gender: "",
     nationality: "",
@@ -50,7 +55,8 @@ const UserAccount = () => {
         setProfile({
           full_name: data.full_name || "",
           bio: data.bio || "",
-          location: data.location || "",
+          province: data.province || "", // New field
+        town: data.town || "", 
           avatar_url: data.avatar_url || "",
           gender: data.gender || "",
           nationality: data.nationality || "",
@@ -73,7 +79,8 @@ const UserAccount = () => {
       const updatePayload = {
         full_name: profile.full_name,
         bio: profile.bio,
-        location: profile.location,
+        province: profile.province, // New field
+      town: profile.town,        
         avatar_url: profile.avatar_url,
         gender: profile.gender,
         nationality: profile.nationality,
@@ -147,6 +154,8 @@ const UserAccount = () => {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
+  const townsForSelectedProvince = profile.province ? municipalities[profile.province] || [] : [];
 
   const getInitials = (name: string) => {
     if (!name) return "";
@@ -307,24 +316,38 @@ const UserAccount = () => {
   </div>
                 </div>
 
-                {/* Location */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="location"
-                      placeholder="City, Country"
-                      value={profile.location}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          location: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                  <Label htmlFor="province">Province</Label>
+                  <Select 
+                    value={profile.province} 
+                    onValueChange={(value) => setProfile(prev => ({ ...prev, province: value, town: '' }))} // Reset town when province changes
+                  >
+                    <SelectTrigger disabled={locationsLoading}>
+                      <SelectValue placeholder={locationsLoading ? "Loading provinces..." : "Select province"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="town">Town / City</Label>
+                  <Select 
+                    value={profile.town} 
+                    onValueChange={(value) => setProfile(prev => ({ ...prev, town: value }))}
+                    disabled={!profile.province || townsForSelectedProvince.length === 0} // Disable if no province is selected
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={!profile.province ? "Select a province first" : "Select town/city"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {townsForSelectedProvince.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
                 {/* Bio */}
                 <div className="space-y-2">
