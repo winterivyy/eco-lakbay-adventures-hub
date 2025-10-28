@@ -172,11 +172,12 @@ export const DestinationRatingModal = ({ isOpen, onClose, destination }: Destina
 
       const { error } = await operation;
       if (error) throw error;
-       await logAction('new_rating_submitted', {
-        destinationId: destination.id,
-        destinationName: destination.business_name,
-        rating: rating,
-      });
+      // Log the calculated overall score, not the non-existent 'rating' variable.
+await logAction('new_rating_submitted', {
+  destinationId: destination.id,
+  destinationName: destination.business_name,
+  rating: overallRating.score, // Use the correct variable here
+});
       
       toast({ title: "Rating Submitted!", description: `Thank you for rating ${destination?.business_name || destination?.name}.` });
       onClose();
