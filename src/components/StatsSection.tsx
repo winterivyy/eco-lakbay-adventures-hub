@@ -47,7 +47,7 @@ const StatsSection = () => {
     {
       icon: "🌿",
       number: stats.totalDestinations.toLocaleString(),
-      label: "Eco-Certified Destinations",
+      label: "Destinations",
     },
     {
       icon: "👥",
