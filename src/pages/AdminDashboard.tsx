@@ -188,6 +188,10 @@ const AdminDashboard = () => {
         actionText = ` updated the details for "${log.details.destinationName}".`;
         icon = <Edit2 className="h-4 w-4 text-blue-500" />;
         break;
+         case 'new_rating_submitted':
+                icon = <Star className="h-4 w-4 text-amber-500" />;
+                actionText = ` submitted a ${log.details.rating}-star review for "${log.details.destinationName}".`;
+                break;
       default:
         actionText = ` performed an action: ${log.action}.`;
     }
