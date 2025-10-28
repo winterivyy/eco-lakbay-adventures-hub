@@ -23,6 +23,20 @@ import { ViewPermitsModal } from "@/components/ViewPermitsModal";
 import { EditDestinationModal } from "@/components/EditDestinationModal";
 
 // --- REMOVED ---: The old, inline modal components that were defined here are gone.
+interface LogEntry {
+  id: number;
+  created_at: string;
+  action: string;
+  details: {
+    userName?: string;
+    destinationName?: string;
+    status?: string;
+    [key: string]: any; // Allow other properties
+  };
+  profiles: {
+    full_name: string;
+  } | null;
+}
 
 const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   pending: 'secondary', approved: 'default', rejected: 'destructive', archived: 'outline',
@@ -31,12 +45,16 @@ const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | '
 const AdminDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+   // State
   const [profile, setProfile] = useState<any>(null);
   const [allDestinations, setAllDestinations] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [allRatings, setAllRatings] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<LogEntry[]>([]);
   const [stats, setStats] = useState<any>({});
   const [loadingData, setLoadingData] = useState(true);
+
+  // Modal State
   const [editingDestination, setEditingDestination] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [viewingDestinationPermits, setViewingDestinationPermits] = useState<any>(null);
@@ -44,11 +62,20 @@ const AdminDashboard = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   
-  useEffect(() => {
-    if (user) {
-      loadAdminData();
+  // Helper function to insert a log entry
+  const logAction = async (action: string, details: object) => {
+    try {
+      // No need to get the user again if it's already available in the component's scope
+      const { error } = await supabase.from('audit_log').insert({
+        user_id: user?.id,
+        action,
+        details,
+      });
+      if (error) console.error("Error logging action:", error);
+    } catch (err) {
+      console.error("Failed to log action:", err);
     }
-  }, [user]);
+  };
 
   const loadAdminData = async () => {
     setLoadingData(true);
@@ -77,6 +104,10 @@ const AdminDashboard = () => {
           totalCalculations: calculatorCount || 0,
           totalCarbonSaved: Math.round(calculatorData?.reduce((sum, entry) => sum + (entry.carbon_footprint || 0), 0) || 0)
       });
+      
+      const { data: logData, error: logError } = await supabase.from('audit_log').select(`*, profiles(full_name)`).order('created_at', { ascending: false }).limit(15);
+      if (logError) throw logError;
+      setActivityLog(logData || []);
 
     } catch (error: any) {
         toast({ title: "Data Loading Error", description: `Failed to load admin data: ${error.message}.`, variant: "destructive" });
@@ -85,58 +116,80 @@ const AdminDashboard = () => {
     }
   };
   
-  const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived') => {
-    try {
-      const { error } = await supabase
-        .from('destinations')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', destinationId);
+  useEffect(() => {
+    if (user) loadAdminData();
+  }, [user]);
 
-      if (error) {
-        toast({ title: "Update Failed", description: `Could not update status: ${error.message}`, variant: "destructive" });
-        return;
-      }
+  const handleStatusUpdate = async (destinationId: string, status: 'approved' | 'rejected' | 'archived', destinationName: string) => {
+    await logAction('destination_status_changed', { destinationId, destinationName, status });
+    const { error } = await supabase.from('destinations').update({ status, updated_at: new Date().toISOString() }).eq('id', destinationId);
+    if (error) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    } else {
       toast({ title: "Success", description: `Destination has been ${status}.` });
-      loadAdminData(); // Refresh the list
-    } catch (err: any) {
-      toast({ title: "Unexpected Error", description: err.message, variant: "destructive" });
+      loadAdminData();
     }
   };
 
   const handleUpdateUser = async (userId: string, updates: any) => {
-    const { id, user_id, joined_at, email, ...updateData } = updates; // Prevent updating primary/immutable keys
+    const { id, user_id, joined_at, email, ...updateData } = updates;
     const { error } = await supabase.from('profiles').update(updateData).eq('user_id', userId);
     if (error) {
       toast({ title: "User update failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "User updated successfully" });
+      await logAction('user_profile_updated', { userId, userName: updates.full_name });
       setEditingUser(null);
       loadAdminData();
     }
   };
-  // 1. Create the new handler function
+
   const handleDestinationDeleted = () => {
-    setIsEditModalOpen(false); // Close the modal
-    setEditingDestination(null); // Clear the selected destination
-    loadAdminData(); // Refresh the list of destinations
-    // The success toast is already handled inside the modal, so we don't need one here.
+    logAction('destination_deleted', { destinationId: editingDestination?.id, destinationName: editingDestination?.business_name });
+    setIsEditModalOpen(false);
+    setEditingDestination(null);
+    loadAdminData();
   };
-
-// 2. Pass the handler to your EditDestinationModal instance
-
 
   const handleOpenEditModal = (dest: any) => { setEditingDestination(dest); setIsEditModalOpen(true); };
   const handleCloseEditModal = () => { setEditingDestination(null); setIsEditModalOpen(false); };
-  const handleSaveEditModal = () => { handleCloseEditModal(); toast({ title: "Success", description: "Destination details updated." }); loadAdminData(); };
+  const handleSaveEditModal = () => { logAction('destination_details_updated', { destinationId: editingDestination?.id, destinationName: editingDestination?.business_name }); handleCloseEditModal(); toast({ title: "Success", description: "Destination details updated." }); loadAdminData(); };
   const handleOpenPermitsModal = (dest: any) => { setViewingDestinationPermits(dest); setIsPermitsModalOpen(true); };
   const handleClosePermitsModal = () => { setViewingDestinationPermits(null); setIsPermitsModalOpen(false); };
+
+  const formatLogEntry = (log: LogEntry) => {
+    let icon = <Clock className="h-4 w-4 text-muted-foreground" />;
+    let message = <span className="text-muted-foreground">{log.profiles?.full_name || 'A user'}</span>;
+    let actionText = '';
+
+    switch(log.action) {
+      case 'destination_status_changed':
+        actionText = ` ${log.details.status} the destination "${log.details.destinationName}".`;
+        if (log.details.status === 'approved') icon = <CheckCircle className="h-4 w-4 text-green-500" />;
+        else icon = <XCircle className="h-4 w-4 text-red-500" />;
+        break;
+      case 'user_profile_updated':
+        actionText = ` updated the profile for "${log.details.userName}".`;
+        icon = <Edit2 className="h-4 w-4 text-blue-500" />;
+        break;
+      case 'destination_deleted':
+        actionText = ` deleted the destination "${log.details.destinationName}".`;
+        icon = <Archive className="h-4 w-4 text-destructive" />;
+        break;
+      case 'destination_details_updated':
+        actionText = ` updated the details for "${log.details.destinationName}".`;
+        icon = <Edit2 className="h-4 w-4 text-blue-500" />;
+        break;
+      default:
+        actionText = ` performed an action: ${log.action}.`;
+    }
+    return { icon, message: <>{message}{actionText}</> };
+  };
 
   if (loadingData) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Navigation />
-        <div className="flex-grow flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-forest"/></div>
-        <Footer />
+        <Navigation /><div className="flex-grow flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-forest"/></div><Footer />
       </div>
     );
   }
@@ -245,6 +298,27 @@ const AdminDashboard = () => {
                   </CardContent>
                 </Card>
               </div>
+                {/* User Activity Log */}
+                <Card className="shadow-eco xl:col-span-1">
+                 <CardHeader><CardTitle className="text-xl text-forest">Recent Activity Log</CardTitle></CardHeader>
+                 <CardContent>
+                   <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                     {activityLog.length > 0 ? activityLog.map(log => {
+                       const { icon, message } = formatLogEntry(log);
+                       return (
+                         <div key={log.id} className="flex items-start gap-3">
+                           <div className="mt-1">{icon}</div>
+                           <div className="flex-1">
+                             <p className="text-sm">{message}</p>
+                             <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
+                           </div>
+                         </div>
+                       );
+                     }) : (<p className="text-center text-muted-foreground py-8">No recent activity found.</p>)}
+                   </div>
+                 </CardContent>
+               </Card>
+
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <Card className="shadow-eco xl:col-span-3">
