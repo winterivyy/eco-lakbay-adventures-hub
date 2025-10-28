@@ -16,16 +16,13 @@ import { useState } from "react";
 const Calculator = () => {
   const [transportation, setTransportation] = useState("");
   const [distance, setDistance] = useState("");
-  const [accommodation, setAccommodation] = useState("");
-  const [numberOfNights, setNumberOfNights] = useState("1");
   const [carbonFootprint, setCarbonFootprint] = useState(0);
 
   const calculateCarbon = () => {
     let total = 0;
     const dist = parseFloat(distance) || 0;
-    const nights = parseInt(numberOfNights) || 1;
 
-    // --- ACCURATE TRANSPORTATION CALCULATION (in kg CO2e per passenger-km) ---
+    // --- TRANSPORTATION CALCULATION (in kg CO2e per passenger-km) ---
     switch (transportation) {
       case "car":
         total += dist * 0.17;
@@ -53,30 +50,13 @@ const Calculator = () => {
         total += dist * 0.1;
     }
 
-    // --- ACCURATE ACCOMMODATION CALCULATION (in kg CO2e per person per night) ---
-    switch (accommodation) {
-      case "hotel":
-        total += nights * 25;
-        break;
-      case "eco-lodge":
-        total += nights * 10;
-        break;
-      case "homestay":
-        total += nights * 5;
-        break;
-      case "camping":
-        total += nights * 2;
-        break;
-      default:
-        total += nights * 15;
-    }
-
     setCarbonFootprint(total);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
+
       {/* Header Section */}
       <div className="bg-gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -84,7 +64,7 @@ const Calculator = () => {
             Carbon Footprint Calculator
           </h1>
           <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
-            Calculate the environmental impact of your travel plans and discover
+            Calculate the environmental impact of your travel and discover
             ways to make your trip more sustainable.
           </p>
         </div>
@@ -100,7 +80,7 @@ const Calculator = () => {
                   Trip Calculator
                 </CardTitle>
                 <p className="text-muted-foreground">
-                  Enter your travel details to calculate your carbon footprint
+                  Enter your travel details to calculate your carbon footprint.
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -131,6 +111,7 @@ const Calculator = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
                 {/* Distance */}
                 <div>
                   <Label htmlFor="distance" className="text-forest font-medium">
@@ -145,46 +126,7 @@ const Calculator = () => {
                     className="mt-2"
                   />
                 </div>
-                {/* Accommodation */}
-                <div>
-                  <Label
-                    htmlFor="accommodation"
-                    className="text-forest font-medium"
-                  >
-                    Accommodation Type
-                  </Label>
-                  <Select
-                    value={accommodation}
-                    onValueChange={setAccommodation}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select accommodation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="camping">Camping ⛺</SelectItem>
-                      <SelectItem value="homestay">Homestay 🏠</SelectItem>
-                      <SelectItem value="eco-lodge">Eco Lodge 🌿</SelectItem>
-                      <SelectItem value="hotel">Regular Hotel 🏨</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Number of Nights */}
-                <div>
-                  <Label
-                    htmlFor="nights"
-                    className="text-forest font-medium"
-                  >
-                    Number of Nights
-                  </Label>
-                  <Input
-                    id="nights"
-                    type="number"
-                    placeholder="e.g., 3"
-                    value={numberOfNights}
-                    onChange={(e) => setNumberOfNights(e.target.value)}
-                    className="mt-2"
-                  />
-                </div>
+
                 <Button
                   onClick={calculateCarbon}
                   className="w-full"
@@ -195,6 +137,7 @@ const Calculator = () => {
                 </Button>
               </CardContent>
             </Card>
+
             {/* Results & Tips Section */}
             <div className="space-y-6">
               {/* Results Card */}
@@ -202,7 +145,7 @@ const Calculator = () => {
                 <Card className="shadow-eco">
                   <CardHeader>
                     <CardTitle className="text-2xl text-forest">
-                      Your Estimated Carbon Footprint is around...
+                      Your Estimated Carbon Footprint
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -212,15 +155,17 @@ const Calculator = () => {
                         {carbonFootprint.toFixed(2)} kg CO₂e
                       </div>
                       <div className="text-md text-muted-foreground mb-4">
-                        Based on your travel details above.
+                        Based on your selected transportation and distance.
                       </div>
-                      <div className={`p-3 rounded-lg mb-2 ${
-                        carbonFootprint < 10
-                          ? "bg-green-100 border border-green-200"
-                          : carbonFootprint < 25
-                          ? "bg-yellow-100 border border-yellow-200"
-                          : "bg-red-100 border border-red-200"
-                      }`}>
+                      <div
+                        className={`p-3 rounded-lg ${
+                          carbonFootprint < 10
+                            ? "bg-green-100 border border-green-200"
+                            : carbonFootprint < 25
+                            ? "bg-yellow-100 border border-yellow-200"
+                            : "bg-red-100 border border-red-200"
+                        }`}
+                      >
                         <div className="font-semibold mb-1">
                           {carbonFootprint < 10
                             ? "🌟 Excellent!"
@@ -232,22 +177,20 @@ const Calculator = () => {
                           {carbonFootprint < 10
                             ? "Your trip has a low environmental impact!"
                             : carbonFootprint < 25
-                            ? "Consider some eco-friendly alternatives."
-                            : "Your trip has a high carbon footprint."}
+                            ? "Consider more eco-friendly alternatives."
+                            : "Your trip has a high carbon footprint. Try using public or shared transport."}
                         </div>
                       </div>
-                      <Button variant="gold" className="w-full">
-                        Get Green Points: +{Math.round(Math.max(50 - carbonFootprint, 10))}
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
               )}
+
               {/* Tips Card */}
               <Card className="shadow-eco">
                 <CardHeader>
                   <CardTitle className="text-xl text-forest">
-                    Eco-Friendly Tips
+                    Eco-Friendly Travel Tips
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -259,18 +202,7 @@ const Calculator = () => {
                           Use Sustainable Transport
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Choose walking, cycling, or public transport when possible
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-green-500">🌿</span>
-                      <div>
-                        <div className="font-medium text-sm">
-                          Stay at Eco-Lodges
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Choose accommodations with green certifications
+                          Choose walking, cycling, or public transport whenever possible.
                         </div>
                       </div>
                     </div>
@@ -281,7 +213,7 @@ const Calculator = () => {
                           Support Local Businesses
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Buy from local vendors and eat at community restaurants
+                          Shop and dine in local establishments to boost the local economy.
                         </div>
                       </div>
                     </div>
@@ -292,7 +224,7 @@ const Calculator = () => {
                           Minimize Waste
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Bring reusable items and follow Leave No Trace principles
+                          Bring reusable items and follow Leave No Trace principles.
                         </div>
                       </div>
                     </div>
