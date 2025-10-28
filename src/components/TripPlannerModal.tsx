@@ -104,55 +104,93 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
   };
 
   
-  // --- NEW ---: This function handles the PDF generation and download
-  const handleDownloadPdf = async () => {
-    if (!tripPlanRef.current) {
-      toast({ title: "Error", description: "Could not find the trip plan content.", variant: "destructive" });
+   const handleDownloadPdf = async () => {
+    const contentToCapture = tripPlanRef.current;
+    if (!contentToCapture) {
+      toast({ title: "Error", description: "Could not find trip plan content.", variant: "destructive" });
       return;
     }
     
     setIsDownloading(true);
 
     try {
-      // Use html2canvas to take a "screenshot" of the trip plan div
-      const canvas = await html2canvas(tripPlanRef.current, {
-        scale: 2, // Increase scale for better resolution
-        useCORS: true, // Important if your content includes external images
+      const canvas = await html2canvas(contentToCapture, {
+        scale: 2, // Improves resolution
+        useCORS: true,
       });
-      
-      const imgData = canvas.toDataURL('image/png');
 
-      // Create a new jsPDF instance
+      // --- PDF DIMENSIONS AND MARGINS ---
       const pdf = new jsPDF({
-        orientation: 'p', // portrait
+        orientation: 'p',
         unit: 'mm',
         format: 'a4',
       });
-
-      // Get dimensions of the PDF page and the captured image
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = canvasHeight / canvasWidth;
+      const margin = 15; // 15mm margin on all sides
+      const contentWidth = pdfWidth - (margin * 2);
 
-      // Calculate the image height to fit the PDF width
-      const imgWidth = pdfWidth - 20; // A4 width with 10mm margins
-      const imgHeight = imgWidth * ratio;
+      // --- IMAGE DIMENSIONS ---
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = imgHeight / imgWidth;
+      const contentHeight = contentWidth * ratio; // The total height of our image in the PDF
 
-      // Add a header
-      pdf.setFontSize(18);
-      pdf.text("Your EcoLakbay Trip Plan", 10, 15);
+      // --- MULTI-PAGE SLICING LOGIC ---
+      let yPosition = 0;
+      const pageHeight = pdfHeight - (margin * 2); // The usable height on one page
+      let heightLeft = contentHeight;
+      let pageNumber = 1;
+
+      // Add a header to the first page
+      pdf.setFontSize(20);
+      pdf.text("Your EcoLakbay Trip Plan", margin, margin + 5);
+      yPosition += margin + 15; // Set starting position for content after the title
+
+      // Convert canvas to image data
+      const imgData = canvas.toDataURL('image/png');
+
+      while (heightLeft > 0) {
+        // This is where we "slice" the image.
+        // The first 4 arguments define the slice (x, y, width, height) of the SOURCE canvas.
+        // The last 4 arguments define where to put it in the PDF.
+        pdf.addImage(
+          imgData, 
+          'PNG', 
+          margin, 
+          yPosition - (contentHeight - heightLeft), // Y position on PDF
+          contentWidth, 
+          contentHeight,
+          undefined, // Alias
+          'FAST' // Compression
+        );
+
+        heightLeft -= pageHeight;
+
+        // If there's more content to add, create a new page
+        if (heightLeft > 0) {
+          pdf.addPage();
+          pageNumber++;
+          // Add a page number footer to the previous page
+          pdf.setPage(pageNumber - 1);
+          pdf.setFontSize(8);
+          pdf.text(`Page ${pageNumber - 1}`, pdfWidth / 2, pdfHeight - (margin / 2), { align: 'center' });
+
+          // Reset yPosition for the new page, but this time just the margin
+          yPosition = margin - (contentHeight - heightLeft);
+        }
+      }
+
+      // Add page number to the last page
+      pdf.setPage(pageNumber);
+      pdf.setFontSize(8);
+      pdf.text(`Page ${pageNumber}`, pdfWidth / 2, pdfHeight - (margin / 2), { align: 'center' });
       
-      // Add the captured image to the PDF
-      pdf.addImage(imgData, 'PNG', 10, 25, imgWidth, imgHeight);
-
-      // Save the PDF
       pdf.save(`ecolakbay-trip-plan.pdf`);
 
     } catch (error) {
         console.error("Error creating PDF:", error);
-        toast({ title: "PDF Creation Failed", variant: "destructive"});
+        toast({ title: "PDF Creation Failed", description: "There was an issue generating the PDF.", variant: "destructive"});
     } finally {
         setIsDownloading(false);
     }
@@ -170,6 +208,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
         {showPlan ? (
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
+            {/* The ref here is crucial for html2canvas to know what to capture */}
             <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
               {tripPlan}
             </div>
