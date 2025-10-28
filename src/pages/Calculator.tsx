@@ -16,19 +16,16 @@ import { useState } from "react";
 const Calculator = () => {
   const [transportation, setTransportation] = useState("");
   const [distance, setDistance] = useState("");
-  const [travelers, setTravelers] = useState("1");
-  const [carbonFootprint, setCarbonFootprint] = useState<number | null>(null);
-  const [suggestion, setSuggestion] = useState("");
+  const [carbonFootprint, setCarbonFootprint] = useState(0);
 
   const calculateCarbon = () => {
     const dist = parseFloat(distance) || 0;
-    const people = parseInt(travelers) || 1;
     let total = 0;
 
-    // Emission factors (kg CO2e per passenger-km)
-    const emissionFactors: Record<string, number> = {
+    // --- EMISSION FACTORS (in kg CO₂e per km) ---
+    const emissionFactors = {
       car: 0.17,
-      bus: 0.03,
+      bus: 0.05,
       motorcycle: 0.07,
       tricycle: 0.1,
       jeepney: 0.08,
@@ -37,199 +34,165 @@ const Calculator = () => {
       walking: 0,
     };
 
-    const factor = emissionFactors[transportation] || 0.1;
-    total = (dist * factor) / people;
+    // --- CALCULATE TOTAL TRIP EMISSIONS ---
+    total = dist * (emissionFactors[transportation] || 0.1);
 
-    // Suggest eco-alternatives
-    const ecoTips: Record<string, string> = {
-      car: "Try carpooling or switching to public transport for shorter trips.",
-      bus: "Great choice! Public transport helps reduce emissions.",
-      motorcycle: "Consider taking a bus or sharing rides when possible.",
-      tricycle: "Opt for walking or biking for short distances.",
-      jeepney: "You're already supporting local transport—try avoiding idling time.",
-      ferry: "Consider offsetting your ferry trip by supporting mangrove projects.",
-      bike: "Zero emissions! Keep cycling! 🚴",
-      walking: "You’re traveling the most sustainable way possible. 🌿",
-    };
-
-    setSuggestion(ecoTips[transportation] || "");
     setCarbonFootprint(total);
-  };
-
-  // Helper to get rating and color
-  const getImpact = (value: number) => {
-    if (value < 10)
-      return {
-        label: "🌱 Excellent! Low impact",
-        color: "bg-green-100 border border-green-200",
-      };
-    if (value < 25)
-      return {
-        label: "⚠️ Moderate impact",
-        color: "bg-yellow-100 border border-yellow-200",
-      };
-    return {
-      label: "🚨 High impact",
-      color: "bg-red-100 border border-red-200",
-    };
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-
       {/* Header Section */}
-      <div className="bg-gradient-hero py-20 text-center text-white">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">
-          Carbon Footprint Calculator
-        </h1>
-        <p className="text-lg max-w-3xl mx-auto">
-          Estimate the carbon impact of your travel and discover eco-friendly
-          alternatives to make your trip more sustainable.
-        </p>
+      <div className="bg-gradient-hero py-20">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            Carbon Footprint Calculator
+          </h1>
+          <p className="text-xl text-white/90 max-w-3xl mx-auto">
+            Estimate the total carbon emissions of your trip and discover
+            eco-friendly travel alternatives.
+          </p>
+        </div>
       </div>
 
       {/* Calculator Section */}
       <div className="py-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Side - Form */}
-          <Card className="shadow-eco">
-            <CardHeader>
-              <CardTitle className="text-2xl text-forest">
-                Trip Calculator
-              </CardTitle>
-              <p className="text-muted-foreground">
-                Enter your travel details to estimate your carbon footprint.
-              </p>
-            </CardHeader>
-
-            <CardContent className="space-y-6">
-              {/* Transportation */}
-              <div>
-                <Label htmlFor="transportation" className="text-forest font-medium">
-                  Transportation Method
-                </Label>
-                <Select
-                  value={transportation}
-                  onValueChange={setTransportation}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Select transportation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="walking">Walking 🚶‍♂️</SelectItem>
-                    <SelectItem value="bike">Bicycle 🚲</SelectItem>
-                    <SelectItem value="jeepney">Jeepney 🚌</SelectItem>
-                    <SelectItem value="tricycle">Tricycle 🛺</SelectItem>
-                    <SelectItem value="bus">Public Bus 🚍</SelectItem>
-                    <SelectItem value="motorcycle">Motorcycle 🏍️</SelectItem>
-                    <SelectItem value="car">Private Car 🚗</SelectItem>
-                    <SelectItem value="ferry">Ferry 🛳️</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Distance */}
-              <div>
-                <Label htmlFor="distance" className="text-forest font-medium">
-                  Total Distance (km)
-                </Label>
-                <Input
-                  id="distance"
-                  type="number"
-                  placeholder="Enter distance"
-                  value={distance}
-                  onChange={(e) => setDistance(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-
-              {/* Number of Travelers */}
-              <div>
-                <Label htmlFor="travelers" className="text-forest font-medium">
-                  Number of Travelers
-                </Label>
-                <Input
-                  id="travelers"
-                  type="number"
-                  placeholder="e.g., 2"
-                  value={travelers}
-                  onChange={(e) => setTravelers(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-
-              <Button onClick={calculateCarbon} className="w-full" variant="eco" size="lg">
-                Calculate Carbon Footprint
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Right Side - Results */}
-          <div className="space-y-6">
-            {carbonFootprint !== null && (
-              <Card className="shadow-eco">
-                <CardHeader>
-                  <CardTitle className="text-2xl text-forest text-center">
-                    Your Estimated Carbon Footprint
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <div className="text-5xl mb-2">🌍</div>
-                  <div className="text-4xl font-bold text-amber-600 mb-2">
-                    {carbonFootprint.toFixed(2)} kg CO₂e
-                  </div>
-                  <div className={`p-3 rounded-lg mb-3 ${getImpact(carbonFootprint).color}`}>
-                    {getImpact(carbonFootprint).label}
-                  </div>
-
-                  {/* Real-world Equivalent */}
-                  <div className="text-sm text-muted-foreground mb-4">
-                    Equivalent to keeping a 60W light bulb on for{" "}
-                    <strong>{(carbonFootprint * 5).toFixed(0)}</strong> hours.
-                  </div>
-
-                  {/* Visual Comparison Bar */}
-                  <div className="my-4">
-                    <Label className="text-forest font-semibold">Comparison (kg CO₂e)</Label>
-                    <div className="w-full bg-gray-100 rounded-full h-4 mt-2 relative">
-                      <div
-                        className="bg-emerald-500 h-4 rounded-full"
-                        style={{ width: `${Math.min(carbonFootprint * 3, 100)}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      More bar = higher environmental impact.
-                    </p>
-                  </div>
-
-                  {/* Eco Suggestion */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
-                    <span className="font-semibold text-green-700">Eco Suggestion:</span>{" "}
-                    {suggestion}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Eco Tips */}
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Calculator Form */}
             <Card className="shadow-eco">
               <CardHeader>
-                <CardTitle className="text-xl text-forest">Eco-Friendly Travel Tips</CardTitle>
+                <CardTitle className="text-2xl text-forest">
+                  Trip Calculator
+                </CardTitle>
+                <p className="text-muted-foreground">
+                  Enter your travel details to calculate total carbon emissions
+                </p>
               </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>🚲 Choose walking, cycling, or public transport whenever possible.</li>
-                  <li>♻️ Bring reusable bottles and avoid single-use plastics.</li>
-                  <li>🌿 Support eco-certified and local tourism establishments.</li>
-                  <li>🕯️ Turn off lights, A/C, and electronics when not in use.</li>
-                </ul>
+              <CardContent className="space-y-6">
+                {/* Transportation Method */}
+                <div>
+                  <Label htmlFor="transportation" className="text-forest font-medium">
+                    Transportation Method
+                  </Label>
+                  <Select
+                    value={transportation}
+                    onValueChange={setTransportation}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select transportation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="walking">Walking 🚶‍♂️</SelectItem>
+                      <SelectItem value="bike">Bicycle 🚲</SelectItem>
+                      <SelectItem value="jeepney">Jeepney 🚌</SelectItem>
+                      <SelectItem value="tricycle">Tricycle 🛺</SelectItem>
+                      <SelectItem value="bus">Public Bus 🚍</SelectItem>
+                      <SelectItem value="motorcycle">Motorcycle 🏍️</SelectItem>
+                      <SelectItem value="car">Private Car 🚗</SelectItem>
+                      <SelectItem value="ferry">Ferry 🛳️</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Distance */}
+                <div>
+                  <Label htmlFor="distance" className="text-forest font-medium">
+                    Total Distance (km)
+                  </Label>
+                  <Input
+                    id="distance"
+                    type="number"
+                    placeholder="Enter distance"
+                    value={distance}
+                    onChange={(e) => setDistance(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+
+                {/* Calculate Button */}
+                <Button
+                  onClick={calculateCarbon}
+                  className="w-full"
+                  variant="eco"
+                  size="lg"
+                >
+                  Calculate Total Emissions
+                </Button>
               </CardContent>
             </Card>
+
+            {/* Results & Tips Section */}
+            <div className="space-y-6">
+              {/* Results */}
+              {carbonFootprint > 0 && (
+                <Card className="shadow-eco">
+                  <CardHeader>
+                    <CardTitle className="text-2xl text-forest">
+                      Your Trip’s Total Carbon Emissions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center">
+                      <div className="text-5xl mb-2">🌍</div>
+                      <div className="text-4xl font-bold text-amber-600 mb-2">
+                        {carbonFootprint.toFixed(2)} kg CO₂e
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        This represents the total estimated greenhouse gas
+                        emissions from your entire trip.
+                      </p>
+
+                      <div
+                        className={`p-3 rounded-lg mb-2 ${
+                          carbonFootprint < 20
+                            ? "bg-green-100 border border-green-200"
+                            : carbonFootprint < 60
+                            ? "bg-yellow-100 border border-yellow-200"
+                            : "bg-red-100 border border-red-200"
+                        }`}
+                      >
+                        <div className="font-semibold mb-1">
+                          {carbonFootprint < 20
+                            ? "🌿 Low Emission Trip"
+                            : carbonFootprint < 60
+                            ? "⚠️ Moderate Impact"
+                            : "🔥 High Emission Trip"}
+                        </div>
+                        <div className="text-sm">
+                          {carbonFootprint < 20
+                            ? "Great job! Your travel has minimal environmental impact."
+                            : carbonFootprint < 60
+                            ? "Consider more sustainable transportation next time."
+                            : "This trip emits a large amount of CO₂. Try eco-friendlier travel modes."}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Eco-Friendly Tips */}
+              <Card className="shadow-eco">
+                <CardHeader>
+                  <CardTitle className="text-xl text-forest">
+                    Eco-Friendly Travel Tips
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li>🚲 Choose bikes or public transport when possible.</li>
+                    <li>🌿 Combine trips to reduce total travel distance.</li>
+                    <li>🚌 Share rides with others to minimize emissions per trip.</li>
+                    <li>♻️ Offset your carbon emissions through tree planting or donations.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
-
       <Footer />
     </div>
   );
