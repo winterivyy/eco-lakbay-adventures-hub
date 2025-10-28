@@ -267,48 +267,52 @@ const AdminDashboard = () => {
 
                 {/* NATIONALITY DISTRIBUTION */}
                 <Card className="shadow-eco">
-                  <CardHeader><CardTitle className="text-xl text-forest">Nationality Distribution</CardTitle></CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart
-                        data={Object.entries(allUsers.reduce((acc, u) => {
-                          const nat = u.nationality || "Unknown";
-                          acc[nat] = (acc[nat] || 0) + 1;
-                          return acc;
-                        }, {} as Record<string, number>)).map(([name, value]) => ({ name, value }))}
-                      >
-                        <XAxis dataKey="name" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#16a34a" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
+                                <CardHeader><CardTitle className="text-xl text-forest">Nationality Distribution</CardTitle></CardHeader>
+                                <CardContent>
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart
+                                            data={Object.entries(allUsers.reduce((acc, u) => {
+                                                let nat = u.nationality || "Not Specified";
+                                                nat = nat.charAt(0).toUpperCase() + nat.slice(1).toLowerCase();
+                                                acc[nat] = (acc[nat] || 0) + 1;
+                                                return acc;
+                                            }, {} as Record<string, number>)).map(([name, value]) => ({ name, value }))}
+                                        >
+                                            <XAxis dataKey="name" />
+                                            <YAxis allowDecimals={false} />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#16a34a" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
 
                 {/* LOCATION DEMOGRAPHICS */}
-                <Card className="shadow-eco">
-                  <CardHeader><CardTitle className="text-xl text-forest">Top Towns / Cities</CardTitle></CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart
-                        data={Object.entries(allUsers.reduce((acc, u) => {
-                          const town = u.town || "Unknown";
-                          acc[town] = (acc[town] || 0) + 1;
-                          return acc;
-                        }, {} as Record<string, number>))
-                        .map(([name, value]) => ({ name, value }))
-                        .sort((a, b) => b.value - a.value)
-                        .slice(0, 8)}
-                      >
-                        <XAxis dataKey="name" hide />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#f59e0b" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
+                  <Card className="shadow-eco">
+                                <CardHeader><CardTitle className="text-xl text-forest">Top Towns / Cities</CardTitle></CardHeader>
+                                <CardContent>
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart
+                                            data={Object.entries(allUsers.reduce((acc, u) => {
+                                                if (u.town) {
+                                                    let town = u.town.trim();
+                                                    town = town.charAt(0).toUpperCase() + town.slice(1).toLowerCase();
+                                                    acc[town] = (acc[town] || 0) + 1;
+                                                }
+                                                return acc;
+                                            }, {} as Record<string, number>))
+                                            .map(([name, value]) => ({ name, value }))
+                                            .sort((a, b) => b.value - a.value)
+                                            .slice(0, 8)}
+                                        >
+                                            <XAxis dataKey="name" hide />
+                                            <YAxis allowDecimals={false} />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#f59e0b" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
               </div>
                 {/* User Activity Log */}
                 <Card className="shadow-eco xl:col-span-1">
