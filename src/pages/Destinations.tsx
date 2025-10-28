@@ -261,7 +261,7 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
       <div className="bg-gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Sustainable Destinations</h1>
-          <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover verified eco-friendly destinations that promote environmental conservation and support local communities.</p>
+          <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover destinations that promote environmental conservation and support local communities.</p>
         </div>
       </div>
       <div className="py-20">
@@ -281,7 +281,7 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
             </CardContent>
             {isFiltered && (<CardFooter><Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground"><X className="w-4 h-4 mr-2" /> Reset Filters</Button></CardFooter>)}
           </Card>
-          <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Eco-Certified Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
+          <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
           {renderContent()}
         </div>
       </div>
