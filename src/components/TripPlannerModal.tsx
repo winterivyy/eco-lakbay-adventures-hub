@@ -166,7 +166,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
             {/* The ref here is crucial for html2canvas to know what to capture */}
-            <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+            <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
               {tripPlan}
             </div>
             
