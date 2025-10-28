@@ -113,84 +113,69 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
     
     setIsDownloading(true);
 
-    try {
-      const canvas = await html2canvas(contentToCapture, {
-        scale: 2, // Improves resolution
-        useCORS: true,
-      });
+     try {
+      // Step 1: Capture the entire element as one tall canvas
+      const canvas = await html2canvas(contentToCapture, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
 
-      // --- PDF DIMENSIONS AND MARGINS ---
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-      });
+      // Step 2: Set up PDF dimensions
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; // 15mm margin on all sides
-      const contentWidth = pdfWidth - (margin * 2);
+      
+      // Calculate the width/height ratio of the captured image
+      const ratio = canvasWidth / canvasHeight;
 
-      // --- IMAGE DIMENSIONS ---
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = imgHeight / imgWidth;
-      const contentHeight = contentWidth * ratio; // The total height of our image in the PDF
-
-      // --- MULTI-PAGE SLICING LOGIC ---
-      let yPosition = 0;
-      const pageHeight = pdfHeight - (margin * 2); // The usable height on one page
-      let heightLeft = contentHeight;
+      // Calculate the image height in the PDF to maintain aspect ratio
+      const imgWidth = pdfWidth; // Use full width for simplicity
+      const imgHeight = imgWidth / ratio;
+      
+      // Step 3: The Multi-Page Slicing Logic
+      let yPositionOfContent = 0; // This will track how far down the image we've rendered
       let pageNumber = 1;
 
       // Add a header to the first page
       pdf.setFontSize(20);
-      pdf.text("Your EcoLakbay Trip Plan", margin, margin + 5);
-      yPosition += margin + 15; // Set starting position for content after the title
+      pdf.text("Your EcoLakbay Trip Plan", 15, 20);
 
-      // Convert canvas to image data
-      const imgData = canvas.toDataURL('image/png');
-
-      while (heightLeft > 0) {
-        // This is where we "slice" the image.
-        // The first 4 arguments define the slice (x, y, width, height) of the SOURCE canvas.
-        // The last 4 arguments define where to put it in the PDF.
-        pdf.addImage(
-          imgData, 
-          'PNG', 
-          margin, 
-          yPosition - (contentHeight - heightLeft), // Y position on PDF
-          contentWidth, 
-          contentHeight,
-          undefined, // Alias
-          'FAST' // Compression
-        );
-
-        heightLeft -= pageHeight;
-
-        // If there's more content to add, create a new page
-        if (heightLeft > 0) {
+      // Loop as long as there is content left to render
+      while (yPositionOfContent < imgHeight) {
+        // If it's not the first page, add a new one
+        if (pageNumber > 1) {
           pdf.addPage();
-          pageNumber++;
-          // Add a page number footer to the previous page
-          pdf.setPage(pageNumber - 1);
-          pdf.setFontSize(8);
-          pdf.text(`Page ${pageNumber - 1}`, pdfWidth / 2, pdfHeight - (margin / 2), { align: 'center' });
-
-          // Reset yPosition for the new page, but this time just the margin
-          yPosition = margin - (contentHeight - heightLeft);
         }
-      }
+        
+        let pageContentY = 0; // This is the y position on the CURRENT PDF page
+        if (pageNumber === 1) {
+            pageContentY = 30; // Leave space for the title on the first page
+        } else {
+            pageContentY = 15; // Start near the top on subsequent pages
+        }
 
-      // Add page number to the last page
-      pdf.setPage(pageNumber);
-      pdf.setFontSize(8);
-      pdf.text(`Page ${pageNumber}`, pdfWidth / 2, pdfHeight - (margin / 2), { align: 'center' });
+        // --- THIS IS THE CRITICAL FIX ---
+        // addImage(imageData, format, x, y, width, height)
+        // Here, x and y are the coordinates on the PDF page.
+        // We are telling jspdf to take the entire tall image, place its top-left corner
+        // at (0, pageContentY - yPositionOfContent), effectively "scrolling" the image up
+        // on each new page.
+        pdf.addImage(imgData, 'PNG', 0, pageContentY - yPositionOfContent, imgWidth, imgHeight);
+        
+        // Add a page number footer to each page
+        pdf.setFontSize(10);
+        pdf.text(`Page ${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+
+        // Move our "camera" down for the next slice
+        yPositionOfContent += (pdfHeight - pageContentY - 15); // page height minus top and bottom margins
+        pageNumber++;
+      }
       
       pdf.save(`ecolakbay-trip-plan.pdf`);
 
     } catch (error) {
         console.error("Error creating PDF:", error);
-        toast({ title: "PDF Creation Failed", description: "There was an issue generating the PDF.", variant: "destructive"});
+        toast({ title: "PDF Creation Failed", variant: "destructive" });
     } finally {
         setIsDownloading(false);
     }
