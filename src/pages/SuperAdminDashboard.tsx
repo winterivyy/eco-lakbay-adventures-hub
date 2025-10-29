@@ -101,12 +101,13 @@ const SuperAdminDashboard = () => {
                 .select(`*, admin_profile:admin_id ( full_name )`)
                 .order('created_at', { ascending: false });
             if (destError) throw destError;
+               console.log("Fetched Destinations Data:", destData); 
             setDestinations(destData as Destination[] || []);
 
             // Stats and Chart data fetches can remain the same
             await fetchStats();
             await fetchChartData(profiles || []); // Pass the raw profiles data here
-
+            
         } catch (error: any) {
             console.error('Error fetching dashboard data:', error);
             // This will now show the REAL error if one of the individual queries fails.
