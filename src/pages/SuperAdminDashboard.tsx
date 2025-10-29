@@ -13,9 +13,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // --- THIS IS THE FIX ---
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3, Trash2, Clock, PieChart as PieChartIcon, MapPin } from "lucide-react";
+import { MoreHorizontal, Users, Shield, TrendingUp, Activity, Search, Plus, Edit, BarChart3, Trash2, Clock, PieChart as PieChartIcon, MapPin } from "lucide-react";
 import { Navigate } from "react-router-dom";
-import { MoreHorizontal, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
   DropdownMenu,
