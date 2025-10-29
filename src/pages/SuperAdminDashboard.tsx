@@ -18,6 +18,18 @@ import { Navigate } from "react-router-dom";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis, CartesianGrid } from "recharts";
 
+interface Destination {
+  id: string;
+  business_name: string;
+  city: string;
+  province: string;
+  status: 'pending' | 'approved' | 'rejected' | 'archived';
+  // This will hold the joined profile data of the admin
+  admin_profile: {
+    full_name: string;
+  } | null;
+}
+
 const SuperAdminDashboard = () => {
   const { user } = useAuth();
   const { isAdmin, loading } = useUserRole();
@@ -31,6 +43,7 @@ const SuperAdminDashboard = () => {
     pendingDestinations: 0
   });
   const [userGrowthChartData, setUserGrowthChartData] = useState<any[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]); // --- MODIFIED ---
   const [destinationStatusChartData, setDestinationStatusChartData] = useState<any[]>([]);
 
   const isSuperAdmin = user?.email === 'johnleomedina@gmail.com' && isAdmin;
@@ -41,12 +54,55 @@ const SuperAdminDashboard = () => {
     }
   }, [isSuperAdmin]);
 
+   // --- MODIFIED ---: Modify the destinations fetch query
   const fetchAllData = async () => {
     try {
-      await Promise.all([fetchUsers(), fetchStats(), fetchChartData()]);
+      // --- Fetch Users (NEW, combined with roles for efficiency) ---
+      const { data: usersData, error: usersError } = await supabase
+        .from('profiles')
+        .select(`*, user_roles ( role )`)
+        .order('full_name', { ascending: true });
+      if (usersError) throw usersError;
+      // Transform the data to flatten the role
+      const usersWithRoles = usersData?.map(u => ({...u, role: u.user_roles[0]?.role || 'user' }));
+      setUsers(usersWithRoles || []);
+
+      // --- Fetch Destinations (MODIFIED QUERY) ---
+      const { data: destData, error: destError } = await supabase
+        .from('destinations')
+        .select(`*, admin_profile:admin_id ( full_name )`) // Join profiles via admin_id
+        .order('created_at', { ascending: false });
+      if (destError) throw destError;
+      setDestinations(destData as Destination[] || []);
+
+      // --- Fetch Stats and Chart Data (remains the same) ---
+      await Promise.all([fetchStats(), fetchChartData(usersData || [])]);
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({ title: "Error", description: "Failed to load all dashboard data.", variant: "destructive" });
+    }
+  };
+
+  const handleStatusUpdate = async (destinationId: string, status: Destination['status']) => {
+    if (!user) return; // Guard clause
+    
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .update({ 
+            status, 
+            updated_at: new Date().toISOString(),
+            admin_id: user.id // <-- THIS IS THE KEY: Save the current admin's ID
+        })
+        .eq('id', destinationId);
+      
+      if (error) throw error;
+      toast({ title: "Success", description: `Destination has been ${status}.` });
+      // We don't need a separate logAction here anymore, as the data is stored directly.
+      fetchAllData(); // Refresh all data to show the changes
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: `Could not update status: ${error.message}`, variant: "destructive" });
     }
   };
 
@@ -196,6 +252,43 @@ const SuperAdminDashboard = () => {
               </CardContent>
             </Card>
           </div>
+
+             <Card>
+            <CardHeader>
+              <CardTitle>Destination Management</CardTitle>
+              {/* You might want a search bar for destinations here in the future */}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                {destinations.map((dest) => (
+                    <div key={dest.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{dest.business_name}</p>
+                        <p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p>
+                        {/* --- NEW ---: Display who took the last action */}
+                        {dest.status !== 'pending' && dest.admin_profile && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Last action by: <strong>{dest.admin_profile.full_name}</strong>
+                            </p>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={statusColors[dest.status] || 'default'} className="capitalize w-24 justify-center">{dest.status}</Badge>
+                        {/* The Dropdown Menu for actions is now simpler */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => handleStatusUpdate(dest.id, 'approved')} disabled={dest.status === 'approved'}>Approve</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusUpdate(dest.id, 'rejected')} disabled={dest.status === 'rejected'}>Reject</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusUpdate(dest.id, 'archived')} className="text-destructive">Archive</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
