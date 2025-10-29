@@ -12,13 +12,17 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast"; // You were using toasts, so I've kept this
+import { Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePhilippineLocations } from "@/hooks/usePhilippineLocations"; // The location hook
 
 interface JoinUsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+const { provinces, municipalities, loading: locationsLoading } = usePhilippineLocations();
 
-const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
+  // --- MODIFIED --- State now includes province and town
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,6 +30,8 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     confirmPassword: "",
     gender: "",
     nationality: "",
+    province: "", // New
+    town: "",     // New
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -33,18 +39,18 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+    // --- NEW --- Specific handler for province change to reset the town
+  const handleProvinceChange = (value: string) => {
+    setFormData(prev => ({ ...prev, province: value, town: '' }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Your validation and submission logic remains the same...
     if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword ||
-      !formData.gender ||
-      !formData.nationality
+      !formData.name || !formData.email || !formData.password || !formData.confirmPassword ||
+      !formData.gender || !formData.nationality || !formData.province || !formData.town
     ) {
       toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
       return;
@@ -73,17 +79,18 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
 
     const user = data.user || (await supabase.auth.getUser()).data.user;
 
-    if (user) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(
-            {
-                user_id: user.id,
-                email: formData.email,
-                full_name: formData.name,
-                gender: formData.gender,
-                nationality: formData.nationality,
-            },
+     const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert(
+              {
+                  user_id: user.id,
+                  email: formData.email,
+                  full_name: formData.name,
+                  gender: formData.gender,
+                  nationality: formData.nationality,
+                  province: formData.province, // New
+                  town: formData.town,         // New
+              },
             { onConflict: 'user_id' }
         );
 
@@ -97,6 +104,9 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
     }
     setIsLoading(false);
   };
+
+  // Get towns for the selected province
+  const townsForSelectedProvince = formData.province ? municipalities[formData.province] || [] : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,17 +169,45 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             </select>
           </div>
 
-          {/* Nationality */}
+          {/* --- MODIFIED --- Nationality is now a dropdown */}
           <div className="space-y-2">
             <Label htmlFor="nationality">Nationality</Label>
-            <Input
-              id="nationality"
-              type="text"
-              placeholder="Enter your nationality"
-              value={formData.nationality}
-              onChange={(e) => handleChange("nationality", e.target.value)}
-              required
-            />
+            <Select value={formData.nationality} onValueChange={(value) => handleChange("nationality", value)}>
+              <SelectTrigger><SelectValue placeholder="Select nationality" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Filipino">Filipino</SelectItem>
+                <SelectItem value="American">American</SelectItem>
+                <SelectItem value="Chinese">Chinese</SelectItem>
+                <SelectItem value="Japanese">Japanese</SelectItem>
+                <SelectItem value="Korean">Korean</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+           {/* --- NEW --- Province and Town dropdowns */}
+          <div className="space-y-2">
+            <Label htmlFor="province">Province</Label>
+            <Select value={formData.province} onValueChange={handleProvinceChange}>
+              <SelectTrigger disabled={locationsLoading}>
+                <SelectValue placeholder={locationsLoading ? "Loading locations..." : "Select province"} />
+              </SelectTrigger>
+              <SelectContent>
+                {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="town">Town / City</Label>
+            <Select value={formData.town} onValueChange={(value) => handleChange("town", value)} disabled={!formData.province || townsForSelectedProvince.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!formData.province ? "Select a province first" : "Select town/city"} />
+              </SelectTrigger>
+              <SelectContent>
+                {townsForSelectedProvince.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Password */}
