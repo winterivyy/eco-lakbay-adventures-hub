@@ -29,6 +29,12 @@ interface Destination {
     full_name: string;
   } | null;
 }
+const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+  pending: 'secondary',
+  approved: 'default',
+  rejected: 'destructive',
+  archived: 'outline',
+};
 
 const SuperAdminDashboard = () => {
   const { user } = useAuth();
