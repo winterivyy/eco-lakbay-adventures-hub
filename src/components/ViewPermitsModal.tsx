@@ -1,78 +1,56 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from "@/hooks/use-toast";
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 
-// The name of your Supabase Storage bucket for permits.
+// Your bucket name
 const PERMITS_BUCKET = 'permits';
-// Interfaces
-interface Permit { id: string; permit_type: string; file_name: string; file_url: string; verification_status: string; }
-interface DestinationWithPermits { business_name: string; destination_permits: Permit[]; }
-interface ViewPermitsModalProps { isOpen: boolean; onClose: () => void; destination: DestinationWithPermits | null; }
+
+// Interfaces for your data shapes
+interface Permit {
+  id: string;
+  permit_type: string;
+  file_name: string;
+  file_url: string;
+  verification_status: string;
+}
+interface DestinationWithPermits {
+  business_name: string;
+  destination_permits: Permit[];
+}
+interface ViewPermitsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  destination: DestinationWithPermits | null;
+}
 
 export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onClose, destination }) => {
-    const [loadingPermitId, setLoadingPermitId] = useState<string | null>(null);
-    const { toast } = useToast();
-
     if (!destination) return null;
     const permits = destination.destination_permits || [];
 
-    const handleViewPermit = async (permit: Permit) => {
-      if (!permit.file_url) {
-        toast({ title: "File path is missing.", variant: "destructive" });
-        return;
-      }
-      setLoadingPermitId(permit.id);
-      
-      try {
-        let pathOrUrl = permit.file_url;
-        let cleanPath = '';
-
-        // --- FINAL BULLETPROOF LOGIC ---
-        // This regex finds the bucket name in the URL and captures everything after it.
-        // It correctly handles paths like `/public/permits/path/to/file` and `/sign/permits/path/to/file`.
-        const regex = new RegExp(`/${PERMITS_BUCKET}/(.*)`);
-        const match = pathOrUrl.match(regex);
-
-        if (match && match[1]) {
-            // match[1] contains the captured group - everything after `/permits/`
-            cleanPath = match[1];
-        } else {
-            // As a fallback, if the regex fails, assume it's a direct path.
-            cleanPath = pathOrUrl;
+    // --- THIS IS THE CORRECT LOGIC FOR A PUBLIC BUCKET ---
+    const getPublicUrl = (pathOrUrl: string): string => {
+        if (!pathOrUrl) return '#';
+        
+        // If it's already a full URL, trust it and return it directly.
+        if (pathOrUrl.startsWith('http')) {
+            return pathOrUrl;
         }
 
-        // Generate the secure, temporary URL
-        const { data, error } = await supabase.storage
-          .from(PERMITS_BUCKET)
-          .createSignedUrl(cleanPath, 300); // 300 seconds = 5 minutes expiration
-
-        if (error) {
-            // This will now only throw if the file truly doesn't exist
-            throw error;
-        }
-
-        // Open the correct, signed URL
-        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-
-      } catch (error: any) {
-        console.error("Error generating signed URL. Raw was:", permit.file_url);
-        toast({
-          title: "Could not open file.",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setLoadingPermitId(null);
-      }
+        // If it's a simple path, generate the public URL.
+        const { data } = supabase.storage
+            .from(PERMITS_BUCKET)
+            .getPublicUrl(pathOrUrl);
+        
+        return data.publicUrl;
     };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Permits for: {destination.business_name}</DialogTitle>
+                    <DialogDescription>Review the uploaded permits for this destination.</DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                     {permits.length > 0 ? (
@@ -86,19 +64,12 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
                                     </div>
                                 </div>
                                 
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="ml-4 flex-shrink-0"
-                                    onClick={() => handleViewPermit(permit)}
-                                    disabled={loadingPermitId === permit.id}
-                                >
-                                    {loadingPermitId === permit.id ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
+                                {/* --- The UI is now a simple link again --- */}
+                                <Button asChild variant="outline" size="sm" className="ml-4 flex-shrink-0">
+                                    <a href={getPublicUrl(permit.file_url)} target="_blank" rel="noopener noreferrer">
                                         <Download className="h-4 w-4 mr-2" />
-                                    )}
-                                    View
+                                        View
+                                    </a>
                                 </Button>
                             </div>
                         ))
