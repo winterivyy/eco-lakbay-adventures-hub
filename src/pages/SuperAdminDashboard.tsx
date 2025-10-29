@@ -56,33 +56,51 @@ const SuperAdminDashboard = () => {
 
    // --- MODIFIED ---: Modify the destinations fetch query
   const fetchAllData = async () => {
-    try {
-      // --- Fetch Users (NEW, combined with roles for efficiency) ---
-      const { data: usersData, error: usersError } = await supabase
-        .from('profiles')
-        .select(`*, user_roles ( role )`)
-        .order('full_name', { ascending: true });
-      if (usersError) throw usersError;
-      // Transform the data to flatten the role
-      const usersWithRoles = usersData?.map(u => ({...u, role: u.user_roles[0]?.role || 'user' }));
-      setUsers(usersWithRoles || []);
+        try {
+            // Step 1: Fetch all profiles.
+            const { data: profiles, error: profilesError } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('full_name', { ascending: true });
+            
+            if (profilesError) throw profilesError;
 
-      // --- Fetch Destinations (MODIFIED QUERY) ---
-      const { data: destData, error: destError } = await supabase
-        .from('destinations')
-        .select(`*, admin_profile:admin_id ( full_name )`) // Join profiles via admin_id
-        .order('created_at', { ascending: false });
-      if (destError) throw destError;
-      setDestinations(destData as Destination[] || []);
+            // Step 2: Fetch all user roles.
+            const { data: userRoles, error: rolesError } = await supabase
+                .from('user_roles')
+                .select('user_id, role');
 
-      // --- Fetch Stats and Chart Data (remains the same) ---
-      await Promise.all([fetchStats(), fetchChartData(usersData || [])]);
-      
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast({ title: "Error", description: "Failed to load all dashboard data.", variant: "destructive" });
-    }
-  };
+            if (rolesError) throw rolesError;
+            
+            // Step 3: Combine them in JavaScript.
+            // This bypasses the faulty Supabase join cache completely.
+            const usersWithRoles = profiles.map(profile => {
+                const roleInfo = userRoles.find(ur => ur.user_id === profile.user_id);
+                return {
+                    ...profile,
+                    role: roleInfo?.role || 'user',
+                };
+            });
+            setUsers(usersWithRoles);
+
+            // Fetch other data in parallel. These queries are working fine.
+            const { data: destData, error: destError } = await supabase
+                .from('destinations')
+                .select(`*, admin_profile:admin_id ( full_name )`)
+                .order('created_at', { ascending: false });
+            if (destError) throw destError;
+            setDestinations(destData as Destination[] || []);
+
+            // Stats and Chart data fetches can remain the same
+            await fetchStats();
+            await fetchChartData(profiles || []); // Pass the raw profiles data here
+
+        } catch (error: any) {
+            console.error('Error fetching dashboard data:', error);
+            // This will now show the REAL error if one of the individual queries fails.
+            toast({ title: "Error", description: `Failed to load all dashboard data: ${error.message}`, variant: "destructive" });
+        }
+    };
 
   const handleStatusUpdate = async (destinationId: string, status: Destination['status']) => {
     if (!user) return; // Guard clause
