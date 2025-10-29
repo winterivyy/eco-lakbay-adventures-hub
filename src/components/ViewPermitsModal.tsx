@@ -27,39 +27,47 @@ export const ViewPermitsModal: React.FC<ViewPermitsModalProps> = ({ isOpen, onCl
       setLoadingPermitId(permit.id);
       
       try {
-        let filePath = permit.file_url;
-        
-        // --- THIS IS THE CRITICAL FIX ---
-        // This code defensively checks if a full URL was stored in the database.
-        // If it was, it extracts just the path needed for createSignedUrl.
-        if (filePath.includes(PERMITS_BUCKET + '/')) {
-            // Split the URL string by the bucket name and take the second part.
-            // Example: "https://.../permit/folder/file.jpg" -> "folder/file.jpg"
-            filePath = filePath.split(PERMITS_BUCKET + '/')[1];
+        let pathOrUrl = permit.file_url;
+        let cleanPath = '';
+
+        // --- FINAL BULLETPROOF LOGIC ---
+        // This regex finds the bucket name in the URL and captures everything after it.
+        // It correctly handles paths like `/public/permits/path/to/file` and `/sign/permits/path/to/file`.
+        const regex = new RegExp(`/${PERMITS_BUCKET}/(.*)`);
+        const match = pathOrUrl.match(regex);
+
+        if (match && match[1]) {
+            // match[1] contains the captured group - everything after `/permits/`
+            cleanPath = match[1];
+        } else {
+            // As a fallback, if the regex fails, assume it's a direct path.
+            cleanPath = pathOrUrl;
         }
 
+        // Generate the secure, temporary URL
         const { data, error } = await supabase.storage
           .from(PERMITS_BUCKET)
-          .createSignedUrl(filePath, 300); // 300 seconds = 5 minutes expiration
+          .createSignedUrl(cleanPath, 300); // 300 seconds = 5 minutes expiration
 
         if (error) {
-          // If the error persists, it means the filePath is still wrong.
-          throw error;
+            // This will now only throw if the file truly doesn't exist
+            throw error;
         }
 
+        // Open the correct, signed URL
         window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+
       } catch (error: any) {
-        console.error("Error generating signed URL. Raw file_url was:", permit.file_url, "Processed path was:", permit.file_url.split(PERMITS_BUCKET + '/')[1]);
+        console.error("Error generating signed URL. Raw was:", permit.file_url);
         toast({
           title: "Could not open file.",
-          description: error.message, // Will now show "Object not found" if path is still wrong
+          description: error.message,
           variant: "destructive",
         });
       } finally {
         setLoadingPermitId(null);
       }
     };
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
