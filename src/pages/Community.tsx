@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreatePostModal } from "@/components/CreatePostModal";
 import { EditPostModal } from "@/components/EditPostModal";
-//import { CreateEventModal } from "@/components/CreateEventModal";//
+import { CreateEventModal } from "@/components/CreateEventModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,12 +61,12 @@ interface Profile {
   points?: number;
 }
 
-//interface Comment {
-  //id: string;
-  //created_at: string;
-  //content: string;
-  //profiles: { full_name: string; avatar_url?: string } | null;
-//}
+interface Comment {
+  id: string;
+  created_at: string;
+  content: string;
+  profiles: { full_name: string; avatar_url?: string } | null;
+}
 
 interface Event {
   id: string;
@@ -107,11 +107,11 @@ const Community = () => {
   const { toast } = useToast();
 
   // Data for the sidebar preview card
-  //const upcomingEventsPreview = [
-    //{ title: "Mangrove Planting Day", date: "Dec 15, 2024", location: "Candaba Wetlands", participants: 45 },
-    //{ title: "Sustainable Tourism Workshop", date: "Dec 20, 2024", location: "Clark Green City", participants: 32 },
-   // { title: "Cultural Heritage Walk", date: "Dec 22, 2024", location: "San Fernando", participants: 28 },
-  //];
+  const upcomingEventsPreview = [
+    { title: "Mangrove Planting Day", date: "Dec 15, 2024", location: "Candaba Wetlands", participants: 45 },
+    { title: "Sustainable Tourism Workshop", date: "Dec 20, 2024", location: "Clark Green City", participants: 32 },
+    { title: "Cultural Heritage Walk", date: "Dec 22, 2024", location: "San Fernando", participants: 28 },
+  ];
 
   // --- DATA FETCHING LOGIC ---
   const fetchPostsAndProfiles = async () => {
@@ -177,57 +177,57 @@ const Community = () => {
     }
   };
 
-  // const fetchAllEvents = async () => {
-  //   setIsModalLoading(true);
-  //   try {
-  //     const { data: eventsData, error: eventsError } = await supabase.from("events").select("id, title, date, location").order("date", { ascending: true });
-  //     if (eventsError) throw eventsError;
+  const fetchAllEvents = async () => {
+    setIsModalLoading(true);
+    try {
+      const { data: eventsData, error: eventsError } = await supabase.from("events").select("id, title, date, location").order("date", { ascending: true });
+      if (eventsError) throw eventsError;
 
-  //     if (eventsData) {
-  //       const countsPromises = eventsData.map(event => supabase.from('event_participants').select('*', { count: 'exact', head: true }).eq('event_id', event.id));
-  //       const countsResults = await Promise.all(countsPromises);
+      if (eventsData) {
+        const countsPromises = eventsData.map(event => supabase.from('event_participants').select('*', { count: 'exact', head: true }).eq('event_id', event.id));
+        const countsResults = await Promise.all(countsPromises);
 
-  //       const countsMap = eventsData.reduce((acc, event, index) => {
-  //           acc[event.id] = countsResults[index].count || 0;
-  //           return acc;
-  //       }, {} as {[key: string]: number});
+        const countsMap = eventsData.reduce((acc, event, index) => {
+            acc[event.id] = countsResults[index].count || 0;
+            return acc;
+        }, {} as {[key: string]: number});
         
-  //       setAllEvents(eventsData || []);
-  //       setAllEventsParticipants(countsMap);
-  //     } else {
-  //       setAllEvents([]);
-  //     }
-  //   } catch (error: any) {
-  //     console.error("Error fetching all events:", error);
-  //     toast({ title: "Could not load events.", description: error.message, variant: "destructive" });
-  //   } finally {
-  //     setIsModalLoading(false);
-  //   }
-  // };
+        setAllEvents(eventsData || []);
+        setAllEventsParticipants(countsMap);
+      } else {
+        setAllEvents([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching all events:", error);
+      toast({ title: "Could not load events.", description: error.message, variant: "destructive" });
+    } finally {
+      setIsModalLoading(false);
+    }
+  };
 
-  // const fetchJoinedEvents = async () => {
-  //   if (!user) return;
-  //   try {
-  //       const { data, error } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
-  //       if (error) throw error;
-  //       const joinedIds = new Set(data.map(item => item.event_id));
-  //       setJoinedEvents(joinedIds);
-  //   } catch (error) {
-  //       console.error("Could not fetch joined events", error);
-  //   }
-  // }
+  const fetchJoinedEvents = async () => {
+    if (!user) return;
+    try {
+        const { data, error } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
+        if (error) throw error;
+        const joinedIds = new Set(data.map(item => item.event_id));
+        setJoinedEvents(joinedIds);
+    } catch (error) {
+        console.error("Could not fetch joined events", error);
+    }
+  }
 
   // --- useEffect HOOKS ---
   useEffect(() => {
     fetchPostsAndProfiles();
   }, [user]);
 
-  // useEffect(() => {
-  //   if (viewAllEventsOpen) {
-  //     fetchAllEvents();
-  //     fetchJoinedEvents();
-  //   }
-  // }, [viewAllEventsOpen, user]);
+  useEffect(() => {
+    if (viewAllEventsOpen) {
+      fetchAllEvents();
+      fetchJoinedEvents();
+    }
+  }, [viewAllEventsOpen, user]);
 
   useEffect(() => {
     if (viewLeaderboardOpen) {
@@ -276,21 +276,21 @@ const Community = () => {
     if (willOpen && !comments[postId]) fetchComments(postId);
   };
 
-  // const handleJoinEvent = async (eventId: string) => {
-  //   if (!user) { toast({ title: "Please log in to join events", variant: "destructive" }); return; }
-  //   setJoinedEvents(prev => new Set(prev).add(eventId));
-  //   setAllEventsParticipants(prev => ({...prev, [eventId]: (prev[eventId] || 0) + 1 }));
-  //   try {
-  //       const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id });
-  //       if (error) { if (error.code === '23505') { toast({ title: "You've already joined this event!" }); return; } throw error; }
-  //       toast({ title: "You've joined the event!", description: "See you there!" });
-  //   } catch (error: any) {
-  //       console.error("Error joining event", error);
-  //       toast({ title: "Failed to join event", description: error.message, variant: "destructive" });
-  //       setJoinedEvents(prev => { const newSet = new Set(prev); newSet.delete(eventId); return newSet; });
-  //       setAllEventsParticipants(prev => ({...prev, [eventId]: (prev[eventId] || 1) - 1 }));
-  //   }
-  // }
+  const handleJoinEvent = async (eventId: string) => {
+    if (!user) { toast({ title: "Please log in to join events", variant: "destructive" }); return; }
+    setJoinedEvents(prev => new Set(prev).add(eventId));
+    setAllEventsParticipants(prev => ({...prev, [eventId]: (prev[eventId] || 0) + 1 }));
+    try {
+        const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id });
+        if (error) { if (error.code === '23505') { toast({ title: "You've already joined this event!" }); return; } throw error; }
+        toast({ title: "You've joined the event!", description: "See you there!" });
+    } catch (error: any) {
+        console.error("Error joining event", error);
+        toast({ title: "Failed to join event", description: error.message, variant: "destructive" });
+        setJoinedEvents(prev => { const newSet = new Set(prev); newSet.delete(eventId); return newSet; });
+        setAllEventsParticipants(prev => ({...prev, [eventId]: (prev[eventId] || 1) - 1 }));
+    }
+  }
    const handleOpenEditModal = (postToEdit: Post) => {
     setEditingPost(postToEdit);
     setEditPostModalOpen(true);
@@ -434,7 +434,7 @@ const Community = () => {
       <EditPostModal open={editPostModalOpen} onOpenChange={setEditPostModalOpen} onPostUpdated={fetchPostsAndProfiles} post={editingPost} />
       <CreateEventModal open={createEventModalOpen} onOpenChange={setCreateEventModalOpen} onEventCreated={() => { fetchAllEvents(); fetchJoinedEvents(); }} />
 
-      {/* <Dialog open={viewAllEventsOpen} onOpenChange={setViewAllEventsOpen}>
+      <Dialog open={viewAllEventsOpen} onOpenChange={setViewAllEventsOpen}>
         <DialogContent className="sm:max-w-md md:max-w-lg">
           <DialogHeader><DialogTitle>All Upcoming Events</DialogTitle></DialogHeader>
           <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1 -mx-1">
@@ -461,7 +461,7 @@ const Community = () => {
           </div>
           {isAdmin && <Button className="mt-4 w-full" onClick={() => { setViewAllEventsOpen(false); setCreateEventModalOpen(true); }}>+ Create New Event</Button>}
         </DialogContent>
-      </Dialog> */}
+      </Dialog>
       
       <Dialog open={viewLeaderboardOpen} onOpenChange={setViewLeaderboardOpen}>
         <DialogContent className="sm:max-w-md">
