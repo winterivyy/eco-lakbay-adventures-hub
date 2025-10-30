@@ -11,6 +11,7 @@ import { Loader2, Download } from "lucide-react"; // Import Loader2 for the load
 // --- NEW ---: Import the PDF libraries
 import { Loader2, Download, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
+import { marked } from 'marked'; 
 import html2canvas from "html2canvas";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 interface TripPlannerModalProps {
@@ -114,44 +115,43 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
     }
     
     setIsDownloading(true);
-    const contentToCapture = tripPlanRef.current;
+     try {
+            const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
 
-    try {
-      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-      
-      await pdf.html(contentToCapture, {
-        callback: function(doc) {
-          // Add a footer with disclaimer to each page
-          const pageCount = doc.internal.pages.length - 1;
-          const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
-          
-          doc.setFontSize(8);
-          doc.setTextColor(150);
-          
-          for(let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.text(disclaimerText, 40, doc.internal.pageSize.height - 30);
-          }
-          
-          doc.save('ecolakbay-trip-plan.pdf');
-          setIsDownloading(false); // Set loading to false inside the callback
-        },
-        x: 0,
-        y: 0,
-        // Let auto-width handle it by not specifying width
-        windowWidth: contentToCapture.scrollWidth,
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
+            await pdf.html(tripPlanRef.current, {
+                callback: function(doc) {
+                    // Get the total number of pages
+                    const pageCount = doc.internal.pages.length - 1;
+
+                    // Go to the last page to add the disclaimer
+                    doc.setPage(pageCount);
+
+                    const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
+                    doc.setFontSize(8);
+                    doc.setTextColor(150);
+
+                    // Add the disclaimer near the bottom of the last page
+                    doc.text(disclaimerText, 40, doc.internal.pageSize.height - 40, {
+                        maxWidth: doc.internal.pageSize.width - 80 // Max width with margins
+                    });
+
+                    doc.save('ecolakbay-trip-plan.pdf');
+                },
+                x: 15,
+                y: 15,
+                width: 170, // A4 width is 210, so 170 leaves good margins
+                windowWidth: 650, // Standard document width
+                // --- NEW ---: Auto-scale the content
+                autoPaging: 'text',
+            });
+        } catch (error) {
+            console.error("Error creating PDF:", error);
+            toast({ title: "PDF Creation Failed", variant: "destructive" });
+        } finally {
+            setIsDownloading(false);
         }
-      });
+    };
 
-    } catch (error) {
-        console.error("Error creating PDF:", error);
-        toast({ title: "PDF Creation Failed", variant: "destructive"});
-        setIsDownloading(false); // Also set loading to false on error
-    }
-  };
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -165,11 +165,11 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
             {/* The ref here is crucial for html2canvas to know what to capture */}
-              <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-              <h1 style={{color: '#059669', fontSize: '1.5em'}}>Your EcoLakbay Trip Plan</h1>
-              {/* jsPDF needs actual HTML elements, not just a string */}
-              <div dangerouslySetInnerHTML={{ __html: tripPlan.replace(/\n/g, '<br />') }} />
-            </div>
+              <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none text-sm leading-relaxed">
+                            <h1 style={{color: '#059669'}}>Your EcoLakbay Trip Plan</h1>
+                            {/* This converts the AI's markdown string into real HTML */}
+                            <div dangerouslySetInnerHTML={{ __html: marked(tripPlan) as string }} />
+                        </div>
             <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 !text-amber-600" />
               <AlertTitle className="font-semibold !text-amber-800 dark:!text-amber-200">AI-Generated Content</AlertTitle>
