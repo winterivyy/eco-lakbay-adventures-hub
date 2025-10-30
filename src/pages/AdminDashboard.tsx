@@ -64,7 +64,13 @@ const AdminDashboard = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
    const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false); // New state for create user modal
-
+    const filteredUsers = useMemo(() => {
+        if (!allUsers) return []; // Safety check
+        return allUsers.filter(u =>
+            u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [allUsers, searchTerm]);
   
   // Helper function to insert a log entry
   const logAction = async (action: string, details: object) => {
@@ -233,13 +239,7 @@ const AdminDashboard = () => {
         setIsCreateUserModalOpen(false);
         loadAdminData();
     };
-      const filteredUsers = useMemo(() => {
-        if (!allUsers) return []; // Safety check
-        return allUsers.filter(u =>
-            u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [allUsers, searchTerm]);
+  
 
   return (
     <>
