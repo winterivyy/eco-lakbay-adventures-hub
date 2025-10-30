@@ -239,53 +239,13 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
   };
   
   // Render a simplified layout for the homepage preview
-  if (isPreview) {
-    return (
-      <>
-        {renderContent()}
-        {destinations.length > 0 && (
-          <div className="text-center mt-12">
-            <Button variant="eco" size="lg" onClick={() => navigate('/destinations')}>
-              View All Destinations
-            </Button>
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // Render the full page layout for the main /destinations route
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="bg-gradient-hero py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Sustainable Destinations</h1>
-          <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover destinations that promote environmental conservation and support local communities.</p>
-        </div>
-      </div>
-      <div className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Card className="mb-12">
-            <CardHeader><CardTitle>Find Your Destination</CardTitle><CardDescription>Use the search and filters below to discover your next sustainable adventure.</CardDescription></CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row flex-wrap gap-4 items-center">
-                <div className="relative flex-grow w-full md:w-auto"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="text" placeholder="Search destinations, city..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
-                <Select value={selectedProvince} onValueChange={setSelectedProvince}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Provinces" /></SelectTrigger><SelectContent>{provinces.map(province => (<SelectItem key={province} value={province}>{province}</SelectItem>))}</SelectContent></Select>
-                <Select value={selectedType} onValueChange={setSelectedType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger><SelectContent>{businessTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select>
-                <Select value={selectedRating} onValueChange={setSelectedRating}>
-                  <SelectTrigger className="w-full md:w-[180px]"><div className="flex items-center gap-2"><Star className="h-4 w-4 text-muted-foreground" /><SelectValue placeholder="Any Rating" /></div></SelectTrigger>
-                  <SelectContent>{ratingOptions.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-            {isFiltered && (<CardFooter><Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground"><X className="w-4 h-4 mr-2" /> Reset Filters</Button></CardFooter>)}
-          </Card>
-          <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
-          {renderContent()}
-        </div>
-      </div>
-
+    <>
+      {/* 
+        Step 1: Render the modals at the top level.
+        They will always be in the DOM but hidden, controlled by their `open` prop.
+        This makes them available on BOTH the full page and the preview.
+      */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedDestination && (
@@ -298,11 +258,9 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
                 <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
                 <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-forest hover:underline">{selectedDestination.website}</a></div>
               </DialogHeader>
-
               <div className="space-y-6 py-4">
                 <div><h3 className="font-semibold text-foreground mb-2">About this Destination</h3><p className="text-muted-foreground">{selectedDestination.description}</p></div>
                 {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground whitespace-pre-line">{selectedDestination.sustainability_practices}</p></div>)}
-                
                 <div>
                   <h3 className="text-lg font-semibold text-forest mb-4">Reviews from our Community</h3>
                   {reviewsLoading ? (<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>) 
@@ -318,7 +276,6 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
                     </div>
                   ) : (<p className="text-center text-muted-foreground py-8">No reviews yet. Be the first to leave one!</p>)}
                 </div>
-
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button variant="eco" className="flex-1" onClick={() => handleRateClick(selectedDestination)}>⭐ Leave a Review</Button>
                   <Button variant="outline" className="flex-1" onClick={() => handleViewOnMap(selectedDestination)}><MapPin className="mr-2 h-4 w-4" />View on Map</Button>
@@ -329,11 +286,58 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
           )}
         </DialogContent>
       </Dialog>
-      
       <DestinationRatingModal isOpen={isRatingModalOpen} onClose={() => setIsRatingModalOpen(false)} destination={selectedDestination} />
-      
-      <Footer />
-    </div>
+
+      {/* 
+        Step 2: Conditionally render the layout around the content.
+      */}
+      {isPreview ? (
+        // Preview Mode: Just render the content and a "View All" button.
+        <>
+          {renderContent()}
+          {destinations.length > 0 && (
+            <div className="text-center mt-12">
+              <Button variant="eco" size="lg" onClick={() => navigate('/destinations')}>
+                View All Destinations
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        // Full Page Mode: Render the entire page structure.
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <div className="bg-gradient-hero py-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+              <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Sustainable Destinations</h1>
+              <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover verified eco-friendly destinations that promote environmental conservation and support local communities.</p>
+            </div>
+          </div>
+          <div className="py-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <Card className="mb-12">
+                <CardHeader><CardTitle>Find Your Destination</CardTitle><CardDescription>Use the search and filters below to discover your next sustainable adventure.</CardDescription></CardHeader>
+                <CardContent>
+                  <div className="flex flex-col md:flex-row flex-wrap gap-4 items-center">
+                    <div className="relative flex-grow w-full md:w-auto"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="text" placeholder="Search destinations, city..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
+                    <Select value={selectedProvince} onValueChange={setSelectedProvince}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Provinces" /></SelectTrigger><SelectContent>{provinces.map(province => (<SelectItem key={province} value={province}>{province}</SelectItem>))}</SelectContent></Select>
+                    <Select value={selectedType} onValueChange={setSelectedType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger><SelectContent>{businessTypes.map(type => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select>
+                    <Select value={selectedRating} onValueChange={setSelectedRating}>
+                      <SelectTrigger className="w-full md:w-[180px]"><div className="flex items-center gap-2"><Star className="h-4 w-4 text-muted-foreground" /><SelectValue placeholder="Any Rating" /></div></SelectTrigger>
+                      <SelectContent>{ratingOptions.map(option => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+                {isFiltered && (<CardFooter><Button variant="ghost" onClick={handleResetFilters} className="text-sm text-muted-foreground"><X className="w-4 w-4 mr-2" /> Reset Filters</Button></CardFooter>)}
+              </Card>
+              <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-forest">{isLoading ? 'Loading...' : `${filteredDestinations.length} Destination${filteredDestinations.length !== 1 ? 's' : ''} Found`}</h2></div>
+              {renderContent()}
+            </div>
+          </div>
+          <Footer />
+        </div>
+      )}
+    </>
   );
 };
 
