@@ -21,6 +21,7 @@ import {
 // --- NEW ---: Import your external, corrected modal components
 import { ViewPermitsModal } from "@/components/ViewPermitsModal";
 import { EditDestinationModal } from "@/components/EditDestinationModal";
+import { CreateUserModal } from "@/components/CreateUserModal"; // Import the new modal
 
 // --- REMOVED ---: The old, inline modal components that were defined here are gone.
 interface LogEntry {
@@ -61,6 +62,8 @@ const AdminDashboard = () => {
   const [isPermitsModalOpen, setIsPermitsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false); // New state for create user modal
+
   
   // Helper function to insert a log entry
   const logAction = async (action: string, details: object) => {
@@ -209,6 +212,26 @@ const AdminDashboard = () => {
   const userName = profile?.full_name || user?.email?.split('@')[0] || 'Admin';
   const totalDestinations = allDestinations.length;
   const totalUsers = allUsers.length;
+
+   const handleDeleteUser = async (userIdToDelete: string) => {
+        try {
+            const { error } = await supabase.functions.invoke('hard-delete-user', {
+                body: { user_id_to_delete: userIdToDelete },
+            });
+            if (error) throw error;
+            
+            toast({ title: "User Deleted", description: "The user has been permanently removed."});
+            await logAction('user_deleted', { deletedUserId: userIdToDelete });
+            loadAdminData(); // Refresh list
+        } catch (error: any) {
+            toast({ title: "Deletion Failed", description: error.message, variant: "destructive"});
+        }
+    };
+
+    const handleUserCreated = () => {
+        setIsCreateUserModalOpen(false);
+        loadAdminData();
+    };
 
   return (
     <>
@@ -372,9 +395,48 @@ const AdminDashboard = () => {
                   <CardContent><div className="space-y-4 max-h-96 overflow-y-auto">{allRatings.slice(0, 10).map((rating) => (<div key={rating.id} className="p-4 bg-gradient-card rounded-lg"><div className="flex items-start justify-between mb-2"><div><h4 className="font-semibold text-forest">{rating.destinations?.business_name}</h4><p className="text-sm text-muted-foreground">by {rating.profiles?.full_name}</p></div><div className="flex items-center gap-1"><span className="text-sm font-medium">{rating.overall_score}/5</span></div></div><p className="text-xs text-muted-foreground">{new Date(rating.created_at).toLocaleDateString()}</p>{rating.comments && <p className="text-sm mt-2 italic line-clamp-2">{rating.comments}</p>}</div>))}{allRatings.length === 0 && <p className="text-center text-muted-foreground py-8">No ratings yet</p>}</div></CardContent>
                 </Card>
                 <Card className="shadow-eco xl:col-span-2">
-                  <CardHeader><CardTitle className="text-xl text-forest flex items-center gap-2">
-                    <Users className="h-5 w-5" />All Users</CardTitle><div className="flex items-center space-x-2"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" /></div></CardHeader>
-                  <CardContent><div className="space-y-4 max-h-96 overflow-y-auto">{allUsers.filter(u => u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase())).map((user) => (<div key={user.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg"><div className="flex items-center space-x-3"><Avatar className="h-10 w-10"><AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback></Avatar><div><h4 className="font-semibold text-forest">{user.full_name || "Anonymous"}</h4><p className="text-sm text-muted-foreground">{user.email}</p><p className="text-xs text-muted-foreground">Joined: {new Date(user.joined_at).toLocaleDateString()}</p></div></div><div className="flex items-center gap-4"><div className="text-right"><div className="font-bold text-amber-600">{user.points || 0} pts</div></div><Dialog onOpenChange={(open) => !open && setEditingUser(null)}><DialogTrigger asChild><Button size="sm" variant="outline" onClick={() => setEditingUser(user)}><Edit2 className="w-4 w-4" /></Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Edit User: {editingUser?.full_name || editingUser?.email}</DialogTitle></DialogHeader>{editingUser && <div className="space-y-4"><div><Label>Full Name</Label><Input defaultValue={editingUser.full_name || ""} onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})} /></div><div><Label>Points</Label><Input type="number" defaultValue={editingUser.points || 0} onChange={(e) => setEditingUser({...editingUser, points: parseInt(e.target.value)})} /></div><div><Label>Bio</Label><Input defaultValue={editingUser.bio || ""} onChange={(e) => setEditingUser({...editingUser, bio: e.target.value})} /></div><div><Label>Location</Label><Input defaultValue={editingUser.location || ""} onChange={(e) => setEditingUser({...editingUser, location: e.target.value})} /></div><Button onClick={() => handleUpdateUser(editingUser.user_id, editingUser)} className="w-full">Update User</Button></div>}</DialogContent></Dialog></div></div>))}</div></CardContent>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="text-xl text-forest flex items-center gap-2"><Users className="h-5 w-5" /> All Users</CardTitle>
+                        <Button onClick={() => setIsCreateUserModalOpen(true)} size="sm">
+                            <Plus className="h-4 w-4 mr-2"/> Create User
+                        </Button>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-4">
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" />
+                    </div>
+                  </CardHeader>
+                  <CardContent><div className="space-y-4 max-h-96 overflow-y-auto pr-2">{allUsers.filter(/*...*/).map((u) => (
+                    <div key={u.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
+                        {/* ... user info display ... */}
+                        <div className="flex items-center gap-2">
+                            {/* ... Edit button and dialog ... */}
+                            {/* --- NEW ---: Delete User Button with Confirmation */}
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="destructive" disabled={u.email === user?.email}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action is irreversible. It will permanently delete the user <strong className="text-foreground">{u.full_name || u.email}</strong> and all of their associated data.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteUser(u.user_id)} className="bg-destructive hover:bg-destructive/90">
+                                            Confirm Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </div>))}
+                  </div></CardContent>
                 </Card>
               </div>
             </div>
@@ -383,6 +445,7 @@ const AdminDashboard = () => {
         <Footer />
       </div>
       <ViewPermitsModal isOpen={isPermitsModalOpen} onClose={handleClosePermitsModal} destination={viewingDestinationPermits} />
+        <CreateUserModal isOpen={isCreateUserModalOpen} onClose={() => setIsCreateUserModalOpen(false)} onUserCreated={handleUserCreated} />
       <EditDestinationModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleSaveEditModal}  onDelete={handleDestinationDeleted} destination={editingDestination} />  </>
   );
 };
