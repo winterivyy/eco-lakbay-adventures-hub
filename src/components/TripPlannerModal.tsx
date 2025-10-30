@@ -212,7 +212,9 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
         {showPlan ? (
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
-          
+               <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                            {tripPlan}
+                        </div>
             <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 !text-amber-600" />
               <AlertTitle className="font-semibold !text-amber-800 dark:!text-amber-200">AI-Generated Content</AlertTitle>
