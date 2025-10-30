@@ -16,7 +16,7 @@ import { useState } from "react";
 const Calculator = () => {
   const [transportation, setTransportation] = useState("");
   const [distance, setDistance] = useState("");
-  const [carbonFootprint, setCarbonFootprint] = useState(0);
+  const [carbonFootprint, setCarbonFootprint] = useState(null);
 
   const calculateCarbon = () => {
     const dist = parseFloat(distance) || 0;
@@ -33,8 +33,12 @@ const Calculator = () => {
       walking: 0,
     };
 
-    // --- CALCULATE TOTAL TRIP EMISSIONS ---
-    total = dist * (emissionFactors[transportation] || 0.1);
+    // --- Correct Calculation ---
+    if (emissionFactors.hasOwnProperty(transportation)) {
+      total = dist * emissionFactors[transportation];
+    } else {
+      total = 0; // default to 0 if invalid selection
+    }
 
     setCarbonFootprint(total);
   };
@@ -42,6 +46,7 @@ const Calculator = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
+
       {/* Header Section */}
       <div className="bg-gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
@@ -124,7 +129,7 @@ const Calculator = () => {
             {/* Results & Tips Section */}
             <div className="space-y-6">
               {/* Results */}
-              {carbonFootprint > 0 && (
+              {carbonFootprint !== null && carbonFootprint > 0 && (
                 <Card className="shadow-eco">
                   <CardHeader>
                     <CardTitle className="text-2xl text-forest">
@@ -171,6 +176,23 @@ const Calculator = () => {
                 </Card>
               )}
 
+              {/* Special Message for Zero Emission */}
+              {carbonFootprint === 0 && transportation && (
+                <Card className="shadow-eco">
+                  <CardHeader>
+                    <CardTitle className="text-2xl text-green-700">
+                      🌿 Zero Emission Trip!
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center text-muted-foreground">
+                    <p>
+                      Great choice! Walking or biking produces no carbon
+                      emissions and contributes to a healthier planet.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Eco-Friendly Tips */}
               <Card className="shadow-eco">
                 <CardHeader>
@@ -191,6 +213,7 @@ const Calculator = () => {
           </div>
         </div>
       </div>
+
       <Footer />
     </div>
   );
