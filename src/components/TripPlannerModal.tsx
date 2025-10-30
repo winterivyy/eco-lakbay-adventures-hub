@@ -127,7 +127,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
                     doc.setPage(pageCount);
 
                     const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
-                    doc.setFontSize(8);
+                    doc.setFontSize(12);
                     doc.setTextColor(150);
 
                     // Add the disclaimer near the bottom of the last page
