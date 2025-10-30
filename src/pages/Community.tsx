@@ -411,21 +411,44 @@ const Community = () => {
         </main>
         
         <aside className="space-y-6">
-          {/* <Card>
-            <CardHeader><CardTitle>Upcoming Events</CardTitle></CardHeader>
-            <CardContent>
-              {upcomingEventsPreview.map((e, i) => (<div key={i} className="border-l-2 border-forest pl-3 mb-3 last:mb-0"><p className="font-medium text-sm">{e.title}</p><p className="text-xs text-muted-foreground">{e.date} • {e.location}</p><p className="text-xs text-amber">{e.participants} joining</p></div>))}
-              <Button variant="outline" className="w-full mt-4" onClick={() => setViewAllEventsOpen(true)}>View All Events</Button>
-            </CardContent>
-          </Card>
-          <Card> */}
-            <CardHeader><CardTitle>Green Champions</CardTitle></CardHeader>
-            <CardContent>
-              {topProfiles.map((p, i) => (<div key={p.user_id} className="flex justify-between items-center mb-2 last:mb-0"><div className="flex items-center gap-2"><span className="w-6 text-center">{getRankIndicator(i)}</span><span>{p.full_name}</span></div><Badge variant="gold">{p.points || 0} pts</Badge></div>))}
-              <Button variant="eco" className="w-full mt-4" onClick={() => setViewLeaderboardOpen(true)}>View Leaderboard</Button>
-            </CardContent>
-          </Card>
-        </aside>
+  {/* Hide Upcoming Events card */}
+  {false && (
+    <Card>
+      <CardHeader><CardTitle>Upcoming Events</CardTitle></CardHeader>
+      <CardContent>
+        {upcomingEventsPreview.map((e, i) => (
+          <div key={i} className="border-l-2 border-forest pl-3 mb-3 last:mb-0">
+            <p className="font-medium text-sm">{e.title}</p>
+            <p className="text-xs text-muted-foreground">{e.date} • {e.location}</p>
+            <p className="text-xs text-amber">{e.participants} joining</p>
+          </div>
+        ))}
+        <Button variant="outline" className="w-full mt-4" onClick={() => setViewAllEventsOpen(true)}>
+          View All Events
+        </Button>
+      </CardContent>
+    </Card>
+  )}
+
+  {/* Keep the Green Champions card visible */}
+  <Card>
+    <CardHeader><CardTitle>Green Champions</CardTitle></CardHeader>
+    <CardContent>
+      {topProfiles.map((p, i) => (
+        <div key={p.user_id} className="flex justify-between items-center mb-2 last:mb-0">
+          <div className="flex items-center gap-2">
+            <span className="w-6 text-center">{getRankIndicator(i)}</span>
+            <span>{p.full_name}</span>
+          </div>
+          <Badge variant="gold">{p.points || 0} pts</Badge>
+        </div>
+      ))}
+      <Button variant="eco" className="w-full mt-4" onClick={() => setViewLeaderboardOpen(true)}>
+        View Leaderboard
+      </Button>
+    </CardContent>
+  </Card>
+</aside>
       </div>
       <Footer />
       
