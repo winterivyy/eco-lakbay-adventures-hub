@@ -105,82 +105,76 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
   };
 
   
-     const handleDownloadPdf = async () => {
-      const contentToCapture = tripPlanRef.current;
-      if (!tripPlan) {
+       // --- THIS IS THE FINAL AND MOST RELIABLE PDF FUNCTION ---
+  const handleDownloadPdf = () => {
+    // We check the state variable directly, not the ref.
+    if (!tripPlan) {
       toast({ title: "Error", description: "No trip plan content to download.", variant: "destructive" });
       return;
     }
     
-      setIsDownloading(true);
+    setIsDownloading(true);
 
     try {
-        // --- Create a temporary clone for accurate capturing ---
-        const clone = contentToCapture.cloneNode(true) as HTMLElement;
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const margin = 15;
+      const maxWidth = pdf.internal.pageSize.getWidth() - (margin * 2);
+      let cursorY = 20;
 
-        // Create the disclaimer element
-        const disclaimer = document.createElement('div');
-        disclaimer.innerHTML = `
-            <div style="margin-top: 20px; padding: 15px; border: 1px solid #f59e0b; background-color: #fffbeb; color: #b45309; border-radius: 8px; font-size: 10px;">
-                <h4 style="font-weight: 600; margin-bottom: 5px;">AI-Generated Content Disclaimer</h4>
-                <p>This itinerary is based on the generative knowledge of the AI and was not fed with real-time data from EcoLakbay's partners. Please verify details with establishments before your trip.</p>
-            </div>
-        `;
-        clone.appendChild(disclaimer);
+      // Add Header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(22);
+      pdf.text("Your EcoLakbay Trip Plan", margin, cursorY);
+      cursorY += 15;
 
-        // Style the clone to be off-screen but rendered at full height
-        clone.style.position = 'absolute';
-        clone.style.left = '-9999px';
-        clone.style.top = '0px';
-        clone.style.width = `${contentToCapture.offsetWidth}px`; // Use the original width
-        
-        document.body.appendChild(clone);
-        
-        // --- Capture the full-height clone ---
-        const canvas = await html2canvas(clone, {
-            scale: 2,
-            useCORS: true,
-            // Allow the canvas to expand to the full height of the content
-            windowHeight: clone.scrollHeight, 
-            scrollY: -window.scrollY,
-        });
+      // Add Trip Plan Body
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      
+      // jsPDF's .text() method with `maxWidth` will automatically handle text wrapping and page breaks.
+      pdf.text(tripPlan, margin, cursorY, { maxWidth: maxWidth });
+      
+      // --- How to find the end position to add the disclaimer ---
+      // We create a temporary split of the text to estimate where it ends.
+      const textLines = pdf.splitTextToSize(tripPlan, maxWidth);
+      const textBlockHeight = textLines.length * (pdf.getLineHeight() / pdf.internal.scaleFactor);
+      let finalY = cursorY + textBlockHeight;
 
-        // --- Clean up the cloned element immediately ---
-        document.body.removeChild(clone);
+      // If the content is very long and has auto-paged, finalY will be on the last page
+      const pageCount = Math.ceil(finalY / pdf.internal.pageSize.getHeight());
+      finalY = finalY % pdf.internal.pageSize.getHeight();
+      if (pageCount > pdf.internal.pages.length - 1) {
+          pdf.setPage(pageCount);
+      } else {
+          pdf.setPage(pdf.internal.pages.length - 1);
+      }
 
-        // --- PDF Generation Logic (The slicing part is now correct) ---
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgHeight / imgWidth;
-        const pdfImageHeight = (pdfWidth * ratio); // Calculate height based on PDF width
 
-        let position = 0;
-        let heightLeft = pdfImageHeight;
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
-
-        while (heightLeft > 0) {
-            position = position - pdf.internal.pageSize.getHeight();
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
-            heightLeft -= pdf.internal.pageSize.getHeight();
-        }
-
-        pdf.save(`ecolakbay-trip-plan.pdf`);
+      let disclaimerY = finalY + 15;
+      
+      // If the disclaimer doesn't fit, add a new page
+      if (disclaimerY > pdf.internal.pageSize.getHeight() - 30) {
+        pdf.addPage();
+        disclaimerY = 20;
+      }
+      
+      // Add Disclaimer Text
+      const disclaimerText = "Disclaimer: This itinerary is generated by AI based on general knowledge and was not fed with real-time data from EcoLakbay's partners. Availability, operating hours, and conditions of suggested destinations may vary. Please verify details directly with the establishments before your trip.";
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(9);
+      pdf.setTextColor(150); // Gray
+      pdf.text(disclaimerText, margin, disclaimerY, { maxWidth: maxWidth });
+      
+      pdf.save(`ecolakbay-trip-plan.pdf`);
 
     } catch (error) {
-        console.error("Error creating PDF:", error);
+        console.error("Error creating text-based PDF:", error);
         toast({ title: "PDF Creation Failed", variant: "destructive"});
     } finally {
         setIsDownloading(false);
     }
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
