@@ -1,190 +1,320 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Download } from "lucide-react"; // Import Loader2 for the loading state
+// --- NEW ---: Import the PDF libraries
 import { Loader2, Download, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
+import { marked } from 'marked';
+import html2canvas from "html2canvas";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 interface TripPlannerModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+open: boolean;
+onOpenChange: (open: boolean) => void;
 }
-
 const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [tripPlan, setTripPlan] = useState<string>("");
-  const [showPlan, setShowPlan] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const { toast } = useToast();
-
-  // --- FIX #1: REMOVED budget and travelStyle from the form state ---
-  const initialFormData = {
-    startingPoint: "", 
-    duration: "",      
-    groupSize: 1,
-    interests: [] as string[],
-  };
-  const [formData, setFormData] = useState(initialFormData);
-
-  const interestOptions = [
-    "Nature & Wildlife", "Cultural Heritage", "Food & Cuisine", "Adventure Activities",
-    "Photography", "Local Communities", "Historical Sites", "Sustainable Farming",
-    "Arts & Crafts", "Relaxation"
-  ];
-
-  const handleInterestChange = (interest: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      interests: checked ? [...prev.interests, interest] : prev.interests.filter(i => i !== interest)
-    }));
-  };
-
-  const handleGeneratePlan = async () => {
-    // --- FIX #2: SIMPLIFIED validation check ---
-    if (!formData.startingPoint || !formData.duration || formData.interests.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields (*) to generate your trip plan.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // The body of the request now perfectly matches the backend function
-      const { data, error } = await supabase.functions.invoke('generate-trip-plan', {
-        body: formData
-      });
-      if (error) throw error;
-      setTripPlan(data.tripPlan);
-      setShowPlan(true);
-    } catch (error: any) {
-      console.error('Error generating trip plan:', error);
-      toast({ title: "Error", description: `Failed to generate plan: ${error.message}`, variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const resetForm = () => {
-    setShowPlan(false);
-    setTripPlan("");
-    setFormData(initialFormData);
-  };
-
-  const handleClose = () => {
-    resetForm();
-    onOpenChange(false);
-  };
-
-  const handleOpen = (isOpen: boolean) => {
-      if (!isOpen) {
-          handleClose();
-      } else {
-          onOpenChange(true);
-      }
-  };
-
-  // --- PDF download function remains the same, it's already excellent ---
-  const handleDownloadPdf = () => {
-    // ... no changes needed here ...
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-forest">
-            {showPlan ? "Your AI-Generated Trip Plan" : "Plan Your Eco-Adventure"}
-          </DialogTitle>
-        </DialogHeader>
-
-        {showPlan ? (
-          // --- The "Show Plan" view remains the same ---
-          <div className="space-y-4">
-            <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-                {tripPlan}
-            </div>
-            <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                {/* ... disclaimer alert content ... */}
-            </Alert>      
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => { setShowPlan(false); setTripPlan(""); }} variant="outline" className="flex-grow">Modify Plan</Button>
-              <Button onClick={handleDownloadPdf} disabled={isDownloading} className="flex-grow">
-                {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                {isDownloading ? "Generating..." : "Download as PDF"}
-              </Button>
-              <Button onClick={handleClose} variant="eco" className="flex-grow">Close</Button>
-            </div>
-          </div>
-        ) : (
-          // --- FIX #3: REMOVED Budget and Travel Style from the form's JSX ---
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="startingPoint">Where is your starting point or accommodation? *</Label>
-                <Input
-                  id="startingPoint"
-                  placeholder="e.g., Quest Plus Conference Center, Clark"
-                  value={formData.startingPoint}
-                  onChange={(e) => setFormData(prev => ({ ...prev, startingPoint: e.target.value }))}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="duration">Trip Duration (e.g., "3 days", "a weekend") *</Label>
-                <Input
-                  id="duration"
-                  type="text"
-                  placeholder="e.g., 3 days and 2 nights"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="groupSize">Group Size *</Label>
-                <Input
-                  id="groupSize"
-                  type="number"
-                  min="1" max="50"
-                  value={formData.groupSize}
-                  onChange={(e) => setFormData(prev => ({ ...prev, groupSize: parseInt(e.target.value) || 1 }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label>Interests (Select at least one) *</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {interestOptions.map((interest) => (
-                  <div key={interest} className="flex items-center space-x-2">
-                    <Checkbox id={interest} checked={formData.interests.includes(interest)} onCheckedChange={(checked) => handleInterestChange(interest, !!checked)} />
-                    <Label htmlFor={interest} className="text-sm font-normal cursor-pointer">{interest}</Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4 border-t">
-              <Button onClick={handleClose} variant="outline" className="flex-1">Cancel</Button>
-              <Button onClick={handleGeneratePlan} disabled={isLoading} variant="eco" className="flex-1">
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Generating Your Plan..." : "Generate Trip Plan"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+const [isLoading, setIsLoading] = useState(false);
+const [tripPlan, setTripPlan] = useState<string>("");
+const [showPlan, setShowPlan] = useState(false);
+const { toast } = useToast();
+// --- NEW ---: A ref to target the HTML element we want to convert to PDF
+// --- NEW ---: State to handle the PDF download process
+const [isDownloading, setIsDownloading] = useState(false);
+const [formData, setFormData] = useState({
+// --- ADDED startingPoint ---
+startingPoint: "",
+// --- duration is now a string for text input ---
+duration: "",
+budget: "",
+groupSize: 1,
+travelStyle: "",
+interests: [] as string[],
+});
+const interestOptions = [
+"Nature & Wildlife", "Cultural Heritage", "Food & Cuisine", "Adventure Activities",
+"Photography", "Local Communities", "Historical Sites", "Sustainable Farming",
+"Arts & Crafts", "Relaxation"
+];
+const handleInterestChange = (interest: string, checked: boolean) => {
+setFormData(prev => ({
+...prev,
+interests: checked ? [...prev.interests, interest] : prev.interests.filter(i => i !== interest)
+}));
+};
+const handleGeneratePlan = async () => {
+// Add startingPoint to the validation check
+if (!formData.startingPoint || !formData.duration || !formData.budget || !formData.travelStyle || formData.interests.length === 0) {
+toast({
+title: "Missing Information",
+description: "Please fill in all fields to generate your trip plan.",
+variant: "destructive",
+});
+return;
+}
+setIsLoading(true);
+try {
+  // The formData now includes the startingPoint
+  const { data, error } = await supabase.functions.invoke('generate-trip-plan', {
+    body: formData
+  });
+  if (error) throw error;
+  setTripPlan(data.tripPlan);
+  setShowPlan(true);
+} catch (error: any) {
+  console.error('Error generating trip plan:', error);
+  toast({ title: "Error", description: `Failed to generate plan: ${error.message}`, variant: "destructive" });
+} finally {
+  setIsLoading(false);
+}
+};
+const resetForm = () => {
+setShowPlan(false);
+setTripPlan("");
+setFormData({
+startingPoint: "", duration: "", budget: "", groupSize: 1, travelStyle: "", interests: [],
+});
+};
+const handleClose = () => {
+resetForm();
+onOpenChange(false);
+};
+// When opening the modal, we still reset, but don't close.
+const handleOpen = (isOpen: boolean) => {
+if (!isOpen) {
+handleClose();
+} else {
+onOpenChange(true);
+}
 };
 
+// --- THIS IS THE FINAL AND MOST RELIABLE PDF FUNCTION ---
+const handleDownloadPdf = () => {
+    if (!tripPlan) { return; }
+
+    setIsDownloading(true);
+
+    try {
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        
+        const margin = 15;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const maxWidth = pageWidth - margin * 2;
+        let cursorY = margin + 10;
+
+        const addTextWithPageBreaks = (text: string, options: any) => {
+            const lines = pdf.splitTextToSize(text, maxWidth);
+            lines.forEach((line: string) => {
+                if (cursorY + 6 > pageHeight - margin) { // Check if we need a new page
+                    pdf.addPage();
+                    cursorY = margin;
+                }
+                pdf.text(line, margin, cursorY, options);
+                cursorY += 6; // Move cursor down for the next line
+            });
+        };
+        
+        // 1. Process and render each line of the trip plan
+        const lines = tripPlan.split('\n');
+        lines.forEach(line => {
+            // Remove extra asterisks and trim whitespace
+            const trimmedLine = line.replace(/\*/g, '').trim();
+
+            if (line.startsWith('#### **')) {
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(14);
+                addTextWithPageBreaks(trimmedLine, {});
+                cursorY += 2; // Extra space after a big heading
+            } else if (line.startsWith('### **')) {
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(16);
+                addTextWithPageBreaks(trimmedLine, {});
+                cursorY += 2;
+            } else if (line.startsWith('## **')) {
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(18);
+                addTextWithPageBreaks(trimmedLine, {});
+                cursorY += 4;
+            } else if (line.startsWith('**')) {
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(11);
+                addTextWithPageBreaks(trimmedLine, {});
+            } else if (line.startsWith('* ')) {
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(11);
+                addTextWithPageBreaks(`  • ${trimmedLine.substring(1)}`, {}); // Use a bullet point
+            } else if (trimmedLine === '---' || trimmedLine === '##') {
+                // This is a separator, let's draw a line
+                cursorY += 2;
+                if (cursorY + 4 > pageHeight - margin) { pdf.addPage(); cursorY = margin; }
+                pdf.setDrawColor(200);
+                pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+                cursorY += 6;
+            }
+            else {
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(11);
+                addTextWithPageBreaks(trimmedLine, {});
+            }
+            cursorY += 1; // Small space between paragraphs/lines
+        });
+
+        // 2. Add the disclaimer at the very end
+        const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
+        if (cursorY + 20 > pageHeight - margin) { // Check if we need a new page for the disclaimer
+            pdf.addPage();
+            cursorY = margin;
+        }
+        cursorY += 10;
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        addTextWithPageBreaks(disclaimerText, {});
+
+        pdf.save("EcoLakbay-Trip-Plan.pdf");
+
+    } catch (error) {
+        console.error("Error creating PDF:", error);
+        toast({ title: "PDF Creation Failed", variant: "destructive" });
+    } finally {
+        setIsDownloading(false);
+    }
+};
+return (
+<Dialog open={open} onOpenChange={handleOpen}>
+<DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+<DialogHeader>
+<DialogTitle className="text-2xl text-forest">
+{showPlan ? "Your AI-Generated Trip Plan" : "Plan Your Eco-Adventure"}
+</DialogTitle>
+</DialogHeader>
+
+{showPlan ? (
+             <div className="space-y-4">
+        {/* --- MODIFIED ---: We add the ref to this div */}
+           <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                        {tripPlan}
+                    </div>
+        <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 !text-amber-600" />
+          <AlertTitle className="font-semibold !text-amber-800 dark:!text-amber-200">AI-Generated Content</AlertTitle>
+          <AlertDescription className="!text-amber-700 dark:!text-amber-300">
+            This itinerary is based on the generative knowledge of the AI and was not fed with real-time data from EcoLakbay's partners. Please verify details with establishments before your trip.
+          </AlertDescription>
+        </Alert>      
+        {/* --- MODIFIED ---: The button layout is updated */}
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => { setShowPlan(false); setTripPlan(""); }} variant="outline" className="flex-grow">
+            Modify Plan
+          </Button>
+          <Button onClick={handleDownloadPdf} disabled={isDownloading} className="flex-grow">
+            {isDownloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {isDownloading ? "Generating..." : "Download as PDF"}
+          </Button>
+          <Button onClick={handleClose} variant="eco" className="flex-grow">
+            Close
+          </Button>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* --- 1. NEW `startingPoint` Input --- */}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="startingPoint">Where is your starting point or accommodation? *</Label>
+            <Input
+              id="startingPoint"
+              placeholder="e.g., My hotel in Angeles City"
+              value={formData.startingPoint}
+              onChange={(e) => setFormData(prev => ({ ...prev, startingPoint: e.target.value }))}
+            />
+          </div>
+          
+          {/* --- 2. MODIFIED `duration` Input --- */}
+          <div className="space-y-2">
+            <Label htmlFor="duration">Trip Duration (e.g., "3 days", "a weekend") *</Label>
+            <Input
+              id="duration"
+              type="text"
+              placeholder="e.g., 3 days and 2 nights"
+              value={formData.duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="budget">Budget Range (PHP) *</Label>
+            <Select value={formData.budget} onValueChange={(value) => setFormData(prev => ({ ...prev, budget: value }))}>
+              <SelectTrigger><SelectValue placeholder="Select budget" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Under 5,000">Under ₱5,000</SelectItem>
+                <SelectItem value="5,000 - 10,000">₱5,000 - ₱10,000</SelectItem>
+                <SelectItem value="10,000 - 20,000">₱10,000 - ₱20,000</SelectItem>
+                <SelectItem value="Over 20,000">Over ₱20,000</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="groupSize">Group Size *</Label>
+            <Input
+              id="groupSize"
+              type="number"
+              min="1" max="50"
+              value={formData.groupSize}
+              onChange={(e) => setFormData(prev => ({ ...prev, groupSize: parseInt(e.target.value) || 1 }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="travelStyle">Travel Style *</Label>
+            <Select value={formData.travelStyle} onValueChange={(value) => setFormData(prev => ({ ...prev, travelStyle: value }))}>
+              <SelectTrigger><SelectValue placeholder="Select travel style" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Budget Backpacker">Budget Backpacker</SelectItem>
+                <SelectItem value="Comfort Traveler">Comfort Traveler</SelectItem>
+                <SelectItem value="Luxury Explorer">Luxury Explorer</SelectItem>
+                <SelectItem value="Family with Kids">Family with Kids</SelectItem>
+                <SelectItem value="Adventure Seeker">Adventure Seeker</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label>Interests (Select at least one) *</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {interestOptions.map((interest) => (
+              <div key={interest} className="flex items-center space-x-2">
+                <Checkbox id={interest} checked={formData.interests.includes(interest)} onCheckedChange={(checked) => handleInterestChange(interest, !!checked)} />
+                <Label htmlFor={interest} className="text-sm font-normal cursor-pointer">{interest}</Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-4 pt-4 border-t">
+          <Button onClick={handleClose} variant="outline" className="flex-1">Cancel</Button>
+          <Button onClick={handleGeneratePlan} disabled={isLoading} variant="eco" className="flex-1">
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading ? "Generating Your Plan..." : "Generate Trip Plan"}
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+);
+};
 export default TripPlannerModal;
