@@ -106,52 +106,50 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
 
   
        // --- THIS IS THE FINAL AND MOST RELIABLE PDF FUNCTION ---
-   const handleDownloadPdf = async () => {
-    const contentToCapture = tripPlanRef.current;
-    if (!contentToCapture) {
+    const handleDownloadPdf = async () => {
+    // This check is now the first thing we do.
+    if (!tripPlanRef.current) {
       toast({ title: "Error", description: "Trip plan content not found.", variant: "destructive" });
       return;
     }
     
     setIsDownloading(true);
+    const contentToCapture = tripPlanRef.current;
 
     try {
-      // Step 1: Create a new jsPDF document
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'pt', // Use points for better HTML scaling
-        format: 'a4',
-      });
-
-      // Step 2: Add the disclaimer as a footer on every page
-      const disclaimerText = "Disclaimer: This itinerary is AI-generated and not based on real-time data from EcoLakbay's partners. Please verify all details before your trip.";
-      const pageCount = (pdf as any).internal.getNumberOfPages();
-      pdf.setFontSize(8);
-      pdf.setTextColor(150);
-      for(let i = 1; i <= pageCount; i++) {
-        pdf.setPage(i);
-        pdf.text(disclaimerText, 10, pdf.internal.pageSize.height - 10);
-      }
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
       
-      // Step 3: Use the powerful .html() method
       await pdf.html(contentToCapture, {
         callback: function(doc) {
-          // The callback function is called when the PDF is ready
+          // Add a footer with disclaimer to each page
+          const pageCount = doc.internal.pages.length - 1;
+          const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
+          
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          
+          for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.text(disclaimerText, 40, doc.internal.pageSize.height - 30);
+          }
+          
           doc.save('ecolakbay-trip-plan.pdf');
+          setIsDownloading(false); // Set loading to false inside the callback
         },
-        x: 15,
-        y: 15,
-        width: 180, // A4 width in points is ~210. 180 leaves good margins.
-        windowWidth: 675 // Simulate a wider window to prevent mobile-style rendering
+        x: 0,
+        y: 0,
+        // Let auto-width handle it by not specifying width
+        windowWidth: contentToCapture.scrollWidth,
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+        }
       });
 
     } catch (error) {
         console.error("Error creating PDF:", error);
         toast({ title: "PDF Creation Failed", variant: "destructive"});
-    } finally {
-        // NOTE: The .save() is now in a callback, so we might need a better way to handle loading state.
-        // For simplicity, we'll end it here. In a real app, you might use a more complex state management.
-        setIsDownloading(false);
+        setIsDownloading(false); // Also set loading to false on error
     }
   };
   return (
@@ -167,8 +165,10 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
             {/* The ref here is crucial for html2canvas to know what to capture */}
-            <div className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-              {tripPlan}
+              <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+              <h1 style={{color: '#059669', fontSize: '1.5em'}}>Your EcoLakbay Trip Plan</h1>
+              {/* jsPDF needs actual HTML elements, not just a string */}
+              <div dangerouslySetInnerHTML={{ __html: tripPlan.replace(/\n/g, '<br />') }} />
             </div>
             <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 !text-amber-600" />
