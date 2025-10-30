@@ -233,6 +233,13 @@ const AdminDashboard = () => {
         setIsCreateUserModalOpen(false);
         loadAdminData();
     };
+      const filteredUsers = useMemo(() => {
+        if (!allUsers) return []; // Safety check
+        return allUsers.filter(u =>
+            u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [allUsers, searchTerm]);
 
   return (
     <>
@@ -408,36 +415,52 @@ const AdminDashboard = () => {
                         <Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" />
                     </div>
                   </CardHeader>
-                  <CardContent><div className="space-y-4 max-h-96 overflow-y-auto pr-2">{allUsers.filter(/*...*/).map((u) => (
-                    <div key={u.id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
-                        {/* ... user info display ... */}
-                        <div className="flex items-center gap-2">
-                            {/* ... Edit button and dialog ... */}
-                            {/* --- NEW ---: Delete User Button with Confirmation */}
+                  <CardContent>
+                    <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                      {/* Use the safe filteredUsers array here */}
+                      {filteredUsers.map((u) => (
+                        <div key={u.user_id} className="flex items-center justify-between p-4 bg-gradient-card rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-10 w-10"><AvatarFallback>{u.full_name?.charAt(0) || u.email?.charAt(0)}</AvatarFallback></Avatar>
+                            <div>
+                              <h4 className="font-semibold text-forest">{u.full_name || "Anonymous"}</h4>
+                              <p className="text-sm text-muted-foreground">{u.email}</p>
+                              <p className="text-xs text-muted-foreground">Joined: {new Date(u.created_at || u.joined_at).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right"><div className="font-bold text-amber-600">{u.points || 0} pts</div></div>
+                            <Dialog onOpenChange={(open) => !open && setEditingUser(null)}>
+                                <DialogTrigger asChild><Button size="sm" variant="outline" onClick={() => setEditingUser(u)}><Edit2 className="w-4 w-4" /></Button></DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader><DialogTitle>Edit User: {editingUser?.full_name || editingUser?.email}</DialogTitle></DialogHeader>
+                                    {editingUser && (
+                                    <div className="space-y-4">
+                                        <div><Label>Full Name</Label><Input defaultValue={editingUser.full_name || ""} onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})} /></div>
+                                        <div><Label>Points</Label><Input type="number" defaultValue={editingUser.points || 0} onChange={(e) => setEditingUser({...editingUser, points: parseInt(e.target.value)})} /></div>
+                                        <div><Label>Bio</Label><Input defaultValue={editingUser.bio || ""} onChange={(e) => setEditingUser({...editingUser, bio: e.target.value})} /></div>
+                                        <div><Label>Location</Label><Input defaultValue={editingUser.location || ""} onChange={(e) => setEditingUser({...editingUser, location: e.target.value})} /></div>
+                                        <Button onClick={() => handleUpdateUser(editingUser.user_id, editingUser)} className="w-full">Update User</Button>
+                                    </div>
+                                    )}
+                                </DialogContent>
+                            </Dialog>
                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="icon" variant="destructive" disabled={u.email === user?.email}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action is irreversible. It will permanently delete the user <strong className="text-foreground">{u.full_name || u.email}</strong> and all of their associated data.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteUser(u.user_id)} className="bg-destructive hover:bg-destructive/90">
-                                            Confirm Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
+                              <AlertDialogTrigger asChild>
+                                  <Button size="icon" variant="destructive" disabled={u.email === user?.email}>
+                                      <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action will permanently delete <strong className="text-foreground">{u.full_name || u.email}</strong> and all their data.</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.user_id)} className="bg-destructive hover:bg-destructive/90">Confirm Delete</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
                             </AlertDialog>
+                          </div>
                         </div>
-                    </div>))}
-                  </div></CardContent>
+                      ))}
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             </div>
