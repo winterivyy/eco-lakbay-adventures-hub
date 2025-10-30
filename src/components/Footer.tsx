@@ -49,15 +49,7 @@ const Footer = () => {
             <h2 className="text-2xl font-bold mb-2">Join the Sustainable Movement</h2>
             <p className="text-white/80">Get the latest eco-travel tips, featured destinations, and community news delivered to your inbox.</p>
           </div>
-          <form className="w-full max-w-md flex gap-2">
-            <Input 
-              type="email" 
-              placeholder="Enter your email" 
-              className="bg-white/10 border-white/20 placeholder:text-white/60 text-white flex-1"
-              aria-label="Email for newsletter"
-            />
-            <Button variant="gold" type="submit">Subscribe</Button>
-          </form>
+         
         </div>
 
         {/* --- 2. Modernized Main Footer Layout --- */}
