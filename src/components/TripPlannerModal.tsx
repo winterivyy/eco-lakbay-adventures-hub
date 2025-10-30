@@ -156,7 +156,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
                   type="number"
                   min="1" max="50"
                   value={formData.groupSize}
-                  onChange={(e) => setFormData(prev => ({ ...prev, groupSize: parseInt(e.target.value) || 1 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, groupSize: parseInt(e.target.value) }))}
                 />
               </div>
             </div>
