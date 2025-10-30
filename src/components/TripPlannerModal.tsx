@@ -25,7 +25,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
   const [showPlan, setShowPlan] = useState(false);
   const { toast } = useToast();
     // --- NEW ---: A ref to target the HTML element we want to convert to PDF
-  const tripPlanRef = useRef<HTMLDivElement>(null);
+
   
   // --- NEW ---: State to handle the PDF download process
   const [isDownloading, setIsDownloading] = useState(false);
@@ -107,43 +107,91 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
 
   
        // --- THIS IS THE FINAL AND MOST RELIABLE PDF FUNCTION ---
-    const handleDownloadPdf = async () => {
-    // This check is now the first thing we do.
-    if (!tripPlanRef.current) {
-      toast({ title: "Error", description: "Trip plan content not found.", variant: "destructive" });
-      return;
-    }
-    
-    setIsDownloading(true);
-     try {
-            const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    const handleDownloadPdf = () => {
+        if (!tripPlan) { return; }
 
-            await pdf.html(tripPlanRef.current, {
-                callback: function(doc) {
-                    // Get the total number of pages
-                    const pageCount = doc.internal.pages.length - 1;
+        setIsDownloading(true);
 
-                    // Go to the last page to add the disclaimer
-                    doc.setPage(pageCount);
+        try {
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            
+            const margin = 15;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const maxWidth = pageWidth - margin * 2;
+            let cursorY = margin + 10;
 
-                    const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
-                    doc.setFontSize(12);
-                    doc.setTextColor(150);
+            const addTextWithPageBreaks = (text: string, options: any) => {
+                const lines = pdf.splitTextToSize(text, maxWidth);
+                lines.forEach((line: string) => {
+                    if (cursorY + 6 > pageHeight - margin) { // Check if we need a new page
+                        pdf.addPage();
+                        cursorY = margin;
+                    }
+                    pdf.text(line, margin, cursorY, options);
+                    cursorY += 6; // Move cursor down for the next line
+                });
+            };
+            
+            // 1. Process and render each line of the trip plan
+            const lines = tripPlan.split('\n');
+            lines.forEach(line => {
+                // Remove extra asterisks and trim whitespace
+                const trimmedLine = line.replace(/\*/g, '').trim();
 
-                    // Add the disclaimer near the bottom of the last page
-                    doc.text(disclaimerText, 40, doc.internal.pageSize.height - 40, {
-                        maxWidth: doc.internal.pageSize.width - 80 // Max width with margins
-                    });
-
-                    doc.save('ecolakbay-trip-plan.pdf');
-                },
-                x: 15,
-                y: 15,
-                width: 170, // A4 width is 210, so 170 leaves good margins
-                windowWidth: 650, // Standard document width
-                // --- NEW ---: Auto-scale the content
-                autoPaging: 'text',
+                if (line.startsWith('#### **')) {
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(14);
+                    addTextWithPageBreaks(trimmedLine, {});
+                    cursorY += 2; // Extra space after a big heading
+                } else if (line.startsWith('### **')) {
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(16);
+                    addTextWithPageBreaks(trimmedLine, {});
+                    cursorY += 2;
+                } else if (line.startsWith('## **')) {
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(18);
+                    addTextWithPageBreaks(trimmedLine, {});
+                    cursorY += 4;
+                } else if (line.startsWith('**')) {
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(11);
+                    addTextWithPageBreaks(trimmedLine, {});
+                } else if (line.startsWith('* ')) {
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(11);
+                    addTextWithPageBreaks(`  • ${trimmedLine.substring(1)}`, {}); // Use a bullet point
+                } else if (trimmedLine === '---' || trimmedLine === '##') {
+                    // This is a separator, let's draw a line
+                    cursorY += 2;
+                    if (cursorY + 4 > pageHeight - margin) { pdf.addPage(); cursorY = margin; }
+                    pdf.setDrawColor(200);
+                    pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+                    cursorY += 6;
+                }
+                else {
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(11);
+                    addTextWithPageBreaks(trimmedLine, {});
+                }
+                cursorY += 1; // Small space between paragraphs/lines
             });
+
+            // 2. Add the disclaimer at the very end
+            const disclaimerText = "Disclaimer: This AI-generated itinerary is not based on real-time data. Please verify all details before your trip.";
+            if (cursorY + 20 > pageHeight - margin) { // Check if we need a new page for the disclaimer
+                pdf.addPage();
+                cursorY = margin;
+            }
+            cursorY += 10;
+            pdf.setFont("helvetica", "italic");
+            pdf.setFontSize(9);
+            pdf.setTextColor(150);
+            addTextWithPageBreaks(disclaimerText, {});
+
+            pdf.save("EcoLakbay-Trip-Plan.pdf");
+
         } catch (error) {
             console.error("Error creating PDF:", error);
             toast({ title: "PDF Creation Failed", variant: "destructive" });
@@ -164,12 +212,7 @@ const TripPlannerModal = ({ open, onOpenChange }: TripPlannerModalProps) => {
         {showPlan ? (
                  <div className="space-y-4">
             {/* --- MODIFIED ---: We add the ref to this div */}
-            {/* The ref here is crucial for html2canvas to know what to capture */}
-              <div ref={tripPlanRef} className="bg-muted rounded-lg p-6 prose prose-sm max-w-none text-sm leading-relaxed">
-                            <h1 style={{color: '#059669'}}>Your EcoLakbay Trip Plan</h1>
-                            {/* This converts the AI's markdown string into real HTML */}
-                            <div dangerouslySetInnerHTML={{ __html: marked(tripPlan) as string }} />
-                        </div>
+          
             <Alert variant="default" className="border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 !text-amber-600" />
               <AlertTitle className="font-semibold !text-amber-800 dark:!text-amber-200">AI-Generated Content</AlertTitle>
