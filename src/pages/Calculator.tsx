@@ -29,7 +29,6 @@ const Calculator = () => {
       motorcycle: 0.07,
       tricycle: 0.1,
       jeepney: 0.08,
-      ferry: 0.15,
       bike: 0,
       walking: 0,
     };
@@ -91,7 +90,6 @@ const Calculator = () => {
                       <SelectItem value="bus">Public Bus 🚍</SelectItem>
                       <SelectItem value="motorcycle">Motorcycle 🏍️</SelectItem>
                       <SelectItem value="car">Private Car 🚗</SelectItem>
-                      <SelectItem value="ferry">Ferry 🛳️</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
