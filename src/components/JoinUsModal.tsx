@@ -207,7 +207,7 @@ const JoinUsModal = ({ open, onOpenChange }: JoinUsModalProps) => {
             <Input
               id="password"
               type="password"
-              placeholder="Create a password (min. 6 characters)"
+              placeholder="Create a password (min. 8 characters)"
               value={formData.password}
               onChange={(e) => handleChange("password", e.target.value)}
               required
