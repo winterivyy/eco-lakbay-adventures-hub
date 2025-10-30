@@ -55,7 +55,7 @@ const UpdatePassword = () => {
     if (password.length < 6) {
       toast({
         title: 'Password too short',
-        description: 'Password should be at least 6 characters.',
+        description: 'Password should be at least 8 characters.',
         variant: 'destructive',
       });
       return;
@@ -73,7 +73,7 @@ const UpdatePassword = () => {
 
       // End current session after reset for security
       await supabase.auth.signOut();
-      navigate('/auth');
+      navigate('/');
     } catch (error: any) {
       toast({
         title: 'Error Updating Password',
