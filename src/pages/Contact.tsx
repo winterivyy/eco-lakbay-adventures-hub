@@ -68,28 +68,7 @@ const Contact = () => {
               </CardContent>
             </Card>
 
-            {/* Quick Links */}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-2xl text-forest">Quick Links</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Button variant="outline" className="w-full justify-start p-6 text-base">
-                    📖 Documentation
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start p-6 text-base">
-                    🤝 Partnerships
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start p-6 text-base">
-                    📊 Media Kit
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start p-6 text-base">
-                    🌱 Sustainability Report
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+           
 
           </div>
         </div>
