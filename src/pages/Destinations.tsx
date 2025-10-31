@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Star, MapPin, Loader2, Search, X } from "lucide-react";
+import { Star, MapPin, Loader2, Search, X, Clock, Lock, Unlock } from "lucide-react";
 import { DestinationRatingModal } from "@/components/DestinationRatingModal";
 import { supabase } from "@/integrations/supabase/client";
 import fallbackImage from "@/assets/zambales-real-village.jpg";
@@ -33,6 +33,9 @@ interface Destination {
   website?: string;
   email?: string;
   sustainability_practices?: string;
+    listing_type?: 'private' | 'public'; // New
+  operating_hours?: string;             // New
+  peak_days?: string;     
 }
 
 interface Review {
@@ -253,43 +256,40 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit, o
   };
   
   // Render a simplified layout for the homepage preview
-  return (
+   return (
     <>
-      {/* 
-        Step 1: Render the modals at the top level.
-        They will always be in the DOM but hidden, controlled by their `open` prop.
-        This makes them available on BOTH the full page and the preview.
-      */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedDestination && (
             <>
               <DialogHeader className="space-y-4">
-                <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden relative"><img src={getPublicUrlFromPath(selectedDestination.images?.[currentImageIndex])} alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`} className="w-full h-full object-cover" onError={e => { e.currentTarget.src = fallbackImage; }} /></div>
-                {(selectedDestination.images?.length ?? 0) > 1 && (
-                  <div className="flex gap-2 overflow-x-auto pb-2">{selectedDestination.images?.map((imgPath: string, index: number) => (<button key={index} onClick={() => setCurrentImageIndex(index)} className={cn("w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0", index === currentImageIndex ? "border-forest" : "border-transparent")}><img src={getPublicUrlFromPath(imgPath)} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" /></button>))}</div>
-                )}
+                <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden relative"><img src={getPublicUrlFromPath(selectedDestination.images?.[currentImageIndex])} alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).src = fallbackImage; }} /></div>
+                {(selectedDestination.images?.length ?? 0) > 1 && (<div className="flex gap-2 overflow-x-auto pb-2">{selectedDestination.images?.map((imgPath: string, index: number) => (<button key={index} onClick={() => setCurrentImageIndex(index)} className={cn("w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0", index === currentImageIndex ? "border-forest" : "border-transparent")}><img src={getPublicUrlFromPath(imgPath)} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" /></button>))}</div>)}
                 <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
+                <div className="flex flex-wrap items-center gap-2 pt-1 !-mt-2">
+                  {selectedDestination.listing_type && (<Badge variant={selectedDestination.listing_type === 'private' ? "secondary" : "outline"}><div className="flex items-center gap-1.5">{selectedDestination.listing_type === 'private' ? <Lock className="w-3 h-3"/> : <Unlock className="w-3 h-3"/>}{selectedDestination.listing_type}</div></Badge>)}
+                  {selectedDestination.business_type && (<Badge variant="outline" className="capitalize">{selectedDestination.business_type}</Badge>)}
+                </div>
                 <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-forest hover:underline">{selectedDestination.website}</a></div>
               </DialogHeader>
+
               <div className="space-y-6 py-4">
                 <div><h3 className="font-semibold text-foreground mb-2">About this Destination</h3><p className="text-muted-foreground">{selectedDestination.description}</p></div>
-                {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground whitespace-pre-line">{selectedDestination.sustainability_practices}</p></div>)}
-                <div>
-                  <h3 className="text-lg font-semibold text-forest mb-4">Reviews from our Community</h3>
-                  {reviewsLoading ? (<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>) 
-                  : reviews.length > 0 ? (
-                    <div className="space-y-4">{reviews.map((review) => (
-                        <div key={review.id} className="flex gap-4 p-4 border rounded-lg bg-muted/50">
-                          <Avatar><AvatarImage src={review.profiles?.avatar_url} /><AvatarFallback>{getInitials(review.profiles?.full_name)}</AvatarFallback></Avatar>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1"><p className="font-semibold">{review.profiles?.full_name || 'Anonymous'}</p><div className="flex items-center gap-1 text-sm"><Star className="h-4 w-4 text-amber fill-amber" />{review.overall_score.toFixed(1)}</div></div>
-                            <p className="text-muted-foreground text-sm italic">"{review.comments}"</p>
-                          </div>
-                        </div>))}
+                
+                {(selectedDestination.operating_hours || selectedDestination.peak_days) && (
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><Clock className="w-4 h-4"/> Operating Information</h3>
+                    <div className="text-sm text-muted-foreground space-y-1 pl-6">
+                      {selectedDestination.operating_hours && <p><strong>Hours:</strong> {selectedDestination.operating_hours}</p>}
+                      {selectedDestination.peak_days && <p><strong>Peak Season/Days:</strong> {selectedDestination.peak_days}</p>}
                     </div>
-                  ) : (<p className="text-center text-muted-foreground py-8">No reviews yet. Be the first to leave one!</p>)}
-                </div>
+                  </div>
+                )}
+                
+                {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground whitespace-pre-line">{selectedDestination.sustainability_practices}</p></div>)}
+                
+                <div><h3 className="text-lg font-semibold text-forest mb-4">Reviews from our Community</h3>{reviewsLoading ? (<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>) : reviews.length > 0 ? (<div className="space-y-4">{reviews.map((review) => (<div key={review.id} className="flex gap-4 p-4 border rounded-lg bg-muted/50"><Avatar><AvatarImage src={review.profiles?.avatar_url} /><AvatarFallback>{getInitials(review.profiles?.full_name)}</AvatarFallback></Avatar><div className="flex-1"><div className="flex justify-between items-center mb-1"><p className="font-semibold">{review.profiles?.full_name || 'Anonymous'}</p><div className="flex items-center gap-1 text-sm"><Star className="h-4 w-4 text-amber fill-amber" />{review.overall_score.toFixed(1)}</div></div><p className="text-muted-foreground text-sm italic">"{review.comments}"</p></div></div>))}</div>) : (<p className="text-center text-muted-foreground py-8">No reviews yet. Be the first to leave one!</p>)}</div>
+                
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button variant="eco" className="flex-1" onClick={() => handleRateClick(selectedDestination)}>⭐ Leave a Review</Button>
                   <Button variant="outline" className="flex-1" onClick={() => handleViewOnMap(selectedDestination)}><MapPin className="mr-2 h-4 w-4" />View on Map</Button>
@@ -302,23 +302,16 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit, o
       </Dialog>
       <DestinationRatingModal isOpen={isRatingModalOpen} onClose={() => setIsRatingModalOpen(false)} destination={selectedDestination} />
 
-      {/* 
-        Step 2: Conditionally render the layout around the content.
-      */}
       {isPreview ? (
-        // Preview Mode: Just render the content and a "View All" button.
         <>
           {renderContent()}
           {destinations.length > 0 && (
             <div className="text-center mt-12">
-              <Button variant="eco" size="lg" onClick={() => navigate('/destinations')}>
-                View All Destinations
-              </Button>
+              <Button variant="eco" size="lg" onClick={() => navigate('/destinations')}>View All Destinations</Button>
             </div>
           )}
         </>
       ) : (
-        // Full Page Mode: Render the entire page structure.
         <div className="min-h-screen bg-background">
           <Navigation />
           <div className="bg-gradient-hero py-20">
