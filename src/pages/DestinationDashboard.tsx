@@ -10,7 +10,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Edit, Plus, Star, MessageSquare, BarChart2, MapPin } from 'lucide-react';
 import { EditDestinationModal } from '@/components/EditDestinationModal';
-import fallbackImage from '@/assets/zambales-real-village.jpg'; // Import the fallback image
+import fallbackImage from '@/assets/zambales-real-village.jpg'; 
+import Destinations from '@/pages/Destinations'; // Import the fallback image
+// --- NEW ---: Import the reusable card and the modal
+import { DestinationCard } from '@/components/DestinationCard'; 
 
 // --- Define your bucket name ---
 const BUCKET_NAME = 'destination-photos'; // We can reuse the admin's edit modal!
@@ -103,23 +106,21 @@ const DestinationDashboard = () => {
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
     return data.publicUrl;
   };
- const handleEditClick = (destination: UserDestination) => {
-    if (destination.status !== 'approved') {
-        if (!confirm(`This destination is currently "${destination.status}". You can edit the details, but it will need to be re-approved by an admin to be visible. Do you want to continue?`)) {
-            return;
-        }
-    }
+  const handleOpenEditModal = (destination: UserDestination) => {
     setEditingDestination(destination);
     setIsEditModalOpen(true);
   };
   
-  const handleCloseEditModal = () => setIsEditModalOpen(false);
+  const handleCloseEditModal = () => {
+      setEditingDestination(null);
+      setIsEditModalOpen(false);
+  };
+
   const handleSaveEditModal = () => {
     handleCloseEditModal();
     toast({ title: "Success", description: "Your destination has been updated." });
-    fetchUserDestinations(); // Refresh data after saving
+    fetchUserDestinations();
   };
-
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -185,30 +186,29 @@ const DestinationDashboard = () => {
             </div>
               
                              {/* --- THIS IS THE NEW UI --- */}
-  {destinations.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {destinations.map((dest) => (
-                                    <Card key={dest.id} className="group flex flex-col overflow-hidden">
-                                        <CardHeader className="p-0 relative">
-                                            <div className="absolute top-2 right-2 z-10"><Badge variant={statusColors[dest.status] || 'default'} className="capitalize">{dest.status}</Badge></div>
-                                            <div className="w-full h-48 overflow-hidden">
-                                                <img src={getPublicUrlFromPath(dest.images?.[0])} alt={dest.business_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" onError={e => { e.currentTarget.src = fallbackImage; }}/>
-                                            </div>
-                                            <div className="p-4">
-                                                <CardTitle className="text-xl text-forest">{dest.business_name}</CardTitle>
-                                                <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" /> {dest.city}, {dest.province}</p>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
-                                            <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{dest.description}</p>
-                                            <div className="flex justify-between items-center mt-4">
-                                                <div className="flex items-center space-x-1"><Star className="h-4 w-4 text-amber fill-amber" /><span className="font-medium text-sm">{dest.rating?.toFixed(1) || 'N/A'}</span><span className="text-muted-foreground text-xs ml-1">({dest.review_count || 0} reviews)</span></div>
-                                                <Button variant="outline" size="sm" onClick={() => handleEditClick(dest)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
+ {destinations.length > 0 ? (
+                // Use a standard grid layout
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {destinations.map((dest) => (
+                        // Render the reusable DestinationCard
+                        <DestinationCard
+                            key={dest.id}
+                            destination={dest}
+                            // We don't want the card itself to be clickable here
+                            onClick={() => {}} 
+                            // --- THIS IS THE FIX ---
+                            // We pass a custom Edit button as the action button
+                            actionButton={
+                                <Button variant="outline" size="sm" onClick={(e) => {
+                                    e.stopPropagation(); // Prevent the main card's onClick from firing
+                                    handleOpenEditModal(dest);
+                                }}>
+                                    <Edit className="mr-2 h-4 w-4"/> Edit
+                                </Button>
+                            }
+                        />
+                    ))}
+                </div>
                         ) : (
                             <div className="text-center py-16 border-2 border-dashed rounded-lg">
                                 <h3 className="text-xl font-medium">No destinations registered yet.</h3>
@@ -223,14 +223,18 @@ const DestinationDashboard = () => {
 
             {/* This modal logic is correct */}
             {editingDestination && (
-                <EditDestinationModal
-                    isOpen={isEditModalOpen}
-                    onClose={handleCloseEditModal}
-                    onSave={handleSaveEditModal}
-                    destination={editingDestination}
-                    onDelete={() => { /* Not implemented yet, so an empty function is fine */ }}
-                />
-            )}
+        <EditDestinationModal
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveEditModal}
+          destination={editingDestination}
+          onDelete={() => {
+              // You can add delete logic here in the future
+              handleCloseEditModal();
+              fetchUserDestinations();
+          }}
+        />
+      )}
         </>
   );
 };

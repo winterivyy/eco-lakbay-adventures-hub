@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import fallbackImage from "@/assets/zambales-real-village.jpg";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth"; // --- NEW ---
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -50,10 +51,12 @@ const BUCKET_NAME = 'destination-photos';
 interface DestinationsProps {
   isPreview?: boolean;
   limit?: number;
+  ownerMode?: boolean;
 }
 
-const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit }) => {
+const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit, ownerMode = false }) => {
   const navigate = useNavigate();
+   const { user } = useAuth(); // --- NEW --- Get the current user
 
   // State for data and loading
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -94,6 +97,17 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
       try {
         let query = supabase.from('destinations').select('*').eq('status', 'approved');
 
+        if (ownerMode) {
+            // If in owner mode, only fetch destinations for the current user
+            if (!user) {
+                setDestinations([]); // Don't fetch if no user is logged in
+                return;
+            }
+            query = query.eq('owner_id', user.id);
+        } else {
+            // Otherwise, fetch all approved destinations (the default behavior)
+            query = query.eq('status', 'approved');
+        }
         // If a limit is provided (for preview mode), apply ordering and limit
         if (limit) {
           query = query.order('rating', { ascending: false, nullsFirst: false }).limit(limit);
@@ -120,7 +134,7 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit })
       }
     };
     fetchDestinations();
-  }, [isPreview, limit]);
+  }, [isPreview, limit, ownerMode, user]);
 
   const filteredDestinations = useMemo(() => {
     const minRating = selectedRating && selectedRating !== 'all' ? parseFloat(selectedRating) : 0;
