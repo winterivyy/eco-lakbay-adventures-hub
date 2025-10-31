@@ -183,72 +183,55 @@ const DestinationDashboard = () => {
                     <Plus className="mr-2 h-4 w-4" /> Register New Destination
                 </Button>
             </div>
-                <div className="space-y-4">
+              
                              {/* --- THIS IS THE NEW UI --- */}
-            {destinations.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {destinations.map((dest) => (
-                        <Card key={dest.id} className="group flex flex-col overflow-hidden">
-                            <CardHeader className="p-0 relative">
-                                <div className="absolute top-2 right-2 z-10">
-                                    <Badge variant={statusColors[dest.status] || 'default'} className="capitalize">{dest.status}</Badge>
-                                </div>
-                                <div className="w-full h-48 overflow-hidden">
-                                    <img 
-                                        src={getPublicUrlFromPath(dest.images?.[0])}
-                                        alt={dest.business_name}
-                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                        onError={e => { e.currentTarget.src = fallbackImage; }}
-                                    />
-                                </div>
-                                <div className="p-4">
-                                    <CardTitle className="text-xl text-forest">{dest.business_name}</CardTitle>
-                                    <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
-                                        <MapPin className="h-3 w-3" /> {dest.city}, {dest.province}
-                                    </p>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
-                                <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{dest.description}</p>
-                                <div className="flex justify-between items-center mt-4">
-                                    <div className="flex items-center space-x-1">
-                                        <Star className="h-4 w-4 text-amber fill-amber" />
-                                        <span className="font-medium text-sm">{dest.rating?.toFixed(1) || 'N/A'}</span>
-                                        <span className="text-muted-foreground text-xs ml-1">({dest.review_count || 0} reviews)</span>
-                                    </div>
-                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(dest)}>
-                                        <Edit className="mr-2 h-4 w-4"/> Edit
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            ) : (
-                // This is the "empty state" UI
-                <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                    <h3 className="text-xl font-medium">No destinations registered yet.</h3>
-                    <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination to manage it here.</p>
-                    <Button className="mt-6" onClick={() => navigate('/register-destination')}>
-                        <Plus className="mr-2 h-4 w-4"/> Register Your First Destination
-                    </Button>
-                </div>
+  {destinations.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {destinations.map((dest) => (
+                                    <Card key={dest.id} className="group flex flex-col overflow-hidden">
+                                        <CardHeader className="p-0 relative">
+                                            <div className="absolute top-2 right-2 z-10"><Badge variant={statusColors[dest.status] || 'default'} className="capitalize">{dest.status}</Badge></div>
+                                            <div className="w-full h-48 overflow-hidden">
+                                                <img src={getPublicUrlFromPath(dest.images?.[0])} alt={dest.business_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" onError={e => { e.currentTarget.src = fallbackImage; }}/>
+                                            </div>
+                                            <div className="p-4">
+                                                <CardTitle className="text-xl text-forest">{dest.business_name}</CardTitle>
+                                                <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" /> {dest.city}, {dest.province}</p>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
+                                            <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{dest.description}</p>
+                                            <div className="flex justify-between items-center mt-4">
+                                                <div className="flex items-center space-x-1"><Star className="h-4 w-4 text-amber fill-amber" /><span className="font-medium text-sm">{dest.rating?.toFixed(1) || 'N/A'}</span><span className="text-muted-foreground text-xs ml-1">({dest.review_count || 0} reviews)</span></div>
+                                                <Button variant="outline" size="sm" onClick={() => handleEditClick(dest)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-16 border-2 border-dashed rounded-lg">
+                                <h3 className="text-xl font-medium">No destinations registered yet.</h3>
+                                <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination to manage it here.</p>
+                                <Button className="mt-6" onClick={() => navigate('/register-destination')}><Plus className="mr-2 h-4 w-4"/> Register Your First Destination</Button>
+                            </div>
+                        )}
+                    </div>
+                </main>
+                <Footer />
+            </div>
+
+            {/* This modal logic is correct */}
+            {editingDestination && (
+                <EditDestinationModal
+                    isOpen={isEditModalOpen}
+                    onClose={handleCloseEditModal}
+                    onSave={handleSaveEditModal}
+                    destination={editingDestination}
+                    onDelete={() => { /* Not implemented yet, so an empty function is fine */ }}
+                />
             )}
-          </div>
-        </main>
-        <Footer />
-      </div>
- {editingDestination && (
-        <EditDestinationModal
-          isOpen={isEditModalOpen}
-          onClose={handleCloseEditModal}
-          onSave={handleSaveEditModal}
-          destination={editingDestination}
-          // The onDelete prop can be passed here as well if owners should be able to delete
-          // onDelete={() => { /* logic to delete and refresh */ }}
-        />
-      )}
-    </>
+        </>
   );
 };
 
