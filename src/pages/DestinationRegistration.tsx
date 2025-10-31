@@ -17,6 +17,7 @@ import { Loader2, CheckCircle, Building, MapPin, Phone, Mail, Globe, Star, FileC
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Lock, Unlock } from "lucide-react";
+import { Clock } from "lucide-react"; // Import a new icon for the section
 
 const DestinationRegistration = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,6 +35,8 @@ const DestinationRegistration = () => {
     city: "", province: "", phone: "", email: "", website: "",
     sustainabilityPractices: "",
      listingType: "private",
+         operatingHours: "", // New
+    peakDays: "", 
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -60,7 +63,8 @@ const DestinationRegistration = () => {
         description: formData.description, address: formData.address, city: formData.city,
         province: formData.province, phone: formData.phone || null, email: formData.email,
         website: formData.website || null, sustainability_practices: formData.sustainabilityPractices || null,
-          listing_type: formData.listingType,
+          listing_type: formData.listingType,    operating_hours: formData.operatingHours || null, // New
+        peak_days: formData.peakDays || null,    
       }).select('id').single();
       
       if (error) throw error;
@@ -175,6 +179,32 @@ const DestinationRegistration = () => {
                   </div>
                   <div className="space-y-4"><h3 className="text-lg font-semibold text-forest">Sustainability Practices</h3>
                     <div className="space-y-2"><Label htmlFor="sustainabilityPractices">Tell us about your environmental initiatives</Label><Textarea id="sustainabilityPractices" placeholder="Describe your eco-friendly practices, waste reduction efforts, community involvement, etc." className="min-h-[120px]" value={formData.sustainabilityPractices} onChange={(e) => handleInputChange("sustainabilityPractices", e.target.value)} /></div>
+                  </div>
+                      {/* --- NEW ---: Add Operating Hours & Peak Days section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-forest flex items-center gap-2">
+                        <Clock className="w-5 h-5" /> Operating Information
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="operatingHours">Operating Hours</Label>
+                        <Input 
+                            id="operatingHours" 
+                            placeholder="e.g., 9:00 AM - 5:00 PM, Tue-Sun" 
+                            value={formData.operatingHours} 
+                            onChange={(e) => handleInputChange("operatingHours", e.target.value)} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="peakDays">Peak Days / Season</Label>
+                        <Input 
+                            id="peakDays" 
+                            placeholder="e.g., Weekends, December-February" 
+                            value={formData.peakDays} 
+                            onChange={(e) => handleInputChange("peakDays", e.target.value)}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="flex justify-end pt-6 border-t">
                     <Button type="button" size="lg" onClick={handleSaveAndContinue} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save & Continue to Photos</Button>
