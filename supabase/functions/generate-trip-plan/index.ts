@@ -16,7 +16,7 @@ serve(async (req)=>{
       throw new Error("GEMINI_API_KEY is not set in the function's environment variables.");
     }
     // Deconstruct the new `startingPoint` field from the request body
-    const { startingPoint, duration, budget, interests, travelStyle, groupSize } = await req.json();
+    const { startingPoint, duration, interests, travelStyle, groupSize } = await req.json();
     const systemPrompt = `You are an expert travel planner for EcoLakbay, a platform focused on sustainable tourism in Pampanga, Philippines. Your goal is to generate a personalized, day-by-day travel itinerary based on the user's preferences.
 
     **Instructions:**
@@ -31,7 +31,6 @@ serve(async (req)=>{
       
       - **My Starting Point/Accommodation:** ${startingPoint}
       - **Trip Duration:** ${duration}
-      - **My Budget:** ${budget} PHP
       - **Group Size:** ${groupSize} person(s)
       - **My Travel Style:** ${travelStyle}
       - **My Interests:** ${interests.join(', ')}

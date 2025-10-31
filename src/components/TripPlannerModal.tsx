@@ -31,7 +31,7 @@ const [formData, setFormData] = useState({
 startingPoint: "",
 // --- duration is now a string for text input ---
 duration: "",
-budget: "",
+
 groupSize: 1,
 travelStyle: "",
 interests: [] as string[],
@@ -49,7 +49,7 @@ interests: checked ? [...prev.interests, interest] : prev.interests.filter(i => 
 };
 const handleGeneratePlan = async () => {
 // Add startingPoint to the validation check
-if (!formData.startingPoint || !formData.duration || !formData.budget || !formData.travelStyle || formData.interests.length === 0) {
+if (!formData.startingPoint || !formData.duration || !formData.travelStyle || formData.interests.length === 0) {
 toast({
 title: "Missing Information",
 description: "Please fill in all fields to generate your trip plan.",
@@ -77,7 +77,7 @@ const resetForm = () => {
 setShowPlan(false);
 setTripPlan("");
 setFormData({
-startingPoint: "", duration: "", budget: "", groupSize: 1, travelStyle: "", interests: [],
+startingPoint: "", duration: "", groupSize: 1, travelStyle: "", interests: [],
 });
 };
 const handleClose = () => {
@@ -253,18 +253,7 @@ return (
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="budget">Budget Range (PHP) *</Label>
-            <Select value={formData.budget} onValueChange={(value) => setFormData(prev => ({ ...prev, budget: value }))}>
-              <SelectTrigger><SelectValue placeholder="Select budget" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Under 5,000">Under ₱5,000</SelectItem>
-                <SelectItem value="5,000 - 10,000">₱5,000 - ₱10,000</SelectItem>
-                <SelectItem value="10,000 - 20,000">₱10,000 - ₱20,000</SelectItem>
-                <SelectItem value="Over 20,000">Over ₱20,000</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      
 
           <div className="space-y-2">
             <Label htmlFor="groupSize">Group Size *</Label>
