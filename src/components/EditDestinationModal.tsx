@@ -352,18 +352,18 @@ const handleGeocodeAddress = async () => {
                             </div>
                         </div>
 
-                         {Object.keys(formData).filter(key => 
-                            !['id', 'created_at', 'updated_at', 'owner_id', 'status', 'rating', 'review_count', 'images', 'destination_permits', 'address', 'latitude', 'longitude'].includes(key)
-                         ).map(key => (
-                            <div className="grid grid-cols-4 items-center gap-4" key={key}>
-                                <Label htmlFor={key} className="text-right capitalize">{key.replace(/_/g, ' ')}</Label>
-                                {key === 'description' || key === 'sustainability_practices' ? (
-                                    <Textarea id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
-                                ) : (
-                                    <Input id={key} value={formData[key] || ''} onChange={handleChange} className="col-span-3" />
-                                )}
-                            </div>
-                         ))}
+                             {/* Other text fields */}
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="city" className="text-right">City</Label><Input id="city" value={formData.city || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="province" className="text-right">Province</Label><Input id="province" value={formData.province || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="phone" className="text-right">Phone</Label><Input id="phone" value={formData.phone || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={formData.email || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="website" className="text-right">Website</Label><Input id="website" type="url" value={formData.website || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="operating_hours" className="text-right">Operating Hours</Label><Input id="operating_hours" value={formData.operating_hours || ''} onChange={handleChange} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="peak_days" className="text-right">Peak Days</Label><Input id="peak_days" value={formData.peak_days || ''} onChange={handleChange} className="col-span-3"/></div>
+
+                        {/* Textarea fields */}
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" /></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="sustainability_practices" className="text-right">Sustainability Practices</Label><Textarea id="sustainability_practices" value={formData.sustainability_practices || ''} onChange={handleChange} className="col-span-3" /></div>
                     </div>
                 </div>
             </div>
