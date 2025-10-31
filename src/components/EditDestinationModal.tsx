@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Upload, Trash2, Search } from 'lucide-react';
+import { Loader2, Upload, Trash2, Search, Lock, Unlock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
     AlertDialog,
@@ -18,6 +18,9 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 
 interface Destination {
   id: string;
@@ -113,8 +116,9 @@ export const EditDestinationModal: React.FC<EditDestinationModalProps> = ({ isOp
     if (!destination) return null;
     if (!formData) return null; // Guard against null formData
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { setFormData(prev => prev ? ({ ...prev, [e.target.id]: e.target.value }) : null); };
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => { if (event.target.files) { setStagedFiles(prev => [...prev, ...Array.from(event.target.files!)]); }};
+      const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { setFormData(prev => prev ? ({ ...prev, [e.target.id]: e.target.value }) : null); };
+    const handleSelectChange = (field: keyof Destination, value: string) => { setFormData(prev => prev ? ({ ...prev, [field]: value }) : null); };
+        const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => { if (event.target.files) { setStagedFiles(prev => [...prev, ...Array.from(event.target.files!)]); }};
     const handleRemoveStagedFile = (indexToRemove: number) => { setStagedFiles(prev => prev.filter((_, index) => index !== indexToRemove)); };
 
     // Mark an existing image for deletion
@@ -288,6 +292,49 @@ const handleGeocodeAddress = async () => {
                    <div>
                     <Label className="text-lg font-semibold">Business Details</Label>
                     <div className="grid gap-4 py-4 border-t mt-2">
+                             {/* --- NEW: Listing Type Radio Group --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Listing Type</Label>
+                            <div className="col-span-3">
+                                <RadioGroup 
+                                    value={formData.listing_type} 
+                                    onValueChange={(value) => handleSelectChange('listing_type', value)}
+                                    className="grid grid-cols-2 gap-4"
+                                >
+                                    <Label htmlFor="private-listing-edit" className="flex items-center gap-2 rounded-md border p-2 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                                        <RadioGroupItem value="private" id="private-listing-edit" />
+                                        <Lock className="w-4 h-4" /> Private
+                                    </Label>
+                                    <Label htmlFor="public-listing-edit" className="flex items-center gap-2 rounded-md border p-2 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                                        <RadioGroupItem value="public" id="public-listing-edit" />
+                                        <Unlock className="w-4 h-4" /> Public
+                                    </Label>
+                                </RadioGroup>
+                            </div>
+                        </div>
+
+                        {/* --- NEW: Business Name --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="business_name" className="text-right">Business Name</Label>
+                            <Input id="business_name" value={formData.business_name || ''} onChange={handleChange} className="col-span-3" />
+                        </div>
+                        
+                        {/* --- NEW: Business Type Select --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="business_type" className="text-right">Business Type</Label>
+                            <div className="col-span-3">
+                                <Select onValueChange={(value) => handleSelectChange("business_type", value)} value={formData.business_type}>
+                                    <SelectTrigger><SelectValue placeholder="Select business type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="hotel">Hotel/Resort</SelectItem>
+                                        <SelectItem value="restaurant">Restaurant/Café</SelectItem>
+                                        <SelectItem value="attraction">Tourist Attraction</SelectItem>
+                                        <SelectItem value="tour">Tour Operator</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                         {/* --- We will now manually define fields for better control --- */}
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="address" className="text-right">Address</Label>
