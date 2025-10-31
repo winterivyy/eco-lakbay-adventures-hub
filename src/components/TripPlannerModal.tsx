@@ -121,48 +121,40 @@ const handleDownloadPdf = () => {
         };
         
         // 1. Process and render each line of the trip plan
-        const lines = tripPlan.split('\n');
+         const lines = tripPlan.split('\n');
         lines.forEach(line => {
-            // Remove extra asterisks and trim whitespace
-            const trimmedLine = line.replace(/\*/g, '').trim();
+            // Trim whitespace first for consistent checks
+            const trimmedLine = line.trim();
 
-            if (line.startsWith('#### **')) {
+            if (trimmedLine.startsWith('##')) { // Catches ##, ###, ####
                 pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(14);
-                addTextWithPageBreaks(trimmedLine, {});
-                cursorY += 2; // Extra space after a big heading
-            } else if (line.startsWith('### **')) {
-                pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(16);
-                addTextWithPageBreaks(trimmedLine, {});
+                pdf.setFontSize(trimmedLine.startsWith('####') ? 14 : trimmedLine.startsWith('###') ? 16 : 18);
+                // Replace markdown hashes and asterisks for a clean title
+                addTextWithPageBreaks(trimmedLine.replace(/[#*]/g, '').trim(), {});
                 cursorY += 2;
-            } else if (line.startsWith('## **')) {
-                pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(18);
-                addTextWithPageBreaks(trimmedLine, {});
-                cursorY += 4;
-            } else if (line.startsWith('**')) {
+            } else if (trimmedLine.startsWith('**')) {
                 pdf.setFont("helvetica", "bold");
                 pdf.setFontSize(11);
-                addTextWithPageBreaks(trimmedLine, {});
-            } else if (line.startsWith('* ')) {
+                addTextWithPageBreaks(trimmedLine.replace(/\*/g, '').trim(), {});
+            } else if (trimmedLine.startsWith('* ')) {
+                // --- THIS IS THE FIX ---
+                // We process the line WITHOUT removing the first letter.
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(11);
-                addTextWithPageBreaks(`  • ${trimmedLine.substring(1)}`, {}); // Use a bullet point
-            } else if (trimmedLine === '---' || trimmedLine === '##') {
-                // This is a separator, let's draw a line
+                // We take the line, remove the leading '* ', and then add our own bullet point.
+                addTextWithPageBreaks(`  • ${trimmedLine.substring(2)}`, {}); 
+            } else if (trimmedLine === '---') {
                 cursorY += 2;
                 if (cursorY + 4 > pageHeight - margin) { pdf.addPage(); cursorY = margin; }
                 pdf.setDrawColor(200);
                 pdf.line(margin, cursorY, pageWidth - margin, cursorY);
-                cursorY += 6;
-            }
-            else {
+                cursorY += 4;
+            } else {
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(11);
-                addTextWithPageBreaks(trimmedLine, {});
+                addTextWithPageBreaks(trimmedLine, {}); // Render the plain text line
             }
-            cursorY += 1; // Small space between paragraphs/lines
+            cursorY += 1;
         });
 
         // 2. Add the disclaimer at the very end
