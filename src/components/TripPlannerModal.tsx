@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download } from "lucide-react"; // Import Loader2 for the loading state
 // --- NEW ---: Import the PDF libraries
 import { Loader2, Download, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
@@ -266,7 +265,7 @@ return (
                 <SelectItem value="Budget Backpacker">Budget Backpacker</SelectItem>
                 <SelectItem value="Comfort Traveler">Comfort Traveler</SelectItem>
                 <SelectItem value="Luxury Explorer">Luxury Explorer</SelectItem>
-                <SelectItem value="Family with Kids">Family with Kids</SelectItem>
+              
                 <SelectItem value="Adventure Seeker">Adventure Seeker</SelectItem>
               </SelectContent>
             </Select>
