@@ -4,21 +4,17 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Edit, Plus, Star, MessageSquare, BarChart2, MapPin } from 'lucide-react';
-
+import { Edit, Plus, Star, MessageSquare, BarChart2, Loader2, MapPin } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { DestinationCard } from '@/components/DestinationCard'; 
 import { EditDestinationModal } from '@/components/EditDestinationModal';
 import { DestinationRatingModal } from '@/components/DestinationRatingModal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle,  DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import fallbackImage from '@/assets/zambales-real-village.jpg'
-import Destinations from '@/pages/Destinations'; // Import the fallback image
-// --- NEW ---: Import the reusable card and the modal
+import fallbackImage from '@/assets/zambales-real-village.jpg';
 
 
 // --- Define your bucket name ---
