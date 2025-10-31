@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { DestinationCard } from '@/components/DestinationCard'; 
 import { EditDestinationModal } from '@/components/EditDestinationModal';
 import { DestinationRatingModal } from '@/components/DestinationRatingModal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle,  DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import fallbackImage from '@/assets/zambales-real-village.jpg'
 import Destinations from '@/pages/Destinations'; // Import the fallback image
@@ -256,15 +256,48 @@ const DestinationDashboard = () => {
                 <Footer />
             </div>
 
-              {/* 1. The VIEW modal */}
+                        {/* The Dialog component now contains the full content for the detailed view */}
             <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
               <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                  {selectedDestination && (
                     <>
-                        {/* Paste the entire detailed modal JSX from Destinations.tsx here */}
-                        <DialogHeader> {/* ... image gallery, title, etc. ... */} </DialogHeader>
-                        <div className="space-y-6 py-4"> {/* ... description, sustainability, and REVIEWS ... */} </div>
-                        <div className="flex ..."> {/* ... action buttons for the view modal ... */} </div>
+                        <DialogHeader className="space-y-4">
+                            <div className="w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden relative"><img src={getPublicUrlFromPath(selectedDestination.images?.[currentImageIndex])} alt={`${selectedDestination.business_name} photo ${currentImageIndex + 1}`} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).src = fallbackImage; }} /></div>
+                            {(selectedDestination.images?.length ?? 0) > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-2">{selectedDestination.images?.map((imgPath: string, index: number) => (<button key={index} onClick={() => setCurrentImageIndex(index)} className={cn("w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0", index === currentImageIndex ? "border-forest" : "border-transparent")}><img src={getPublicUrlFromPath(imgPath)} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" /></button>))}</div>
+                            )}
+                            <DialogTitle className="text-3xl text-forest !mt-2">{selectedDestination.business_name}</DialogTitle>
+                            {/* Adding DialogDescription to fix accessibility warning */}
+                            <DialogDescription className="sr-only">Details for {selectedDestination.business_name}</DialogDescription>
+                            <div className="flex flex-col sm:flex-row sm:justify-between text-muted-foreground pt-0 !mt-1"><p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {selectedDestination.address}</p><a href={selectedDestination.website || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-forest hover:underline">{selectedDestination.website}</a></div>
+                        </DialogHeader>
+
+                        <div className="space-y-6 py-4">
+                            <div><h3 className="font-semibold text-foreground mb-2">About this Destination</h3><p className="text-muted-foreground">{selectedDestination.description}</p></div>
+                            {selectedDestination.sustainability_practices && (<div><h3 className="font-semibold text-foreground mb-2">Our Sustainability Practices</h3><p className="text-muted-foreground whitespace-pre-line">{selectedDestination.sustainability_practices}</p></div>)}
+                            
+                            <div>
+                                <h3 className="text-lg font-semibold text-forest mb-4">Reviews from our Community</h3>
+                                {reviewsLoading ? (<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>) 
+                                : reviews.length > 0 ? (
+                                <div className="space-y-4">{reviews.map((review) => (
+                                    <div key={review.id} className="flex gap-4 p-4 border rounded-lg bg-muted/50">
+                                        <Avatar><AvatarImage src={review.profiles?.avatar_url} /><AvatarFallback>{getInitials(review.profiles?.full_name)}</AvatarFallback></Avatar>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-center mb-1"><p className="font-semibold">{review.profiles?.full_name || 'Anonymous'}</p><div className="flex items-center gap-1 text-sm"><Star className="h-4 w-4 text-amber fill-amber" />{review.overall_score.toFixed(1)}</div></div>
+                                            <p className="text-muted-foreground text-sm italic">"{review.comments}"</p>
+                                        </div>
+                                    </div>))}
+                                </div>
+                                ) : (<p className="text-center text-muted-foreground py-8">No reviews yet for this destination.</p>)}
+                            </div>
+                            
+                            {/* We don't need a "Leave a Review" button on the owner's dashboard */}
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                                <Button variant="outline" className="flex-1" onClick={() => handleViewOnMap(selectedDestination)}><MapPin className="mr-2 h-4 w-4" />View on Map</Button>
+                                {selectedDestination.email && <Button variant="outline" asChild><a href={`mailto:${selectedDestination.email}`}>Contact</a></Button>}
+                            </div>
+                        </div>
                     </>
                  )}
               </DialogContent>
