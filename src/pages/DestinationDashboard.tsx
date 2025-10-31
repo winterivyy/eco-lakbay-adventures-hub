@@ -8,8 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Edit, Plus, Star, MessageSquare, BarChart2 } from 'lucide-react';
-import { EditDestinationModal } from '@/components/EditDestinationModal'; // We can reuse the admin's edit modal!
+import { Edit, Plus, Star, MessageSquare, BarChart2, MapPin } from 'lucide-react';
+import { EditDestinationModal } from '@/components/EditDestinationModal';
+import fallbackImage from '@/assets/zambales-real-village.jpg'; // Import the fallback image
+
+// --- Define your bucket name ---
+const BUCKET_NAME = 'destination-photos'; // We can reuse the admin's edit modal!
 
 // Define the shape of a user's destination
 interface UserDestination {
@@ -18,9 +22,10 @@ interface UserDestination {
   city: string;
   province: string;
   status: 'pending' | 'approved' | 'rejected' | 'archived';
-  rating: number;
-  review_count: number;
-  // Include all other fields needed for the Edit modal
+  rating: number | null;
+  review_count: number | null;
+  images: string[] | null;
+  description: string;
   [key: string]: any;
 }
 
@@ -90,8 +95,20 @@ const DestinationDashboard = () => {
       totalReviews: totalReviews
     });
   };
-
-  const handleOpenEditModal = (destination: UserDestination) => {
+  // --- NEW ---: Add the same helper function from your main Destinations page
+  const getPublicUrlFromPath = (path: string | null | undefined): string => {
+    if (!path) return fallbackImage;
+    // Check if it's already a full URL (from old data)
+    if (path.startsWith('http')) return path;
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    return data.publicUrl;
+  };
+ const handleEditClick = (destination: UserDestination) => {
+    if (destination.status !== 'approved') {
+        if (!confirm(`This destination is currently "${destination.status}". You can edit the details, but it will need to be re-approved by an admin to be visible. Do you want to continue?`)) {
+            return;
+        }
+    }
     setEditingDestination(destination);
     setIsEditModalOpen(true);
   };
@@ -160,57 +177,63 @@ const DestinationDashboard = () => {
             </div>
 
             {/* Destinations List */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Your Destinations</CardTitle>
+           <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold text-forest">Your Destinations</h2>
                 <Button onClick={() => navigate('/register-destination')}>
-                  <Plus className="mr-2 h-4 w-4" /> Register New Destination
+                    <Plus className="mr-2 h-4 w-4" /> Register New Destination
                 </Button>
-              </CardHeader>
-              <CardContent>
+            </div>
                 <div className="space-y-4">
-                  {destinations.length > 0 ? (
-                    destinations.map((dest) => (
-                      <div key={dest.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <p className="font-semibold text-lg">{dest.business_name}</p>
-                          <p className="text-sm text-muted-foreground">{dest.city}, {dest.province}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <p className="font-bold">{dest.rating?.toFixed(1) || 'N/A'}</p>
-                            <p className="text-xs text-muted-foreground">Rating</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-bold">{dest.review_count || 0}</p>
-                            <p className="text-xs text-muted-foreground">Reviews</p>
-                          </div>
-                          <Badge variant={statusColors[dest.status] || 'default'} className="capitalize w-24 text-center justify-center">
-                            {dest.status}
-                          </Badge>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleOpenEditModal(dest)}
-                            disabled={dest.status !== 'approved'}
-                          >
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-12">
-                      <h3 className="text-lg font-medium">No destinations registered yet.</h3>
-                      <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination.</p>
-                      <Button className="mt-4" onClick={() => navigate('/register-destination')}>
-                        Register Your First Destination
-                      </Button>
-                    </div>
-                  )}
+                             {/* --- THIS IS THE NEW UI --- */}
+            {destinations.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {destinations.map((dest) => (
+                        <Card key={dest.id} className="group flex flex-col overflow-hidden">
+                            <CardHeader className="p-0 relative">
+                                <div className="absolute top-2 right-2 z-10">
+                                    <Badge variant={statusColors[dest.status] || 'default'} className="capitalize">{dest.status}</Badge>
+                                </div>
+                                <div className="w-full h-48 overflow-hidden">
+                                    <img 
+                                        src={getPublicUrlFromPath(dest.images?.[0])}
+                                        alt={dest.business_name}
+                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                        onError={e => { e.currentTarget.src = fallbackImage; }}
+                                    />
+                                </div>
+                                <div className="p-4">
+                                    <CardTitle className="text-xl text-forest">{dest.business_name}</CardTitle>
+                                    <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
+                                        <MapPin className="h-3 w-3" /> {dest.city}, {dest.province}
+                                    </p>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="flex-grow flex flex-col justify-between p-4 pt-0">
+                                <p className="text-muted-foreground mb-4 leading-relaxed h-20 overflow-hidden text-sm">{dest.description}</p>
+                                <div className="flex justify-between items-center mt-4">
+                                    <div className="flex items-center space-x-1">
+                                        <Star className="h-4 w-4 text-amber fill-amber" />
+                                        <span className="font-medium text-sm">{dest.rating?.toFixed(1) || 'N/A'}</span>
+                                        <span className="text-muted-foreground text-xs ml-1">({dest.review_count || 0} reviews)</span>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(dest)}>
+                                        <Edit className="mr-2 h-4 w-4"/> Edit
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
-              </CardContent>
-            </Card>
+            ) : (
+                // This is the "empty state" UI
+                <div className="text-center py-16 border-2 border-dashed rounded-lg">
+                    <h3 className="text-xl font-medium">No destinations registered yet.</h3>
+                    <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination to manage it here.</p>
+                    <Button className="mt-6" onClick={() => navigate('/register-destination')}>
+                        <Plus className="mr-2 h-4 w-4"/> Register Your First Destination
+                    </Button>
+                </div>
+            )}
           </div>
         </main>
         <Footer />
@@ -221,6 +244,8 @@ const DestinationDashboard = () => {
           onClose={handleCloseEditModal}
           onSave={handleSaveEditModal}
           destination={editingDestination}
+          // The onDelete prop can be passed here as well if owners should be able to delete
+          // onDelete={() => { /* logic to delete and refresh */ }}
         />
       )}
     </>
