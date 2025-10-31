@@ -186,34 +186,31 @@ const DestinationDashboard = () => {
             </div>
               
                              {/* --- THIS IS THE NEW UI --- */}
- {destinations.length > 0 ? (
-                // Use a standard grid layout
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {destinations.map((dest) => (
-                        // Render the reusable DestinationCard
-                        <DestinationCard
-                            key={dest.id}
-                            destination={dest}
-                            // We don't want the card itself to be clickable here
-                            onClick={() => {}} 
-                            // --- THIS IS THE FIX ---
-                            // We pass a custom Edit button as the action button
-                            actionButton={
-                                <Button variant="outline" size="sm" onClick={(e) => {
-                                    e.stopPropagation(); // Prevent the main card's onClick from firing
-                                    handleOpenEditModal(dest);
-                                }}>
-                                    <Edit className="mr-2 h-4 w-4"/> Edit
-                                </Button>
-                            }
-                        />
-                    ))}
-                </div>
+                       {destinations.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {destinations.map((dest) => (
+                                    <DestinationCard
+                                        key={dest.id}
+                                        destination={dest}
+                                        onClick={() => handleOpenEditModal(dest)} // Allow clicking the whole card to edit
+                                        actionButton={
+                                            <Button variant="outline" size="sm" onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenEditModal(dest);
+                                            }}>
+                                                <Edit className="mr-2 h-4 w-4"/> Edit
+                                            </Button>
+                                        }
+                                    />
+                                ))}
+                            </div>
                         ) : (
                             <div className="text-center py-16 border-2 border-dashed rounded-lg">
                                 <h3 className="text-xl font-medium">No destinations registered yet.</h3>
-                                <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination to manage it here.</p>
-                                <Button className="mt-6" onClick={() => navigate('/register-destination')}><Plus className="mr-2 h-4 w-4"/> Register Your First Destination</Button>
+                                <p className="text-muted-foreground mt-2">Start by registering your first eco-friendly destination.</p>
+                                <Button className="mt-6" onClick={() => navigate('/register-destination')}>
+                                    <Plus className="mr-2 h-4 w-4"/> Register Your First Destination
+                                </Button>
                             </div>
                         )}
                     </div>
