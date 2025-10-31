@@ -96,6 +96,14 @@ const DestinationDashboard = () => {
       setLoading(false);
     }
   };
+  const getInitials = (name: string | null): string => {
+        if (!name) return "U";
+        return name
+          .split(' ')
+          .map(n => n[0])
+          .join('')
+          .toUpperCase();
+    };
    const fetchReviews = async (destinationId: string) => {
         setReviewsLoading(true);
         setReviews([]);
