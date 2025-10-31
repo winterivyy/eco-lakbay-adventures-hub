@@ -148,7 +148,7 @@ const handleDownloadPdf = () => {
             } else if (line.startsWith('* ')) {
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(11);
-                addTextWithPageBreaks(`  • ${trimmedLine.substring(1)}`, {}); // Use a bullet point
+             
             } else if (trimmedLine === '---' || trimmedLine === '##') {
                 // This is a separator, let's draw a line
                 cursorY += 2;
