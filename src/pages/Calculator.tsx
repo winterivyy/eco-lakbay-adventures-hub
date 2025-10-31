@@ -26,8 +26,8 @@ const Calculator = () => {
     const emissionFactors = {
       car: 0.17,
       bus: 0.05,
-      motorcycle: 0.07,
-      tricycle: 0.1,
+      motorcycle: 0.11,
+      tricycle: 0.11,
       jeepney: 0.08,
       bike: 0,
       walking: 0,
