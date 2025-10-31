@@ -16,7 +16,8 @@ const StatsSection = () => {
         // 🧭 Get destinations count
         const { count: destCount } = await supabase
           .from("destinations")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+           .eq('status', 'approved');
 
         // 👥 Get users count
         const { count: usersCount } = await supabase
