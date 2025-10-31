@@ -25,7 +25,7 @@ const Calculator = () => {
     // --- EMISSION FACTORS (in kg CO₂e per km) ---
     const emissionFactors = {
       car: 0.17,
-      bus: 0.05,
+      bus: 0.10,
       motorcycle: 0.11,
       tricycle: 0.11,
       jeepney: 0.08,
