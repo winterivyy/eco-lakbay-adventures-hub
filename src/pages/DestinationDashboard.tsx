@@ -9,11 +9,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Edit, Plus, Star, MessageSquare, BarChart2, MapPin } from 'lucide-react';
+
+import { cn } from "@/lib/utils";
+import { DestinationCard } from '@/components/DestinationCard'; 
 import { EditDestinationModal } from '@/components/EditDestinationModal';
-import fallbackImage from '@/assets/zambales-real-village.jpg'; 
+import { DestinationRatingModal } from '@/components/DestinationRatingModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import fallbackImage from '@/assets/zambales-real-village.jpg'
 import Destinations from '@/pages/Destinations'; // Import the fallback image
 // --- NEW ---: Import the reusable card and the modal
-import { DestinationCard } from '@/components/DestinationCard'; 
+
 
 // --- Define your bucket name ---
 const BUCKET_NAME = 'destination-photos'; // We can reuse the admin's edit modal!
@@ -41,16 +47,25 @@ const statusColors: { [key: string]: 'default' | 'secondary' | 'destructive' | '
 };
 
 const DestinationDashboard = () => {
-  const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const [destinations, setDestinations] = useState<UserDestination[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ approved: 0, averageRating: 0, totalReviews: 0 });
+ const { user, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    
+    const [destinations, setDestinations] = useState<UserDestination[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ /* ... */ });
 
-  const [editingDestination, setEditingDestination] = useState<UserDestination | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    // --- State for BOTH modals is now here ---
+    const [selectedDestination, setSelectedDestination] = useState<UserDestination | null>(null);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+    
+    // --- State for the view modal's content ---
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -85,6 +100,19 @@ const DestinationDashboard = () => {
       setLoading(false);
     }
   };
+   const fetchReviews = async (destinationId: string) => {
+        setReviewsLoading(true);
+        setReviews([]);
+        try {
+            const { data, error } = await supabase.from('destination_ratings').select(`*, profiles(full_name, avatar_url)`).eq('destination_id', destinationId).order('created_at', { ascending: false });
+            if (error) throw error;
+            setReviews(data as Review[]);
+        } catch (err) {
+            console.error("Error fetching reviews:", err);
+        } finally {
+            setReviewsLoading(false);
+        }
+    };
 
   const calculateStats = (data: UserDestination[]) => {
     const approvedDests = data.filter(d => d.status === 'approved');
@@ -106,21 +134,31 @@ const DestinationDashboard = () => {
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
     return data.publicUrl;
   };
-  const handleOpenEditModal = (destination: UserDestination) => {
-    setEditingDestination(destination);
-    setIsEditModalOpen(true);
-  };
-  
-  const handleCloseEditModal = () => {
-      setEditingDestination(null);
-      setIsEditModalOpen(false);
-  };
+ const handleRateClick = (destination: UserDestination | null) => {
+        setSelectedDestination(destination);
+        setIsViewModalOpen(false);
+        setIsRatingModalOpen(true);
+    };
 
-  const handleSaveEditModal = () => {
-    handleCloseEditModal();
-    toast({ title: "Success", description: "Your destination has been updated." });
-    fetchUserDestinations();
-  };
+    // --- MODIFIED ---: Click handler for the VIEW modal
+    const handleCardClick = (destination: UserDestination) => {
+        setSelectedDestination(destination);
+        setCurrentImageIndex(0);
+        fetchReviews(destination.id);
+        setIsViewModalOpen(true);
+    };
+    
+    // --- Handlers for the EDIT modal ---
+    const handleEditClick = (destination: UserDestination) => {
+        setSelectedDestination(destination);
+        setIsEditModalOpen(true);
+    };
+    const handleCloseEditModal = () => setIsEditModalOpen(false);
+    const handleSaveEditModal = () => {
+        handleCloseEditModal();
+        toast({ title: "Success", description: "Your destination has been updated." });
+        fetchUserDestinations();
+    };
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -186,17 +224,17 @@ const DestinationDashboard = () => {
             </div>
               
                              {/* --- THIS IS THE NEW UI --- */}
-                       {destinations.length > 0 ? (
+                        {destinations.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {destinations.map((dest) => (
                                     <DestinationCard
                                         key={dest.id}
                                         destination={dest}
-                                        onClick={() => handleOpenEditModal(dest)} // Allow clicking the whole card to edit
+                                        onClick={() => handleCardClick(dest)} // Card click opens VIEW modal
                                         actionButton={
                                             <Button variant="outline" size="sm" onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenEditModal(dest);
+                                                e.stopPropagation(); // Prevent card click
+                                                handleEditClick(dest);
                                             }}>
                                                 <Edit className="mr-2 h-4 w-4"/> Edit
                                             </Button>
@@ -218,20 +256,38 @@ const DestinationDashboard = () => {
                 <Footer />
             </div>
 
-            {/* This modal logic is correct */}
-            {editingDestination && (
-        <EditDestinationModal
-          isOpen={isEditModalOpen}
-          onClose={handleCloseEditModal}
-          onSave={handleSaveEditModal}
-          destination={editingDestination}
-          onDelete={() => {
-              // You can add delete logic here in the future
-              handleCloseEditModal();
-              fetchUserDestinations();
-          }}
-        />
-      )}
+              {/* 1. The VIEW modal */}
+            <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                 {selectedDestination && (
+                    <>
+                        {/* Paste the entire detailed modal JSX from Destinations.tsx here */}
+                        <DialogHeader> {/* ... image gallery, title, etc. ... */} </DialogHeader>
+                        <div className="space-y-6 py-4"> {/* ... description, sustainability, and REVIEWS ... */} </div>
+                        <div className="flex ..."> {/* ... action buttons for the view modal ... */} </div>
+                    </>
+                 )}
+              </DialogContent>
+            </Dialog>
+
+            {/* 2. The EDIT modal */}
+            <EditDestinationModal
+                isOpen={isEditModalOpen}
+                onClose={handleCloseEditModal}
+                onSave={handleSaveEditModal}
+                destination={selectedDestination}
+                onDelete={() => {
+                    handleCloseEditModal();
+                    fetchUserDestinations();
+                }}
+            />
+
+            {/* 3. The RATING modal */}
+            <DestinationRatingModal 
+                isOpen={isRatingModalOpen} 
+                onClose={() => setIsRatingModalOpen(false)} 
+                destination={selectedDestination} 
+            />
         </>
   );
 };
