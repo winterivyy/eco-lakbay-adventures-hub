@@ -317,7 +317,7 @@ const Destinations: React.FC<DestinationsProps> = ({ isPreview = false, limit, o
           <div className="bg-gradient-hero py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Sustainable Destinations</h1>
-              <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover verified eco-friendly destinations that promote environmental conservation and support local communities.</p>
+              <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">Discover destinations that supports sustainable practices.</p>
             </div>
           </div>
           <div className="py-20">
