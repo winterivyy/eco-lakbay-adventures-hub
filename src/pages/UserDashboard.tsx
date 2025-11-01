@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Award, Medal, Trophy } from "lucide-react"; // Import new icons
+import { Award, Medal, Trophy } from "lucide-react";
+// --- NEW ---: Import the new modal
+import { LeaderboardModal } from "@/components/LeaderboardModal"; 
 
 // --- NEW ---: Gamification and Leveling System
 const levels = [
@@ -34,15 +36,17 @@ const getUserLevel = (points: number) => {
 
 // --- Profile Interface for type safety ---
 interface Profile {
-    user_id: string;
-    full_name: string;
-    email: string;
-    avatar_url: string;
-    points: number;
+  user_id: string;
+  full_name: string;
+  email: string;
+  avatar_url: string;
+  points: number;
 }
 interface LeaderboardUser {
-    full_name: string;
-    points: number;
+  user_id: string;
+  full_name: string;
+  points: number;
+  avatar_url?: string;
 }
 
 const UserDashboard = () => {
@@ -52,6 +56,9 @@ const UserDashboard = () => {
   const [userRank, setUserRank] = useState<number | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
+  const [fullLeaderboard, setFullLeaderboard] = useState<LeaderboardUser[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,6 +92,23 @@ const UserDashboard = () => {
       setLoadingData(false);
     }
   };
+  const fetchFullLeaderboard = async () => {
+    setIsLeaderboardModalOpen(true);
+    setLeaderboardLoading(true);
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, points, avatar_url')
+            .order('points', { ascending: false, nullsLast: true });
+
+        if (error) throw error;
+        setFullLeaderboard(data || []);
+    } catch (error) {
+        console.error("Error fetching full leaderboard:", error);
+    } finally {
+        setLeaderboardLoading(false);
+    }
+  };
 
   if (loadingData || !profile) { /* ... your loading component ... */ }
 
@@ -97,6 +121,7 @@ const UserDashboard = () => {
     : 100;
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       <Navigation />
       {/* --- Header Section --- */}
@@ -188,9 +213,15 @@ const UserDashboard = () => {
                       </div>
                     ))}
                   </div>
-                   <Button variant="outline" size="sm" className="w-full mt-6" onClick={() => navigate('/community')}>
+                  <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full mt-6" 
+                      onClick={fetchFullLeaderboard}
+                    >
                       View Full Leaderboard
                   </Button>
+
                 </CardContent>
               </Card>
             </div>
@@ -198,6 +229,14 @@ const UserDashboard = () => {
       </div>
       <Footer />
     </div>
+      <LeaderboardModal 
+        isOpen={isLeaderboardModalOpen}
+        onClose={() => setIsLeaderboardModalOpen(false)}
+        users={fullLeaderboard}
+        loading={leaderboardLoading}
+        currentUser_id={user?.id}
+      />
+    </>
   );
 };
 
